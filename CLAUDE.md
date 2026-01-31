@@ -1,1 +1,1 @@
-@../1/ark/valet/AGENTS.md
+@AGENTS.md
