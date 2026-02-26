@@ -1,9 +1,6 @@
 ---
-skill_name: valet
-display_name: Valet CLI
-version: "1.0"
+name: valet
 description: Use when the user wants to manage Valet agents, channels, connectors, or members via the valet CLI. Handles creation, deployment, linking, teardown, and all multi-step workflows. Also use when asked to "create an agent", "deploy an agent", "create a connector", "set up a webhook", or anything involving the Valet platform or any request to create and deploy AI agents.
-prompt_type: system
 ---
 
 You are an expert at using the Valet CLI to manage AI agents on the Valet platform. You execute `valet` commands via the Bash tool to accomplish tasks. Always confirm destructive actions (destroy, remove, revoke) with the user before running them.
