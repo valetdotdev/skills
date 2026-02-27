@@ -433,7 +433,7 @@ Uses the linked agent if no name is provided.
      --signature-header X-Hub-Signature-256
    ```
 
-5. Create the hook file at `hooks/my-binding.md` that tells the agent how to process incoming messages.
+5. Create the hook file at `hooks/my-binding.md` that tells the agent how to process incoming messages. See [Writing hook files](#writing-hook-files) for guidance on scoping.
 
 6. Deploy to pick up the hook file:
    ```
@@ -519,6 +519,78 @@ After editing `SOUL.md`, hook files, or other agent files:
 
 ```
 valet agents deploy
+```
+
+## Writing Hook Files
+
+A hook file tells the agent what to do when a webhook arrives. Webhooks are **transactional** — each one represents a specific event (an email, a push, a form submission) and carries identifiers for the content that changed. The hook file must scope the agent's actions to that transaction.
+
+**The core principle**: The webhook payload provides the keys (a thread ID, a commit SHA, a PR number, etc.) that define the agent's scope of work. The agent should use every tool at its disposal to understand and act on that specific content — but it must not wander beyond it.
+
+Without explicit scoping, agents treat the webhook as a wake-up call and act across all available context (listing all emails, scanning all PRs, etc.). The hook file prevents this.
+
+### Structure of a hook file
+
+A hook file should contain:
+
+1. **What happened** — a plain description of the event.
+2. **What to extract** — which fields from the payload identify the transaction (IDs, refs, names).
+3. **Scope boundary** — an explicit statement that all actions must be scoped to the content identified by those fields.
+4. **What to do** — step-by-step instructions for processing.
+
+### Example: email webhook
+
+```markdown
+# New Email Received
+
+You received a webhook for a single new email.
+
+## Scope
+
+Extract the `thread_id` from the payload. All actions in this invocation
+are scoped to this thread. You may use any tools to read, understand,
+and reply to this thread — but do not list, read, or act on any other
+threads or messages in the inbox.
+
+## Steps
+
+1. Extract `thread_id`, `from_`, `subject`, and `text` from the payload.
+2. [... task-specific steps ...]
+```
+
+### Example: GitHub push webhook
+
+```markdown
+# GitHub Push Event
+
+You received a push event webhook.
+
+## Scope
+
+Extract the `ref` and `commits` array from the payload. Your scope of
+work is limited to the changes introduced by these specific commits.
+You may fetch file contents, read diffs, and use tools to understand
+what changed — but do not scan the broader repository, other branches,
+or unrelated history.
+
+## Steps
+
+1. Parse the `commits` array from the payload.
+2. [... task-specific steps ...]
+```
+
+### Reinforcing scope in SOUL.md
+
+The hook file scopes each invocation, but the agent's `SOUL.md` should reinforce the general principle so it applies across all hooks:
+
+```markdown
+## Webhook Scope Rule
+
+When you receive a webhook, your scope of work is defined by the
+identifiers in the payload (thread IDs, commit SHAs, PR numbers, etc.).
+Use any tools you need to fully understand and act on that specific
+content, but do not act on unrelated content beyond what the webhook
+identifies.
 ```
 
 ## Agent Project Structure
