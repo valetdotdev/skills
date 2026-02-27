@@ -308,6 +308,8 @@ valet secrets set <NAME=VALUE>... [--agent <name> | --org <name>]
 valet secrets unset <NAME> [--agent <name> | --org <name>] [--force]
 ```
 
+Use `--force` when a connector is still referencing the secret via `secret:NAME`. Without it, the command fails with a precondition error to prevent accidentally breaking connectors that depend on the secret. First detach or update the connector, or pass `--force` to remove the secret anyway.
+
 ### Critical: Handling secrets safely
 
 **NEVER ask the user for secret values within the LLM session.** Instead:
@@ -334,7 +336,7 @@ Fetch secrets from the control plane and inject them into a child process. Usefu
 valet exec --secrets <NAME>[,<NAME>...] [--agent <name>] -- <command> [args...]
 ```
 
-The named secrets are fetched, decrypted, and injected as environment variables before the child process replaces the current process (`exec`). The `--agent` flag (or the linked agent from `.valet/config.json`) scopes which agent's effective secrets are used.
+The named secrets are fetched, decrypted, and injected as environment variables before the child process replaces the current process (`exec`). The `--agent` flag (or the linked agent from `.valet/config.json`) scopes which agent's effective secrets are used. `valet exec` is always agent-scoped — there is no `--org` flag.
 
 Examples:
 ```
