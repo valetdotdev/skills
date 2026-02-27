@@ -179,8 +179,7 @@ valet channels detach <channel-name> --agent <agent-name>
 ### Inspect and list
 
 ```
-valet channels list
-valet channels list --agent <agent-name>
+valet channels [--agent <agent-name>]
 valet channels info <name>
 ```
 
@@ -301,6 +300,12 @@ valet connectors create my-connector \
 ```
 
 ## Log Drains
+
+### List log drains
+
+```
+valet drains [--agent <name>]
+```
 
 ### Create a log drain
 
