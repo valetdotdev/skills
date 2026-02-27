@@ -162,7 +162,8 @@ valet channels create webhook [name] \
   --agent <agent-name> \
   --as <binding-name> \
   --session-strategy per_invocation \
-  --signature-header X-Hub-Signature-256
+  --signature-header X-Hub-Signature-256 \
+  --delivery-key-header X-GitHub-Delivery
 ```
 
 Flags:
@@ -170,12 +171,14 @@ Flags:
 - `--as`: Binding name (defaults to channel name). This determines the channel file path: `channels/<binding-name>.md`
 - `--session-strategy` or `-s`: `per_invocation` (default) or `persistent`
 - `--signature-header`: Header name for HMAC verification (default: `X-Webhook-Signature`)
+- `--delivery-key-header`: HTTP header containing a unique delivery ID for deduplication (e.g. `X-GitHub-Delivery`). When set, the channel uses this header to deduplicate repeated webhook deliveries.
 - `--no-secret`: Skip secret generation
 - `--prompt`: Override prompt path (default: `channels/<binding>.md`)
 
 The command outputs:
 - **Webhook URL**: The endpoint external services send messages to
 - **Webhook secret**: The HMAC-SHA256 signing secret
+- **Dedup header**: The delivery key header name, if configured
 - **Binding details**: Which agent, prompt path, and session strategy
 
 ### Attach/detach agents
