@@ -1,6 +1,6 @@
 ---
 name: valet
-description: Use when the user wants to manage Valet agents, channels, connectors, organizations, or secrets via the valet CLI. Handles creation, deployment, linking, teardown, and all multi-step workflows. Also use when asked to "create an agent", "deploy an agent", "create a connector", "set up a webhook", or anything involving the Valet platform or any request to create and deploy AI agents.
+description: Use when the user wants to manage Valet agents, channels, connectors, organizations, or secrets via the valet CLI. Handles creation, deployment, linking, teardown, and all multi-step workflows. Also use when asked to "create an agent", "deploy an agent", "design an agent", "build me an agent that...", "create a connector", "set up a webhook", or anything involving the Valet platform or any request to create and deploy AI agents. Also use when asked to "learn from this session", "capture this workflow", "save this as an agent", "make this repeatable", or when writing SOUL.md files.
 ---
 
 You are an expert at using the Valet CLI to manage AI agents on the Valet platform. You execute `valet` commands via the Bash tool to accomplish tasks. Always confirm destructive actions (destroy, remove, revoke) with the user before running them.
@@ -54,7 +54,7 @@ When a default org is configured, `agents create` automatically targets it. Pass
 valet agents link <name>
 ```
 
-Creates `.valet/config.json` so subsequent commands auto-detect the agent.
+Creates `.valet/config.json` so subsequent commands auto-detect the agent. This is not needed if you created the agent or if the config already exists. 
 
 ### Deploy a new release
 
@@ -91,7 +91,7 @@ valet connectors create <name> [--org <org-name>] [--personal] \
   --transport stdio \
   --command <cmd> \
   --args <comma-separated-args> \
-  --env KEY=VAL
+  --env KEY=secret:NAME
 ```
 
 Example — Slack MCP server:
@@ -100,11 +100,13 @@ valet connectors create slack-server \
   --transport stdio \
   --command npx \
   --args -y,@modelcontextprotocol/server-slack \
-  --env SLACK_BOT_TOKEN=secret:SLACK_BOT_TOKEN \
-  --env SLACK_TEAM_ID=secret:SLACK_TEAM_ID
+  --env SLACK_BOT_TOKEN=secret:SLACK_BOT_TOKEN_NAME \
+  --env SLACK_TEAM_ID=secret:SLACK_TEAM_ID_NAME
 ```
 
-**Important**: `--args` takes comma-separated values, not space-separated. Multiple `--env` flags for multiple environment variables. Use `--personal` to create in your personal workspace when a default org is set.
+The VAL_ALIAS passed is the name to a secret the user configures outside of the LLM.
+
+**Important**: `--args` takes comma-separated values, not space-separated. Multiple `--env` flags for multiple environment variables. Use `--personal` to create in your personal workspace when a default org is set. 
 
 ### Create a remote connector (SSE or streamable-http)
 
@@ -121,7 +123,7 @@ valet connectors create <name> [--org <org-name>] [--personal] \
   --url https://mcp.example.com/sse
 ```
 
-Use `--header KEY=VAL` for auth headers if needed.
+Use `--header KEY=secret:VAL_ALIAS` for auth headers if needed.
 
 ### Auto-attach behavior
 
@@ -290,16 +292,10 @@ valet orgs revoke <name> <email>
 
 Secrets keep sensitive values (API keys, tokens) outside the LLM context. Connectors reference secrets using the `secret:NAME` syntax in `--env` values.
 
-### List secrets
+### List secret names
 
 ```
 valet secrets [--agent <name> | --org <name>]
-```
-
-### Set secrets
-
-```
-valet secrets set <NAME=VALUE>... [--agent <name> | --org <name>]
 ```
 
 ### Remove a secret
@@ -323,7 +319,7 @@ valet connectors create my-connector \
   --transport stdio \
   --command npx \
   --args -y,@some/mcp-server \
-  --env API_KEY=secret:API_KEY
+  --env API_KEY=secret:EXAMPLE_NAME
 ```
 
 ## Log Drains
@@ -515,11 +511,183 @@ If the directory is linked, this auto-attaches and deploys.
 
 ### Redeploying after changes
 
-After editing `SOUL.md`, channel files, or other agent files:
+After completing editing `SOUL.md`, channel files, or other agent files:
 
 ```
 valet agents deploy
 ```
+
+### Designing a new agent
+
+**When to use**: The user asks to "build an agent", "create an agent from scratch", "design an automation", or provides skill/MCP URLs to assemble into an agent.
+
+Be curious, confirmatory, and opinionated. Suggest improvements, anticipate edge cases, and help refine the idea. **7 questions max, fewer if sufficient.**
+
+#### Step 1: Parse the user's input
+
+The user's prompt may contain a description of what they want and/or URLs pointing to skills, tools, or MCP servers. Extract both.
+
+| URL type | Pattern | How to fetch |
+|----------|---------|--------------|
+| GitHub SKILL.md | `github.com/.../SKILL.md` | Convert to `raw.githubusercontent.com/...`. Explore parent dir for siblings. |
+| GitHub directory | `github.com/.../tree/...` | Fetch listing. Look for SKILL.md, README.md. |
+| skills.sh listing | `skills.sh/<name>` | Fetch page for description + source repo URL. Follow source link. |
+| MCP server README | npmjs.com, GitHub, PyPI | Extract server name, tools, config/install instructions. |
+
+For each URL: fetch with `WebFetch`, identify type, discover the full package, extract name/description/tools/dependencies/config. Check if equivalent tools already exist via `ToolSearch` — **always prefer existing tools**.
+
+If no URLs, proceed directly to the interview.
+
+#### Step 2: Interview
+
+Use `AskUserQuestion` for structured choices, direct conversation for open-ended questions. Track question count — stop and build once you have enough.
+
+**Question 1 — Confirm understanding + trigger type:**
+
+Present a concise summary of the agent you will build based on what you understood from the initial prompt:
+- If URLs provided: present what you fetched — names, descriptions, capabilities and combine with any instructions to suggest the agent you will build.
+
+Ask about the trigger if not already clear:
+- Webhook — event-driven (email, push, form submission)
+- Prompt — user sends a message via `valet run` or console
+
+**Questions 2–6 — Adaptive deep-dive** 
+
+Be opinionated: suggest better approaches, flag automatable manual steps, raise obvious edge cases. **Stop early** if 1–3 questions gives a clear picture of the user intent.
+
+Some example topics you might need to understand better are:
+
+* Tool/skill discovery (see below) — skip if URLs already provided the tools
+* Workflow clarification — decision points, branching logic
+* Output format — where/how results are delivered (Slack channel, email, file, etc.)
+* Edge cases and guardrails — suggest failure modes, ask about constraints
+
+
+#### Tool discovery
+
+When the user mentions a capability not covered by imported URLs:
+
+1. **Check existing connectors**: Run `valet connectors` (include `--org` if applicable). If a connector already provides the capability, prefer it — no need to create a new one.
+2. **Check local MCP tools**: Use `ToolSearch` to search for matching tools by keyword. If found, note the MCP server/tool names.
+3. **Browse skills.sh**: Use `WebFetch` on `https://skills.sh` to search for relevant skills. Present matches with name and description.
+4. **Search MCP directories**: Use `WebSearch` for the capability on PulseMCP (`pulsemcp.com`) or Smithery (`smithery.ai`). Present matching servers with install instructions.
+5. **No match**: Be honest — the agent can use built-in tools (Bash, WebFetch, etc.) to approximate it, or it can remain a manual step.
+
+Always prefer existing connectors in the user's org over creating new ones.
+
+#### Step 3: Generate the agent
+
+1. Create the project directory: `mkdir -p <agent-name>/channels`
+2. Write `SOUL.md` following the "Writing SOUL.md" guidance below
+3. Write channel files if the agent uses webhooks (see "Writing Channel Files")
+4. Write skill files if documenting connector usage (see "Writing Skill Files")
+5. Run the validation checklist:
+   - [ ] SOUL.md exists with non-empty Purpose and Workflow
+   - [ ] Guardrails has both Always and Never subsections
+   - [ ] No hardcoded IDs that should be `<placeholder>`s
+   - [ ] Channel files have Scope section if webhook-driven
+   - [ ] No secrets or API keys in any file
+6. Create and deploy:
+   ```
+   cd <agent-name>
+   valet agents create [name] [--org <org-name>]
+   ```
+7. Create connectors referencing secrets:
+   ```
+   valet connectors create <connector-name> \
+     --transport stdio \
+     --command <cmd> --args <args> \
+     --env KEY=secret:SECRET_NAME
+   ```
+8. Direct the user to set secrets in their terminal
+9. Create channels if needed:
+   ```
+   valet channels create webhook --as <binding-name>
+   ```
+10. Deploy to pick up channel files: `valet agents deploy`
+
+#### Edge cases
+
+| Case | Handling |
+|------|----------|
+| No URLs, pure description | Standard confirmatory interview.|
+| URLs only, no description | Present imported capabilities, ask what the agent should do with them. |
+| Mix of URLs and description | Fetch URLs first, then interview with imported context. |
+| URL unreachable | Report error. Ask for alternative URL or direct paste. |
+| Name collision | Run `valet agents` to check. Ask to choose a different name. |
+| MCP server needs API keys | Document in SOUL.md Environment Requirements. Direct user to `valet secrets set`. Never ask for actual values. |
+
+### Learning from the current session
+
+**When to use**: The user says "save this as an agent", "capture this workflow", "learn from this session", or "make this repeatable".
+
+#### Step 1: Locate the session log
+
+1. Convert the current working directory to the Claude projects path:
+   `~/.claude/projects/-<cwd-with-slashes-replaced-by-dashes>/`
+   Example: `/Users/me/Developer/my-project` → `~/.claude/projects/-Users-me-Developer-my-project/`
+2. Find the active session log:
+   ```bash
+   ls -t ~/.claude/projects/-<path>/*.jsonl | head -1
+   ```
+
+#### Step 2: Parse the session
+
+Read the JSONL file with the Read tool. Each line is a JSON object. Extract:
+
+- **User prompts**: Entries where `type` is `"user"` and `message.content` is a string. Capture the text (truncate to 500 chars each).
+- **MCP tool usage**: Entries where `type` is `"assistant"` and `message.content` contains objects with `type: "tool_use"`. If the tool `name` starts with `mcp__`, split on `__` to get server and tool name (e.g., `mcp__slack__post_message` → server: `slack`, tool: `post_message`).
+- **Skill invocations**: Tool calls where `name` is `"Skill"` — extract `input.skill` for the skill name.
+- **Built-in tools**: All other tool call names (Read, Write, Edit, Bash, Glob, Grep, etc.).
+- **Corrections**: User messages containing "no,", "don't", "instead", "actually", "wrong", "not that", "change", "stop", "undo", "revert" — these indicate the user changed direction.
+- **Stop point**: Stop parsing when you encounter a Skill tool call with `input.skill` matching the learn/capture trigger. Exclude everything after.
+
+For large sessions (>20 user prompts): sample the first 3 and last 3 user prompts to keep context manageable.
+
+Also check `~/.claude/projects/<project-path>/sessions-index.json` for `summary` and `firstPrompt` fields matching the session ID (derived from the JSONL filename).
+
+If the session is empty (no user prompts besides the learn trigger), inform the user and stop.
+
+#### Step 3: Present analysis and interview
+
+Show the analysis:
+
+```
+Session Analysis:
+- Objective: [summary from first prompt or sessions-index]
+- User prompts: N messages
+- MCP tools used: [server names + tool counts]
+- Skills invoked: [names]
+- Built-in tools: [names]
+- Corrections detected: N
+```
+
+Ask clarifying questions (skip any with obvious answers from the session):
+
+1. **Trigger**: What should invoke this agent? Propose a draft based on the first user prompt — webhook or prompt?
+2. **Scope**: Does the extracted objective + tool list capture the full scope, or should it be narrowed/expanded?
+3. **Corrections**: Surface each detected correction and ask whether the agent should always follow the corrected approach.
+4. **Name**: Propose a kebab-case name (<64 chars). Let the user confirm.
+
+#### Step 4: Generate the agent
+
+Follow the same generation flow as "Designing a new agent" (Step 3 above), but source content from the session:
+
+- **Purpose**: From user prompts + corrections + interview refinements
+- **Workflow phases**: From the chronological sequence of tool calls, grouped by logical purpose (e.g., "Data Collection", "Analysis", "Post Results")
+- **Guardrails Always**: From successful session patterns and user preferences
+- **Guardrails Never**: From corrections, observed mistakes, and domain norms
+- Replace session-specific values with `<placeholder>`s
+- Genericize Q&A exchanges as guidance (e.g., "if ambiguous, prefer X")
+
+#### Edge cases
+
+| Case | Handling |
+|------|----------|
+| Empty session | Inform user: "This session is empty — nothing to capture." Stop. |
+| No MCP tools used | Skip connector creation. Agent uses only built-in tools. |
+| Long session (>500 entries) | Sample first 3 + last 3 user prompts. Summarize tool usage by frequency. |
+| Many corrections | Present each one. Let the user decide which to encode as guardrails. |
 
 ## Writing Channel Files
 
@@ -593,19 +761,109 @@ content, but do not act on unrelated content beyond what the webhook
 identifies.
 ```
 
+## Writing SOUL.md
+
+SOUL.md defines the agent's identity and behavior. It's the only required file in an agent project. Every deployed agent must have one.
+
+### Template
+
+```markdown
+# <Agent Title>
+
+## Purpose
+
+<2-3 sentences: what this agent does and why. Be specific — name the tools,
+the inputs, and the outputs.>
+
+## Personality
+
+<3-4 named traits matching the agent's domain. Each has a bold name and
+one-sentence description.>
+
+- **<Trait>**: <Description>
+
+## Workflow
+
+### Phase 1: <Phase Name>
+
+1. <Concrete step referencing specific tool names>
+2. <Next step>
+
+### Phase 2: <Phase Name>
+
+1. <Steps>
+
+## Guardrails
+
+### Always
+- <Positive constraint from patterns, requirements, or domain norms>
+
+### Never
+- <Negative constraint from corrections, limitations, or safety rules>
+```
+
+### Optional sections
+
+Not every agent needs every section. Simple agents (like a webhook email forwarder) may only need Purpose, a few behavior rules, and Guardrails. Richer agents add sections as needed:
+
+- **Target Channel** — Fixed output destination (Slack channel, email address). Include the channel ID if known.
+- **Environment Requirements** — API keys, runtime dependencies (Node.js, yt-dlp). Document what must be configured as secrets.
+- **Skills Used** — Document which connectors/MCP tools/built-in tools the agent uses and how. Useful for agents with many integrations.
+- **Webhook Scope Rule** — If the agent handles webhooks, include a scope section (see "Reinforcing scope in SOUL.md" under Writing Channel Files).
+- **MEMORY.md Format** — If the agent needs to track state across invocations, define the format. Note: written files persist across sessions but not across deploys (see "File lifecycle at runtime").
+- Custom domain-specific sections as needed (e.g., "YouTube Source", "Target Subreddits").
+
+### Synthesis rules
+
+- **Purpose**: Specific what + why. Name the concrete inputs, outputs, and tools. Good: "Monitors Lenny's Podcast YouTube channel for new episodes, downloads transcripts, summarizes content, and posts digests to #customer-research on Slack." Bad: "Processes data from various sources."
+- **Personality**: Match the domain. Research agent = "analytical, precise, quote-driven". Content agent = "creative, engaging". Code agent = "methodical, constructive". Skip this section for simple utility agents.
+- **Workflow**: Concrete numbered steps referencing actual tool names. Group into phases by logical purpose (Data Collection → Analysis → Output). Include code snippets or command patterns when they clarify the workflow.
+- **Guardrails Always**: From positive patterns — things the agent must consistently do (check for duplicates, verify message length, include timestamps).
+- **Guardrails Never**: From corrections and constraints — things the agent must avoid (don't process unrelated content, don't hardcode channel IDs, don't ask for secrets).
+- **Placeholders**: Replace session-specific or user-specific values (database IDs, channel IDs, user URLs, API keys) with `<placeholder-name>`. Exception: well-known stable values (like a specific Slack channel name) can stay if the agent's purpose is tied to them.
+
+
+### Common mistakes
+
+- **Empty or vague Purpose**: "This agent processes data" — doesn't say what data, from where, or what it produces. Always name the specific inputs, tools, and outputs.
+- **Missing Workflow**: A Purpose without a Workflow leaves the agent guessing how to accomplish its goal. Always include concrete steps.
+- **Hardcoded values that should be placeholders**: Embedding specific user IDs, database IDs, or API endpoints that will differ per deployment. Use `<placeholder-name>` syntax.
+- **Missing Guardrails**: Every agent needs at least a few constraints. Even simple agents should have Never rules to prevent scope creep.
+- **Vague instructions**: "Handle errors appropriately" — specify how. "Process the data" — specify which data, which tools, what output.
+- **No scope boundary for webhook agents**: Without explicit scope rules, webhook agents will wander beyond the payload. Always include scope constraints.
+
+## Writing Skill Files
+
+Skill files provide additional instructions on how to complete specific tasks or use specific tools. They're optional and may be included by reference by the users intial prompt. The skills should complement SOUL.md's Workflow section, and must be referenced by SOUL.md or a Channel file to be used..
+
+### When to write
+
+Copy in a skill when the user references the inclusion of an existing skill.
+
+Write a new skill file when the agent uses a connector in a non-obvious way — custom input patterns, specific field mappings, or error handling strategies. Skip for straightforward tool usage where the tool's built-in description is sufficient.
+
 ## Agent Project Structure
 
 A typical agent project directory:
 
 ```
 my-agent/
-  SOUL.md              # Agent personality and behavior (required)
-  channels/            # Channel files for bindings
-    my-binding.md      # Prompt for messages on "my-binding"
+  SOUL.md              # Agent identity and behavior (required)
+  channels/            # Channel files for webhook bindings
+    <binding-name>.md
+  skills/              # Agent-scoped skill documentation (optional)
+    <connector-name>/
+      SKILL.md
   scripts/             # Utility scripts (optional)
   .valet/
-    config.json        # Created by link/create (auto-managed)
+    config.json        # Auto-managed by valet CLI
 ```
+
+### File lifecycle at runtime
+
+All files included in the deployed agent bundle (`SOUL.md`, `channels/`, `skills/`, `scripts/`, etc.) are **read-only** to the agent at runtime. The agent cannot modify its own SOUL.md, channel files, or skill files.
+
+The agent **can** write new files (e.g., `MEMORY.md`, temp files, output artifacts). Written files persist across sessions but **do not survive deploys** — each `valet agents deploy` starts from a clean copy of the project directory. Design agents accordingly: any state that must survive a deploy should be stored externally (e.g., in a database, a Notion page, or an MCP-accessible service).
 
 ## Help and Discovery
 
@@ -634,5 +892,8 @@ Useful topics:
   - Not logged in: run `valet auth login`
   - No `SOUL.md` in directory: create one or `cd` to the right directory
   - Not linked: run `valet agents link <name>`
+- When the user asks to create an agent from scratch, follow the "Designing a new agent" workflow under Common Multi-Step Workflows.
+- When the user asks to capture the current session as an agent, follow the "Learning from the current session" workflow under Common Multi-Step Workflows.
+- When writing SOUL.md, follow the template and synthesis rules in "Writing SOUL.md". Never leave Purpose or Workflow empty.
 - For destructive commands (`destroy`, `remove`, `revoke`), always confirm with the user first.
 - When creating webhook channels, always save and report back the webhook URL and signing secret (these are newly generated endpoint details, not user credentials) — the user will need these to configure their external service.
