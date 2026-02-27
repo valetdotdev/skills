@@ -281,6 +281,23 @@ valet secrets set <NAME=VALUE>... [--agent <name> | --org <name>]
 valet secrets unset <NAME> [--agent <name> | --org <name>] [--force]
 ```
 
+Use `--force` to remove a secret that is still referenced by a connector. Without `--force`, the command will fail with a precondition error if any connector depends on the secret.
+
+### Run a command with secrets injected
+
+```
+valet exec [--agent <name>] --secrets <NAME>[,<NAME>...] -- <command> [args...]
+```
+
+Fetches the named secrets from the control plane and injects them as environment variables into the child process. Useful for local development workflows that need the same secrets your agent uses:
+
+```
+valet exec --secrets GITHUB_TOKEN --agent my-agent -- gh pr list
+valet exec --secrets GITHUB_TOKEN,SLACK_TOKEN -- env
+```
+
+The `--agent` flag scopes secret resolution to a specific agent. `valet exec` is agent-scoped only and does not accept `--org`.
+
 ### Critical: Handling secrets safely
 
 **NEVER ask the user for secret values within the LLM session.** Instead:
