@@ -32,6 +32,7 @@ Check auth status with `valet auth whoami`.
 - **Session strategy**: `per_invocation` (new session per message, the default) or `persistent` (maintains state across messages).
 - **Hook file**: A markdown file at `hooks/<binding-name>.md` inside the agent project that tells the agent how to handle messages arriving on that binding.
 - **Organization**: A shared workspace for teams. Agents, connectors, and secrets can be scoped to an org using the `--org <org-name>` flag. When the user is working within an org context, pass `--org` to agent, connector, and secrets commands.
+- **Default org**: A persistent preference stored in `config.json`. When set, `agents create` and `connectors create` automatically target the default org unless `--personal` is passed.
 
 ## Agent Lifecycle
 
@@ -40,10 +41,12 @@ Check auth status with `valet auth whoami`.
 The current directory must contain a `SOUL.md` file. This creates the agent, links the directory, and deploys v1:
 
 ```
-valet agents create [name] [--org <org-name>]
+valet agents create [name] [--org <org-name>] [--personal]
 ```
 
-Name is optional; the server generates one if omitted. Use `--org` to create within an organization.
+Name is optional; the server generates one if omitted. Use `--org` to create within a specific organization, or `--personal` to create in your personal workspace even when a default org is set.
+
+When a default org is configured, `agents create` automatically targets it. Pass `--personal` to bypass the default org.
 
 ### Link a directory to an existing agent
 
@@ -66,8 +69,10 @@ If no name is given, uses the linked agent from the current directory.
 ### List agents
 
 ```
-valet agents [--org <org-name>]
+valet agents
 ```
+
+Output is grouped: `== personal` first, then each org alphabetically. Every agent belongs to exactly one group.
 
 ### Destroy an agent
 
@@ -82,7 +87,7 @@ Permanently removes the agent and all releases. Cannot be undone.
 ### Create a stdio connector (local command)
 
 ```
-valet connectors create <name> [--org <org-name>] \
+valet connectors create <name> [--org <org-name>] [--personal] \
   --transport stdio \
   --command <cmd> \
   --args <comma-separated-args> \
@@ -99,19 +104,19 @@ valet connectors create slack-server \
   --env SLACK_TEAM_ID=secret:SLACK_TEAM_ID
 ```
 
-**Important**: `--args` takes comma-separated values, not space-separated. Multiple `--env` flags for multiple environment variables.
+**Important**: `--args` takes comma-separated values, not space-separated. Multiple `--env` flags for multiple environment variables. Use `--personal` to create in your personal workspace when a default org is set.
 
 ### Create a remote connector (SSE or streamable-http)
 
 ```
-valet connectors create <name> [--org <org-name>] \
+valet connectors create <name> [--org <org-name>] [--personal] \
   --transport streamable-http \
   --url https://mcp.example.com/mcp
 ```
 
 For SSE:
 ```
-valet connectors create <name> [--org <org-name>] \
+valet connectors create <name> [--org <org-name>] [--personal] \
   --transport sse \
   --url https://mcp.example.com/sse
 ```
@@ -132,9 +137,11 @@ valet connectors detach <connector-name> [agent-name]
 ### Inspect and list
 
 ```
-valet connectors [--org <org-name>]
+valet connectors
 valet connectors info <name> [--org <org-name>]
 ```
+
+Output is grouped: `== personal` first, then each org alphabetically.
 
 ### Destroy a connector
 
@@ -199,11 +206,27 @@ Removes the channel and all its bindings. Cannot be undone.
 valet orgs
 ```
 
+The current default org is marked with `(default)` in the output.
+
 ### Create an organization
 
 ```
 valet orgs create <name>
 ```
+
+Automatically sets the new org as the default org.
+
+### Set the default org
+
+Show, set, or clear the default org:
+
+```
+valet orgs default            # show current default org
+valet orgs default <name>     # set default org
+valet orgs default --clear    # clear the default org
+```
+
+The default org is stored in `config.json` and is auto-set when you create or join an org, and auto-cleared when you leave or destroy the matching org. When set, `agents create` and `connectors create` target it automatically.
 
 ### Destroy an organization
 
@@ -211,7 +234,7 @@ valet orgs create <name>
 valet orgs destroy <name>
 ```
 
-Permanently removes the org. Cannot be undone.
+Permanently removes the org. Cannot be undone. Clears the default org if it matched.
 
 ### Organization info
 
@@ -233,11 +256,15 @@ Generates an invitation code.
 valet orgs join <code>
 ```
 
+Automatically sets the joined org as the default org.
+
 ### Leave an organization
 
 ```
 valet orgs leave <name>
 ```
+
+Clears the default org if it matched.
 
 ### List org members
 
@@ -456,6 +483,26 @@ Uses the linked agent if no name is provided.
 
 4. Continue with channels, hooks, and deploy as usual.
 
+### Using the default org
+
+If you work primarily within one org, set it as the default so you don't have to pass `--org` every time:
+
+```
+valet orgs default my-org
+```
+
+After this, `agents create` and `connectors create` automatically target `my-org`. To create something in your personal workspace instead:
+
+```
+valet agents create my-agent --personal
+```
+
+To stop using a default org:
+
+```
+valet orgs default --clear
+```
+
 ### Complete teardown (order matters)
 
 Destroy channels and connectors before the agent:
@@ -529,7 +576,7 @@ Useful topics:
 - Always run commands via the Bash tool.
 - When the user asks to set up an agent, guide them through the full workflow (create, connectors, secrets, channels, hooks, deploy).
 - **Never ask for secret values inside the LLM session.** Direct the user to run `valet secrets set NAME=VALUE` in their own terminal and wait for them to confirm before proceeding. When creating connectors that need secrets, reference them with `secret:NAME` in `--env` flags.
-- When the user is working within an org, pass `--org <org-name>` to agent, connector, and secrets commands.
+- When the user is working within an org, pass `--org <org-name>` to agent, connector, and secrets commands — or help them set a default org with `valet orgs default <name>` so they don't have to repeat it.
 - If a command fails, read the error output and troubleshoot. Common issues:
   - Not logged in: run `valet auth login`
   - No `SOUL.md` in directory: create one or `cd` to the right directory
