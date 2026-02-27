@@ -27,10 +27,9 @@ Check auth status with `valet auth whoami`.
 
 - **Agent**: An AI agent defined by a `SOUL.md` file in a project directory. Agents are deployed as versioned releases.
 - **Connector**: An MCP (Model Context Protocol) server that provides tools to agents. Transports: `stdio`, `sse`, `streamable-http`.
-- **Channel**: A message entry point (e.g., webhook) that routes external messages to agents via bindings.
-- **Binding**: Connects a channel to an agent with a session strategy and a prompt path (defaults to `channels/<binding-name>.md`).
+- **Channel**: A message entry point (e.g., webhook) owned by exactly one agent. Each channel has a session strategy and a prompt path.
 - **Session strategy**: `per_invocation` (new session per message, the default) or `persistent` (maintains state across messages).
-- **Channel file**: A markdown file at `channels/<binding-name>.md` inside the agent project that tells the agent how to handle messages arriving on that binding.
+- **Channel file**: A markdown file at `channels/<channel-name>.md` inside the agent project that tells the agent how to handle incoming messages.
 - **Organization**: A shared workspace for teams. Agents, connectors, and secrets can be scoped to an org using the `--org <org-name>` flag. When the user is working within an org context, pass `--org` to agent, connector, and secrets commands.
 - **Default org**: A persistent preference stored in `config.json`. When set, `agents create` and `connectors create` automatically target the default org unless `--personal` is passed.
 
@@ -160,48 +159,41 @@ Detaches from all agents. Cannot be undone.
 ```
 valet channels create webhook [name] \
   --agent <agent-name> \
-  --as <binding-name> \
   --session-strategy per_invocation \
   --signature-header X-Hub-Signature-256 \
-  --delivery-key-header X-GitHub-Delivery
+  --delivery-key-header X-GitHub-Delivery \
+  --delivery-key-path event.id
 ```
 
 Flags:
-- `--agent` or `-a`: Agent to bind to (uses linked agent if omitted)
-- `--as`: Binding name (defaults to channel name). This determines the channel file path: `channels/<binding-name>.md`
+- `--agent` or `-a`: Agent that owns this channel (uses linked agent if omitted)
 - `--session-strategy` or `-s`: `per_invocation` (default) or `persistent`
 - `--signature-header`: Header name for HMAC verification (default: `X-Webhook-Signature`)
-- `--delivery-key-header`: HTTP header containing a unique delivery ID for deduplication (e.g. `X-GitHub-Delivery`). When set, the channel uses this header to deduplicate repeated webhook deliveries.
+- `--delivery-key-header`: HTTP header containing a unique delivery ID for deduplication (e.g. `X-GitHub-Delivery`)
+- `--delivery-key-path`: Dot-notation path to a unique delivery ID in the JSON body for deduplication (e.g. `event.id`). Use this for providers that embed the delivery ID in the body rather than a header
 - `--no-secret`: Skip secret generation
-- `--prompt`: Override prompt path (default: `channels/<binding>.md`)
+- `--prompt`: Override prompt path (default: `channels/<name>.md`)
 
 The command outputs:
 - **Webhook URL**: The endpoint external services send messages to
 - **Webhook secret**: The HMAC-SHA256 signing secret
-- **Dedup header**: The delivery key header name, if configured
-- **Binding details**: Which agent, prompt path, and session strategy
-
-### Attach/detach agents
-
-```
-valet channels attach <channel-name> --agent <agent-name> --as <binding-name>
-valet channels detach <channel-name> --agent <agent-name>
-```
+- **Dedup**: The delivery key header and/or body path, if configured
+- **Agent**: The owning agent, prompt path, and session strategy
 
 ### Inspect and list
 
 ```
-valet channels [--agent <agent-name>]
-valet channels info <name>
+valet channels
+valet channels info <name> [--agent <agent-name>]
 ```
 
 ### Destroy a channel
 
 ```
-valet channels destroy <name>
+valet channels destroy <name> [--agent <agent-name>]
 ```
 
-Removes the channel and all its bindings. Cannot be undone.
+Permanently removes the channel. Cannot be undone.
 
 ## Organizations
 
@@ -425,14 +417,13 @@ Uses the linked agent if no name is provided.
      --env GITHUB_PERSONAL_ACCESS_TOKEN=secret:GITHUB_TOKEN
    ```
 
-4. Create a webhook channel with a binding:
+4. Create a webhook channel:
    ```
-   valet channels create webhook \
-     --as my-binding \
+   valet channels create webhook my-channel \
      --signature-header X-Hub-Signature-256
    ```
 
-5. Create the channel file at `channels/my-binding.md` that tells the agent how to process incoming messages. See [Writing channel files](#writing-channel-files) for guidance on scoping.
+5. Create the channel file at `channels/my-channel.md` that tells the agent how to process incoming messages. See [Writing channel files](#writing-channel-files) for guidance on scoping.
 
 6. Deploy to pick up the channel file:
    ```
@@ -646,7 +637,7 @@ Always prefer existing connectors in the user's org over creating new ones.
 8. Direct the user to set secrets in their terminal
 9. Create channels if needed:
    ```
-   valet channels create webhook --as <binding-name>
+   valet channels create webhook <channel-name>
    ```
 10. Deploy to pick up channel files: `valet agents deploy`
 11. If the agent has channels, run the interactive test loop (see
@@ -761,7 +752,7 @@ The JSON webhook payload is appended directly after the channel file
 instructions in the user message at runtime. The agent receives the
 channel prompt followed by the raw JSON — inline, in the same message.
 
-Every channel file for a webhook binding **must** include this at the
+Every channel file **must** include this at the
 top, before any other instructions:
 
 ```
@@ -942,8 +933,8 @@ A typical agent project directory:
 ```
 my-agent/
   SOUL.md              # Agent identity and behavior (required)
-  channels/            # Channel files for webhook bindings
-    <binding-name>.md
+  channels/            # Channel files for webhook-driven agents
+    <channel-name>.md
   skills/              # Agent-scoped skill documentation (optional)
     <connector-name>/
       SKILL.md
@@ -972,7 +963,7 @@ valet version                       # Print CLI version
 Useful topics:
 - `getting-started` — initial setup walkthrough
 - `agent-lifecycle` — creating, deploying, and managing agents
-- `channels-and-bindings` — channels, bindings, and session strategies
+- `channels` — channels, ownership, and session strategies
 - `connectors-overview` — connector types and configuration
 
 ## Execution Guidelines
@@ -990,5 +981,5 @@ Useful topics:
 - When writing SOUL.md, follow the template and synthesis rules in "Writing SOUL.md". Never leave Purpose or Workflow empty.
 - For destructive commands (`destroy`, `remove`, `revoke`), always confirm with the user first.
 - When creating webhook channels, always save and report back the webhook URL and signing secret (these are newly generated endpoint details, not user credentials) — the user will need these to configure their external service.
-- When writing channel prompt files for webhook bindings, always state explicitly that the webhook payload is inline in the user message. Agents cannot infer this — they will waste turns searching for data if you don't tell them where it is.
+- When writing channel prompt files, always state explicitly that the webhook payload is inline in the user message. Agents cannot infer this — they will waste turns searching for data if you don't tell them where it is.
 - After deploying an agent with channels for the first time, always run through at least one interactive test cycle (log → trigger → review) with the user before considering the setup complete.
