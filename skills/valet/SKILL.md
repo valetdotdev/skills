@@ -299,6 +299,32 @@ valet connectors create my-connector \
   --env API_KEY=secret:API_KEY
 ```
 
+## Exec (Local Development with Secrets)
+
+Fetch secrets from the control plane and inject them into a child process. Useful for running local tools and scripts that need the same secrets a deployed agent uses:
+
+```
+valet exec --secrets <NAME>[,<NAME>...] [--agent <name>] -- <command> [args...]
+```
+
+Flags:
+- `--secrets`: Comma-separated list of secret names to fetch and inject as environment variables
+- `--agent`: Agent whose secrets to use (uses linked agent if omitted)
+
+Examples:
+```
+# Run a command with a single secret injected
+valet exec --secrets GITHUB_TOKEN -- gh pr list
+
+# Run with multiple secrets
+valet exec --secrets GITHUB_TOKEN,SLACK_TOKEN -- env
+
+# Specify a non-linked agent explicitly
+valet exec --secrets GITHUB_TOKEN --agent my-agent -- gh issue list
+```
+
+The child process replaces the `valet exec` process (`exec` semantics). Secrets are fetched from the agent's effective secret scope (org secrets merged with agent secrets; agent-level values win on collision).
+
 ## Log Drains
 
 ### List log drains
@@ -483,6 +509,7 @@ my-agent/
   SOUL.md              # Agent personality and behavior (required)
   hooks/               # Hook files for channel bindings
     my-binding.md      # Prompt for messages on "my-binding"
+  bin/                 # Wrapper scripts (optional); available as commands in the agent's PATH
   scripts/             # Utility scripts (optional)
   .valet/
     config.json        # Created by link/create (auto-managed)
