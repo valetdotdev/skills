@@ -32,7 +32,7 @@ Check auth status with `valet auth whoami`.
 - **Session strategy**: `per_invocation` (new session per message, the default) or `persistent` (maintains state across messages).
 - **Hook file**: A markdown file at `hooks/<binding-name>.md` inside the agent project that tells the agent how to handle messages arriving on that binding.
 - **Organization**: A shared workspace for teams. Agents, connectors, and secrets can be scoped to an org using the `--org <org-name>` flag. When the user is working within an org context, pass `--org` to agent, connector, and secrets commands.
-- **Default org**: A persistent local setting that automatically scopes `agents create` and `connectors create` to an org. Set automatically when creating or joining an org. Override per-command with `--personal` to create in the personal workspace instead.
+- **Default org**: A persistent CLI setting that automatically scopes `agents create` and `connectors create` to the configured org. Set automatically when creating or joining an org; cleared when leaving or destroying the matching org.
 
 ## Agent Lifecycle
 
@@ -44,7 +44,7 @@ The current directory must contain a `SOUL.md` file. This creates the agent, lin
 valet agents create [name] [--org <org-name>] [--personal]
 ```
 
-Name is optional; the server generates one if omitted. Use `--org` to create within an organization, or `--personal` to create in the personal workspace even when a default org is set.
+Name is optional; the server generates one if omitted. Use `--org` to create within an organization. Use `--personal` to create in your personal workspace even when a default org is configured.
 
 ### Link a directory to an existing agent
 
@@ -70,7 +70,7 @@ If no name is given, uses the linked agent from the current directory.
 valet agents [--org <org-name>]
 ```
 
-Output is grouped: `== personal` first, then org groups alphabetically. Each group lists the agents in that workspace.
+Output is grouped: personal agents appear under `== personal`, followed by org groups in alphabetical order (e.g., `== my-org`).
 
 ### Destroy an agent
 
@@ -102,9 +102,7 @@ valet connectors create slack-server \
   --env SLACK_TEAM_ID=secret:SLACK_TEAM_ID
 ```
 
-**Important**: `--args` takes comma-separated values, not space-separated. Multiple `--env` flags for multiple environment variables.
-
-Use `--personal` to create in the personal workspace even when a default org is set.
+**Important**: `--args` takes comma-separated values, not space-separated. Multiple `--env` flags for multiple environment variables. Use `--personal` to create in your personal workspace even when a default org is configured.
 
 ### Create a remote connector (SSE or streamable-http)
 
@@ -141,7 +139,7 @@ valet connectors [--org <org-name>]
 valet connectors info <name> [--org <org-name>]
 ```
 
-Output is grouped: `== personal` first, then org groups alphabetically.
+List output is grouped: personal connectors appear under `== personal`, followed by org groups in alphabetical order.
 
 ### Destroy a connector
 
@@ -206,7 +204,7 @@ Removes the channel and all its bindings. Cannot be undone.
 valet orgs
 ```
 
-The current default org is marked with `(default)` in the output.
+The current default org (if set) is marked with `(default)` in the output.
 
 ### Create an organization
 
@@ -214,7 +212,19 @@ The current default org is marked with `(default)` in the output.
 valet orgs create <name>
 ```
 
-Automatically sets the new org as the default org.
+Creating an org automatically sets it as the default org.
+
+### Set or view the default org
+
+```
+valet orgs default [name] [--clear]
+```
+
+- With no arguments: prints the current default org (or "No default org." if unset)
+- With `<name>`: sets the named org as the default
+- With `--clear`: clears the default org
+
+When a default org is set, `valet agents create` and `valet connectors create` automatically scope new resources to that org. Use `--personal` on those commands to override and create in your personal workspace instead.
 
 ### Destroy an organization
 
@@ -222,7 +232,7 @@ Automatically sets the new org as the default org.
 valet orgs destroy <name>
 ```
 
-Permanently removes the org. Cannot be undone. Automatically clears the default org if it matches.
+Permanently removes the org. Cannot be undone. Clears the default org if it matches.
 
 ### Organization info
 
@@ -244,7 +254,7 @@ Generates an invitation code.
 valet orgs join <code>
 ```
 
-Automatically sets the joined org as the default org.
+Joining an org automatically sets it as the default org.
 
 ### Leave an organization
 
@@ -252,7 +262,7 @@ Automatically sets the joined org as the default org.
 valet orgs leave <name>
 ```
 
-Automatically clears the default org if it matches.
+Clears the default org if it matches.
 
 ### List org members
 
@@ -274,16 +284,6 @@ valet orgs remove <name> <email>
 valet orgs revoke <name> <email>
 ```
 
-### Manage the default org
-
-The default org is applied automatically to `agents create` and `connectors create`, so you don't need to pass `--org` on every command.
-
-```
-valet orgs default              # Show the current default org
-valet orgs default <name>       # Set a default org
-valet orgs default --clear      # Clear the default org
-```
-
 ## Secrets
 
 Secrets keep sensitive values (API keys, tokens) outside the LLM context. Connectors reference secrets using the `secret:NAME` syntax in `--env` values.
@@ -298,12 +298,6 @@ valet secrets [--agent <name> | --org <name>]
 
 ```
 valet secrets set <NAME=VALUE>... [--agent <name> | --org <name>]
-```
-
-Multiple key-value pairs can be set in a single atomic operation:
-
-```
-valet secrets set API_KEY=abc123 OTHER_KEY=xyz789 [--agent <name> | --org <name>]
 ```
 
 ### Remove a secret
@@ -403,7 +397,7 @@ Send a single prompt to an agent and stream the response:
 valet run <agent> <prompt> [--json] [--timeout duration]
 ```
 
-Useful for testing agents without starting an interactive console session.
+`--timeout` defaults to 10 minutes. Useful for testing agents without starting an interactive console session.
 
 ## Logs
 
@@ -470,8 +464,6 @@ Uses the linked agent if no name is provided.
    cd my-agent-project
    valet agents create my-agent --org my-org
    ```
-
-   If `my-org` is already the default org, `--org` can be omitted and the agent will be created there automatically.
 
 2. Direct the user to set secrets scoped to the org:
    ```
@@ -562,7 +554,8 @@ Useful topics:
 - Always run commands via the Bash tool.
 - When the user asks to set up an agent, guide them through the full workflow (create, connectors, secrets, channels, hooks, deploy).
 - **Never ask for secret values inside the LLM session.** Direct the user to run `valet secrets set NAME=VALUE` in their own terminal and wait for them to confirm before proceeding. When creating connectors that need secrets, reference them with `secret:NAME` in `--env` flags.
-- When the user is working within an org, pass `--org <org-name>` to agent, connector, and secrets commands. If a default org is already configured, `agents create` and `connectors create` will use it automatically — use `--personal` to override and create in the personal workspace.
+- When the user is working within an org, pass `--org <org-name>` to agent, connector, and secrets commands.
+- If a default org is configured (`valet orgs default`), `agents create` and `connectors create` will scope to that org automatically. Use `--personal` to override.
 - If a command fails, read the error output and troubleshoot. Common issues:
   - Not logged in: run `valet auth login`
   - No `SOUL.md` in directory: create one or `cd` to the right directory
