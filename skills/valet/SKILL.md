@@ -353,7 +353,11 @@ Send a single prompt to an agent and stream the response:
 valet run <agent> <prompt> [--json] [--timeout duration]
 ```
 
-Useful for testing agents without starting an interactive console session.
+Flags:
+- `--json`: Output newline-delimited JSON events instead of human-readable output
+- `--timeout`: Maximum execution time (default: `10m`)
+
+Useful for testing agents, scripting, and programmatic access without starting an interactive console session.
 
 ## Logs
 
