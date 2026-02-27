@@ -172,13 +172,14 @@ Flags:
 - `--session-strategy` or `-s`: `per_invocation` (default) or `persistent`
 - `--signature-header`: Header name for HMAC verification (default: `X-Webhook-Signature`)
 - `--delivery-key-header`: HTTP header containing a unique delivery ID for deduplication (e.g. `X-GitHub-Delivery`). When set, the channel uses this header to deduplicate repeated webhook deliveries.
+- `--delivery-key-path`: Dot-notation path into the JSON body to extract a unique delivery ID for deduplication (e.g. `event.id`). Use when the provider puts the delivery ID in the request body rather than a header. Header takes precedence when both are set.
 - `--no-secret`: Skip secret generation
 - `--prompt`: Override prompt path (default: `channels/<binding>.md`)
 
 The command outputs:
 - **Webhook URL**: The endpoint external services send messages to
 - **Webhook secret**: The HMAC-SHA256 signing secret
-- **Dedup header**: The delivery key header name, if configured
+- **Dedup key**: The configured delivery key source — `<header> (header)`, `<path> (body)`, or both — shown only when deduplication is configured
 - **Binding details**: Which agent, prompt path, and session strategy
 
 ### Attach/detach agents
