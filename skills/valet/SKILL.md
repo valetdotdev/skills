@@ -1,6 +1,6 @@
 ---
 name: valet
-description: Use when the user wants to manage Valet agents, channels, connectors, or members via the valet CLI. Handles creation, deployment, linking, teardown, and all multi-step workflows. Also use when asked to "create an agent", "deploy an agent", "create a connector", "set up a webhook", or anything involving the Valet platform or any request to create and deploy AI agents.
+description: Use when the user wants to manage Valet agents, channels, connectors, organizations, or secrets via the valet CLI. Handles creation, deployment, linking, teardown, and all multi-step workflows. Also use when asked to "create an agent", "deploy an agent", "create a connector", "set up a webhook", or anything involving the Valet platform or any request to create and deploy AI agents.
 ---
 
 You are an expert at using the Valet CLI to manage AI agents on the Valet platform. You execute `valet` commands via the Bash tool to accomplish tasks. Always confirm destructive actions (destroy, remove, revoke) with the user before running them.
@@ -31,6 +31,7 @@ Check auth status with `valet auth whoami`.
 - **Binding**: Connects a channel to an agent with a session strategy and a prompt path (defaults to `hooks/<binding-name>.md`).
 - **Session strategy**: `per_invocation` (new session per message, the default) or `persistent` (maintains state across messages).
 - **Hook file**: A markdown file at `hooks/<binding-name>.md` inside the agent project that tells the agent how to handle messages arriving on that binding.
+- **Organization**: A shared workspace for teams. Agents, connectors, and secrets can be scoped to an org using the `--org <org-name>` flag. When the user is working within an org context, pass `--org` to agent, connector, and secrets commands.
 
 ## Agent Lifecycle
 
@@ -39,10 +40,10 @@ Check auth status with `valet auth whoami`.
 The current directory must contain a `SOUL.md` file. This creates the agent, links the directory, and deploys v1:
 
 ```
-valet agents create [name]
+valet agents create [name] [--org <org-name>]
 ```
 
-Name is optional; the server generates one if omitted.
+Name is optional; the server generates one if omitted. Use `--org` to create within an organization.
 
 ### Link a directory to an existing agent
 
@@ -65,7 +66,7 @@ If no name is given, uses the linked agent from the current directory.
 ### List agents
 
 ```
-valet agents
+valet agents [--org <org-name>]
 ```
 
 ### Destroy an agent
@@ -81,7 +82,7 @@ Permanently removes the agent and all releases. Cannot be undone.
 ### Create a stdio connector (local command)
 
 ```
-valet connectors create <name> \
+valet connectors create <name> [--org <org-name>] \
   --transport stdio \
   --command <cmd> \
   --args <comma-separated-args> \
@@ -94,8 +95,8 @@ valet connectors create slack-server \
   --transport stdio \
   --command npx \
   --args -y,@modelcontextprotocol/server-slack \
-  --env SLACK_BOT_TOKEN=xoxb-... \
-  --env SLACK_TEAM_ID=T0123...
+  --env SLACK_BOT_TOKEN=secret:SLACK_BOT_TOKEN \
+  --env SLACK_TEAM_ID=secret:SLACK_TEAM_ID
 ```
 
 **Important**: `--args` takes comma-separated values, not space-separated. Multiple `--env` flags for multiple environment variables.
@@ -103,14 +104,14 @@ valet connectors create slack-server \
 ### Create a remote connector (SSE or streamable-http)
 
 ```
-valet connectors create <name> \
+valet connectors create <name> [--org <org-name>] \
   --transport streamable-http \
   --url https://mcp.example.com/mcp
 ```
 
 For SSE:
 ```
-valet connectors create <name> \
+valet connectors create <name> [--org <org-name>] \
   --transport sse \
   --url https://mcp.example.com/sse
 ```
@@ -131,14 +132,14 @@ valet connectors detach <connector-name> [agent-name]
 ### Inspect and list
 
 ```
-valet connectors
-valet connectors info <name>
+valet connectors [--org <org-name>]
+valet connectors info <name> [--org <org-name>]
 ```
 
 ### Destroy a connector
 
 ```
-valet connectors destroy <name>
+valet connectors destroy <name> [--org <org-name>]
 ```
 
 Detaches from all agents. Cannot be undone.
@@ -191,39 +192,173 @@ valet channels destroy <name>
 
 Removes the channel and all its bindings. Cannot be undone.
 
-## Members (Collaboration)
+## Organizations
 
-### List members
-
-```
-valet members <agent>
-```
-
-### Invite a member
+### List your organizations
 
 ```
-valet members invite <agent> <email>
+valet orgs
 ```
 
-Generates an invitation code (expires in 7 days).
-
-### Join via invitation
+### Create an organization
 
 ```
-valet members join <code>
+valet orgs create <name>
 ```
 
-### Remove a member
+### Destroy an organization
 
 ```
-valet members remove <agent> <email>
+valet orgs destroy <name>
 ```
 
-### Revoke a pending invitation
+Permanently removes the org. Cannot be undone.
+
+### Organization info
 
 ```
-valet members revoke <agent> <email>
+valet orgs info <name>
 ```
+
+### Invite a member to an org
+
+```
+valet orgs invite <name> <email>
+```
+
+Generates an invitation code.
+
+### Join an org via invitation
+
+```
+valet orgs join <code>
+```
+
+### Leave an organization
+
+```
+valet orgs leave <name>
+```
+
+### List org members
+
+```
+valet orgs members <name>
+```
+
+Shows members and pending invitations.
+
+### Remove a member from an org
+
+```
+valet orgs remove <name> <email>
+```
+
+### Revoke a pending org invitation
+
+```
+valet orgs revoke <name> <email>
+```
+
+## Secrets
+
+Secrets keep sensitive values (API keys, tokens) outside the LLM context. Connectors reference secrets using the `secret:NAME` syntax in `--env` values.
+
+### List secrets
+
+```
+valet secrets [--agent <name> | --org <name>]
+```
+
+### Set secrets
+
+```
+valet secrets set <NAME=VALUE>... [--agent <name> | --org <name>]
+```
+
+### Remove a secret
+
+```
+valet secrets unset <NAME> [--agent <name> | --org <name>] [--force]
+```
+
+### Critical: Handling secrets safely
+
+**NEVER ask the user for secret values within the LLM session.** Instead:
+
+1. Tell the user what secrets they need to configure.
+2. Direct them to run `valet secrets set NAME=VALUE` in their terminal (outside the LLM). Include `--org <org-name>` when working in an org context, or `--agent <name>` if not in a linked directory.
+3. Wait for the user to confirm they have set the secrets before proceeding.
+
+When creating connectors that need secrets, reference them with `secret:NAME` in `--env` flags:
+
+```
+valet connectors create my-connector \
+  --transport stdio \
+  --command npx \
+  --args -y,@some/mcp-server \
+  --env API_KEY=secret:API_KEY
+```
+
+## Log Drains
+
+### Create a log drain
+
+```
+valet drains create <endpoint> [--agent <name>] [--header Key=Value]
+```
+
+Logs are delivered as OTLP JSON via HTTP POST.
+
+### Destroy a log drain
+
+```
+valet drains destroy <endpoint> [--agent <name>]
+```
+
+### Inspect a log drain
+
+```
+valet drains info <endpoint> [--agent <name>]
+```
+
+## Process Management
+
+### List processes
+
+```
+valet ps [name]
+```
+
+Lists processes for a deployed agent.
+
+### Restart processes
+
+```
+valet ps restart [name]
+```
+
+Restarts all processes. Picks up env/secret changes without redeploying.
+
+## Run
+
+Send a single prompt to an agent and stream the response:
+
+```
+valet run <agent> <prompt> [--json] [--timeout duration]
+```
+
+Useful for testing agents without starting an interactive console session.
+
+## Logs
+
+Stream live logs from a deployed agent:
+
+```
+valet logs [name]
+```
+
+Press Ctrl+C to stop streaming.
 
 ## Interactive Console
 
@@ -245,28 +380,57 @@ Uses the linked agent if no name is provided.
    valet agents create my-agent
    ```
 
-2. Create MCP connectors (auto-attaches if in linked directory):
+2. Direct the user to set any needed secrets in their terminal (outside the LLM):
+   ```
+   valet secrets set GITHUB_TOKEN=ghp_...
+   ```
+
+3. Create MCP connectors referencing secrets (auto-attaches if in linked directory):
    ```
    valet connectors create github-server \
      --transport stdio \
      --command npx \
      --args -y,@modelcontextprotocol/server-github \
-     --env GITHUB_PERSONAL_ACCESS_TOKEN=ghp_...
+     --env GITHUB_PERSONAL_ACCESS_TOKEN=secret:GITHUB_TOKEN
    ```
 
-3. Create a webhook channel with a binding:
+4. Create a webhook channel with a binding:
    ```
    valet channels create webhook \
      --as my-binding \
      --signature-header X-Hub-Signature-256
    ```
 
-4. Create the hook file at `hooks/my-binding.md` that tells the agent how to process incoming messages.
+5. Create the hook file at `hooks/my-binding.md` that tells the agent how to process incoming messages.
 
-5. Deploy to pick up the hook file:
+6. Deploy to pick up the hook file:
    ```
    valet agents deploy
    ```
+
+### Setting up an org-owned agent
+
+1. Create the agent within an org:
+   ```
+   cd my-agent-project
+   valet agents create my-agent --org my-org
+   ```
+
+2. Direct the user to set secrets scoped to the org:
+   ```
+   valet secrets set API_KEY=... --org my-org
+   ```
+
+3. Create connectors within the org:
+   ```
+   valet connectors create my-connector --org my-org \
+     --transport stdio \
+     --command npx \
+     --args -y,@some/mcp-server \
+     --env API_KEY=secret:API_KEY
+   ```
+
+4. Continue with channels, hooks, and deploy as usual.
 
 ### Complete teardown (order matters)
 
@@ -280,13 +444,19 @@ valet agents destroy <agent-name>
 
 ### Adding a new connector to an existing agent
 
+First, have the user set any needed secrets in their terminal:
+```
+valet secrets set API_KEY=...
+```
+
+Then create the connector referencing the secret:
 ```
 cd my-agent-project
 valet connectors create new-tool \
   --transport stdio \
   --command npx \
   --args -y,@some/mcp-server \
-  --env API_KEY=...
+  --env API_KEY=secret:API_KEY
 ```
 
 If the directory is linked, this auto-attaches and deploys.
@@ -324,11 +494,18 @@ valet topics <name>                 # Read a specific guide
 valet version                       # Print CLI version
 ```
 
+Useful topics:
+- `getting-started` — initial setup walkthrough
+- `agent-lifecycle` — creating, deploying, and managing agents
+- `channels-and-bindings` — channels, bindings, and session strategies
+- `connectors-overview` — connector types and configuration
+
 ## Execution Guidelines
 
 - Always run commands via the Bash tool.
-- When the user asks to set up an agent, guide them through the full workflow (create, connectors, channels, hooks, deploy).
-- When creating connectors with secrets or tokens, ask the user for the values rather than using placeholders.
+- When the user asks to set up an agent, guide them through the full workflow (create, connectors, secrets, channels, hooks, deploy).
+- **Never ask for secret values inside the LLM session.** Direct the user to run `valet secrets set NAME=VALUE` in their own terminal and wait for them to confirm before proceeding. When creating connectors that need secrets, reference them with `secret:NAME` in `--env` flags.
+- When the user is working within an org, pass `--org <org-name>` to agent, connector, and secrets commands.
 - If a command fails, read the error output and troubleshoot. Common issues:
   - Not logged in: run `valet auth login`
   - No `SOUL.md` in directory: create one or `cd` to the right directory
