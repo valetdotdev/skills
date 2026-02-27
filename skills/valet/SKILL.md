@@ -414,7 +414,7 @@ Uses the linked agent if no name is provided.
 
 2. Direct the user to set any needed secrets in their terminal (outside the LLM):
    ```
-   valet secrets set GITHUB_TOKEN=ghp_...
+   valet secrets set GITHUB_TOKEN=<their-token>
    ```
 
 3. Create MCP connectors referencing secrets (auto-attaches if in linked directory):
@@ -450,7 +450,7 @@ Uses the linked agent if no name is provided.
 
 2. Direct the user to set secrets scoped to the org:
    ```
-   valet secrets set API_KEY=... --org my-org
+   valet secrets set API_KEY=<their-key> --org my-org
    ```
 
 3. Create connectors within the org:
@@ -635,4 +635,4 @@ Useful topics:
   - No `SOUL.md` in directory: create one or `cd` to the right directory
   - Not linked: run `valet agents link <name>`
 - For destructive commands (`destroy`, `remove`, `revoke`), always confirm with the user first.
-- When creating webhook channels, always save and report back the webhook URL and secret — the user will need these.
+- When creating webhook channels, always save and report back the webhook URL and signing secret (these are newly generated endpoint details, not user credentials) — the user will need these to configure their external service.
