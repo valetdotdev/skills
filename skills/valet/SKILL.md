@@ -281,6 +281,25 @@ valet secrets set <NAME=VALUE>... [--agent <name> | --org <name>]
 valet secrets unset <NAME> [--agent <name> | --org <name>] [--force]
 ```
 
+### Inject secrets into a local process
+
+`valet exec` fetches named secrets from the control plane and injects them as environment variables into a child process. Useful for local development without embedding secret values in shell history.
+
+```
+valet exec --secrets <NAME>[,<NAME>...] [--agent <name>] -- <command> [args...]
+```
+
+Examples:
+```
+# Run a command with a single secret injected
+valet exec --secrets GITHUB_TOKEN --agent my-agent -- gh pr list
+
+# Inject multiple secrets (comma-separated)
+valet exec --secrets GITHUB_TOKEN,SLACK_TOKEN -- env
+```
+
+Secrets are resolved from the linked agent's effective secrets (org + agent merged, agent wins on collision). The command replaces the current process via `exec`, so the shell is not left running alongside the child.
+
 ### Critical: Handling secrets safely
 
 **NEVER ask the user for secret values within the LLM session.** Instead:
