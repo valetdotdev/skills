@@ -32,6 +32,7 @@ Check auth status with `valet auth whoami`.
 - **Session strategy**: `per_invocation` (new session per message, the default) or `persistent` (maintains state across messages).
 - **Hook file**: A markdown file at `hooks/<binding-name>.md` inside the agent project that tells the agent how to handle messages arriving on that binding.
 - **Organization**: A shared workspace for teams. Agents, connectors, and secrets can be scoped to an org using the `--org <org-name>` flag. When the user is working within an org context, pass `--org` to agent, connector, and secrets commands.
+- **Default org**: A persistent setting that auto-applies an org to `agents create`, `connectors create`, and other commands. Set automatically when creating or joining an org. Override per-command with `--org` or bypass with `--personal`.
 
 ## Agent Lifecycle
 
@@ -40,10 +41,10 @@ Check auth status with `valet auth whoami`.
 The current directory must contain a `SOUL.md` file. This creates the agent, links the directory, and deploys v1:
 
 ```
-valet agents create [name] [--org <org-name>]
+valet agents create [name] [--org <org-name>] [--personal]
 ```
 
-Name is optional; the server generates one if omitted. Use `--org` to create within an organization.
+Name is optional; the server generates one if omitted. Use `--org` to create within an organization. If a default org is set, it is applied automatically — use `--personal` to create in your personal workspace instead.
 
 ### Link a directory to an existing agent
 
@@ -69,6 +70,8 @@ If no name is given, uses the linked agent from the current directory.
 valet agents [--org <org-name>]
 ```
 
+Output is grouped: personal agents appear under `== personal`, followed by org groups in alphabetical order (e.g., `== my-org`).
+
 ### Destroy an agent
 
 ```
@@ -82,12 +85,14 @@ Permanently removes the agent and all releases. Cannot be undone.
 ### Create a stdio connector (local command)
 
 ```
-valet connectors create <name> [--org <org-name>] \
+valet connectors create <name> [--org <org-name>] [--personal] \
   --transport stdio \
   --command <cmd> \
   --args <comma-separated-args> \
   --env KEY=VAL
 ```
+
+If a default org is set, the connector is created within that org automatically — use `--personal` to create in your personal workspace instead.
 
 Example — Slack MCP server:
 ```
@@ -104,7 +109,7 @@ valet connectors create slack-server \
 ### Create a remote connector (SSE or streamable-http)
 
 ```
-valet connectors create <name> [--org <org-name>] \
+valet connectors create <name> [--org <org-name>] [--personal] \
   --transport streamable-http \
   --url https://mcp.example.com/mcp
 ```
@@ -135,6 +140,8 @@ valet connectors detach <connector-name> [agent-name]
 valet connectors [--org <org-name>]
 valet connectors info <name> [--org <org-name>]
 ```
+
+List output is grouped: personal connectors appear under `== personal`, followed by org groups in alphabetical order.
 
 ### Destroy a connector
 
@@ -199,11 +206,15 @@ Removes the channel and all its bindings. Cannot be undone.
 valet orgs
 ```
 
+The default org (if set) is marked with `(default)`.
+
 ### Create an organization
 
 ```
 valet orgs create <name>
 ```
+
+Creating an org automatically sets it as your default org.
 
 ### Destroy an organization
 
@@ -211,13 +222,25 @@ valet orgs create <name>
 valet orgs destroy <name>
 ```
 
-Permanently removes the org. Cannot be undone.
+Permanently removes the org. Cannot be undone. Clears the default org if it matches the destroyed org.
 
 ### Organization info
 
 ```
 valet orgs info <name>
 ```
+
+### Default org
+
+Show, set, or clear the persistent default org:
+
+```
+valet orgs default             # Show current default org
+valet orgs default <name>      # Set default org
+valet orgs default --clear     # Clear the default org
+```
+
+When a default org is set, `agents create` and `connectors create` automatically target that org. Use `--personal` to bypass the default and create in your personal workspace.
 
 ### Invite a member to an org
 
@@ -233,11 +256,15 @@ Generates an invitation code.
 valet orgs join <code>
 ```
 
+Joining an org automatically sets it as your default org.
+
 ### Leave an organization
 
 ```
 valet orgs leave <name>
 ```
+
+Clears the default org if it matches the org being left.
 
 ### List org members
 
