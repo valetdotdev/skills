@@ -436,6 +436,46 @@ Uses the linked agent if no name is provided.
    valet agents deploy
    ```
 
+7. Validate end-to-end with an interactive test loop (see below).
+
+### Interactive test loop (mandatory for first-time setup)
+
+After deploying an agent with channels for the first time, always
+validate it works end-to-end before considering setup complete.
+
+1. Start streaming logs to a temp file in the background:
+   ```
+   valet logs > /tmp/valet-test-<agent-name>.log 2>&1
+   ```
+   (Run via Bash with `run_in_background: true`.)
+
+2. Tell the user the agent is live and ask them to trigger it via the
+   real channel — send the email, push to GitHub, submit the form,
+   whatever the channel expects. Be specific about what they need to
+   do.
+
+3. Wait for the user to confirm the trigger completed (or report that
+   something went wrong).
+
+4. Stop the background log stream and read the log file.
+
+5. Review the logs. Look for:
+   - **Healthy signs**: Few turns, `mcp_call_tool_start` /
+     `mcp_call_tool_done` pairs, `dispatch_complete`.
+   - **Unhealthy signs**: Many consecutive turns with only built-in
+     tool calls (agent is searching/looping), no
+     `mcp_call_tool_start` (agent can't find its tools), no
+     `dispatch_complete` (agent timed out or got stuck).
+
+6. If the logs show problems, diagnose and fix — update SOUL.md or
+   the channel prompt, then redeploy:
+   ```
+   valet agents deploy
+   ```
+
+7. Loop back to step 1 until the user confirms the agent is working
+   correctly.
+
 ### Setting up an org-owned agent
 
 1. Create the agent within an org:
@@ -586,6 +626,7 @@ Always prefer existing connectors in the user's org over creating new ones.
    - [ ] Guardrails has both Always and Never subsections
    - [ ] No hardcoded IDs that should be `<placeholder>`s
    - [ ] Channel files have Scope section if webhook-driven
+   - [ ] Channel files include webhook payload location instruction
    - [ ] No secrets or API keys in any file
 6. Create and deploy:
    ```
@@ -605,6 +646,8 @@ Always prefer existing connectors in the user's org over creating new ones.
    valet channels create webhook --as <binding-name>
    ```
 10. Deploy to pick up channel files: `valet agents deploy`
+11. If the agent has channels, run the interactive test loop (see
+    "Interactive test loop" under Common Multi-Step Workflows).
 
 #### Edge cases
 
@@ -691,38 +734,81 @@ Follow the same generation flow as "Designing a new agent" (Step 3 above), but s
 
 ## Writing Channel Files
 
-A channel file tells the agent what to do when a webhook arrives. Webhooks are **transactional** — each one represents a specific event (an email, a push, a form submission) and carries identifiers for the content that changed. The channel file must scope the agent's actions to that transaction.
+Channel files are instructions TO the agent, not descriptions OF the
+channel. Write them as direct imperatives.
 
-**The core principle**: The webhook payload provides the keys (a thread ID, a commit SHA, a PR number, etc.) that define the agent's scope of work. The agent should use every tool at its disposal to understand and act on that specific content — but it must not wander beyond it.
+A channel file tells the agent what to do when a webhook arrives.
+Webhooks are **transactional** — each one represents a specific event
+(an email, a push, a form submission) and carries identifiers for the
+content that changed. The channel file must scope the agent's actions
+to that transaction.
 
-Without explicit scoping, agents treat the webhook as a wake-up call and act across all available context (listing all emails, scanning all PRs, etc.). The channel file prevents this.
+**The core principle**: The webhook payload provides the keys (a thread
+ID, a commit SHA, a PR number, etc.) that define the agent's scope of
+work. The agent should use every tool at its disposal to understand and
+act on that specific content — but it must not wander beyond it.
+
+Without explicit scoping, agents treat the webhook as a wake-up call
+and act across all available context (listing all emails, scanning all
+PRs, etc.). The channel file prevents this.
+
+### Webhook payload location (critical)
+
+The JSON webhook payload is appended directly after the channel file
+instructions in the user message at runtime. The agent receives the
+channel prompt followed by the raw JSON — inline, in the same message.
+
+Every channel file for a webhook binding **must** include this at the
+top, before any other instructions:
+
+```
+The JSON webhook payload is appended directly after these instructions
+in the user message. Parse it inline — do not fetch, list, or search
+for the payload elsewhere. Do NOT use tools to read the payload.
+```
+
+Without this, agents waste dozens of turns searching for the payload
+with tool calls. They read the channel file, don't find JSON in it,
+and spiral into list/read/search loops. This single instruction
+prevents that entirely.
 
 ### Structure of a channel file
 
 A channel file should contain:
 
-1. **What happened** — a plain description of the event.
-2. **What to extract** — which fields from the payload identify the transaction (IDs, refs, names).
-3. **Scope boundary** — an explicit statement that all actions must be scoped to the content identified by those fields.
-4. **What to do** — step-by-step instructions for processing.
+1. **Payload location** — the webhook payload instruction above.
+2. **What happened** — a plain description of the event.
+3. **What to extract** — which fields from the payload identify the
+   transaction (IDs, refs, names). Be explicit about field names.
+4. **Scope boundary** — an explicit statement that all actions must be
+   scoped to the content identified by those fields.
+5. **What to do** — step-by-step instructions for processing.
+
+Keep channel prompts focused — the agent should complete the task in
+1-3 tool calls after parsing the inline payload, not 15.
 
 ### Example: email webhook
 
 ```markdown
 # New Email Received
 
+The JSON webhook payload is appended directly after these instructions
+in the user message. Parse it inline — do not fetch, list, or search
+for the payload elsewhere. Do NOT use tools to read the payload.
+
 You received a webhook for a single new email.
 
 ## Scope
 
-Extract the `thread_id` from the payload. All actions in this invocation
-are scoped to this thread. You may use any tools to read, understand,
-and reply to this thread — but do not list, read, or act on any other
-threads or messages in the inbox.
+Extract the `thread_id` from the payload. All actions in this
+invocation are scoped to this thread. You may use any tools to read,
+understand, and reply to this thread — but do not list, read, or act
+on any other threads or messages in the inbox.
 
 ## Steps
 
-1. Extract `thread_id`, `from_`, `subject`, and `text` from the payload.
+1. Extract `thread_id`, `from_`, `subject`, and `text` from the
+   payload.
 2. [... task-specific steps ...]
 ```
 
@@ -730,6 +816,10 @@ threads or messages in the inbox.
 
 ```markdown
 # GitHub Push Event
+
+The JSON webhook payload is appended directly after these instructions
+in the user message. Parse it inline — do not fetch, list, or search
+for the payload elsewhere. Do NOT use tools to read the payload.
 
 You received a push event webhook.
 
@@ -897,3 +987,5 @@ Useful topics:
 - When writing SOUL.md, follow the template and synthesis rules in "Writing SOUL.md". Never leave Purpose or Workflow empty.
 - For destructive commands (`destroy`, `remove`, `revoke`), always confirm with the user first.
 - When creating webhook channels, always save and report back the webhook URL and signing secret (these are newly generated endpoint details, not user credentials) — the user will need these to configure their external service.
+- When writing channel prompt files for webhook bindings, always state explicitly that the webhook payload is inline in the user message. Agents cannot infer this — they will waste turns searching for data if you don't tell them where it is.
+- After deploying an agent with channels for the first time, always run through at least one interactive test cycle (log → trigger → review) with the user before considering the setup complete.
