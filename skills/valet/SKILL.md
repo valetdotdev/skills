@@ -299,6 +299,26 @@ valet connectors create my-connector \
   --env API_KEY=secret:API_KEY
 ```
 
+### Exec: inject secrets into a local process
+
+`valet exec` fetches the agent's effective secrets from the control plane and injects them as environment variables into a child process. Useful for local development workflows:
+
+```
+valet exec --secrets <NAME>[,<NAME>...] [--agent <name>] -- <command> [args...]
+```
+
+Examples:
+```
+valet exec --secrets GITHUB_TOKEN --agent my-agent -- gh pr list
+valet exec --secrets GITHUB_TOKEN,SLACK_TOKEN -- env
+```
+
+Flags:
+- `--secrets`: Comma-separated list of secret names to fetch and inject
+- `--agent`: Agent whose secrets to use (uses the linked agent if omitted)
+
+The child process inherits the current environment plus the fetched secrets. The command replaces the current process (`exec`-style), so it does not return.
+
 ## Log Drains
 
 ### List log drains
