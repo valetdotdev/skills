@@ -28,9 +28,9 @@ Check auth status with `valet auth whoami`.
 - **Agent**: An AI agent defined by a `SOUL.md` file in a project directory. Agents are deployed as versioned releases.
 - **Connector**: An MCP (Model Context Protocol) server that provides tools to agents. Transports: `stdio`, `sse`, `streamable-http`.
 - **Channel**: A message entry point (e.g., webhook) that routes external messages to agents via bindings.
-- **Binding**: Connects a channel to an agent with a session strategy and a prompt path (defaults to `hooks/<binding-name>.md`).
+- **Binding**: Connects a channel to an agent with a session strategy and a prompt path (defaults to `channels/<binding-name>.md`).
 - **Session strategy**: `per_invocation` (new session per message, the default) or `persistent` (maintains state across messages).
-- **Hook file**: A markdown file at `hooks/<binding-name>.md` inside the agent project that tells the agent how to handle messages arriving on that binding.
+- **Channel prompt file**: A markdown file at `channels/<binding-name>.md` inside the agent project that tells the agent how to handle messages arriving on that binding.
 - **Organization**: A shared workspace for teams. Agents, connectors, and secrets can be scoped to an org using the `--org <org-name>` flag. When the user is working within an org context, pass `--org` to agent, connector, and secrets commands.
 - **Default org**: A persistent preference stored in `config.json`. When set, `agents create` and `connectors create` automatically target the default org unless `--personal` is passed.
 
@@ -165,11 +165,11 @@ valet channels create webhook [name] \
 
 Flags:
 - `--agent` or `-a`: Agent to bind to (uses linked agent if omitted)
-- `--as`: Binding name (defaults to channel name). This determines the hook file path: `hooks/<binding-name>.md`
+- `--as`: Binding name (defaults to channel name). This determines the channel prompt file path: `channels/<binding-name>.md`
 - `--session-strategy` or `-s`: `per_invocation` (default) or `persistent`
 - `--signature-header`: Header name for HMAC verification (default: `X-Webhook-Signature`)
 - `--no-secret`: Skip secret generation
-- `--prompt`: Override prompt path (default: `hooks/<binding>.md`)
+- `--prompt`: Override prompt path (default: `channels/<binding>.md`)
 
 The command outputs:
 - **Webhook URL**: The endpoint external services send messages to
@@ -433,9 +433,9 @@ Uses the linked agent if no name is provided.
      --signature-header X-Hub-Signature-256
    ```
 
-5. Create the hook file at `hooks/my-binding.md` that tells the agent how to process incoming messages. See [Writing hook files](#writing-hook-files) for guidance on scoping.
+5. Create the channel prompt file at `channels/my-binding.md` that tells the agent how to process incoming messages. See [Writing Channel Prompt Files](#writing-channel-prompt-files) for guidance on scoping.
 
-6. Deploy to pick up the hook file:
+6. Deploy to pick up the channel prompt file:
    ```
    valet agents deploy
    ```
@@ -462,7 +462,7 @@ Uses the linked agent if no name is provided.
      --env API_KEY=secret:API_KEY
    ```
 
-4. Continue with channels, hooks, and deploy as usual.
+4. Continue with channels, channel prompt files, and deploy as usual.
 
 ### Using the default org
 
@@ -515,23 +515,23 @@ If the directory is linked, this auto-attaches and deploys.
 
 ### Redeploying after changes
 
-After editing `SOUL.md`, hook files, or other agent files:
+After editing `SOUL.md`, channel prompt files, or other agent files:
 
 ```
 valet agents deploy
 ```
 
-## Writing Hook Files
+## Writing Channel Prompt Files
 
-A hook file tells the agent what to do when a webhook arrives. Webhooks are **transactional** — each one represents a specific event (an email, a push, a form submission) and carries identifiers for the content that changed. The hook file must scope the agent's actions to that transaction.
+A channel prompt file tells the agent what to do when a webhook arrives. Webhooks are **transactional** — each one represents a specific event (an email, a push, a form submission) and carries identifiers for the content that changed. The channel prompt file must scope the agent's actions to that transaction.
 
 **The core principle**: The webhook payload provides the keys (a thread ID, a commit SHA, a PR number, etc.) that define the agent's scope of work. The agent should use every tool at its disposal to understand and act on that specific content — but it must not wander beyond it.
 
-Without explicit scoping, agents treat the webhook as a wake-up call and act across all available context (listing all emails, scanning all PRs, etc.). The hook file prevents this.
+Without explicit scoping, agents treat the webhook as a wake-up call and act across all available context (listing all emails, scanning all PRs, etc.). The channel prompt file prevents this.
 
-### Structure of a hook file
+### Structure of a channel prompt file
 
-A hook file should contain:
+A channel prompt file should contain:
 
 1. **What happened** — a plain description of the event.
 2. **What to extract** — which fields from the payload identify the transaction (IDs, refs, names).
@@ -581,7 +581,7 @@ or unrelated history.
 
 ### Reinforcing scope in SOUL.md
 
-The hook file scopes each invocation, but the agent's `SOUL.md` should reinforce the general principle so it applies across all hooks:
+The channel prompt file scopes each invocation, but the agent's `SOUL.md` should reinforce the general principle so it applies across all channels:
 
 ```markdown
 ## Webhook Scope Rule
@@ -600,7 +600,7 @@ A typical agent project directory:
 ```
 my-agent/
   SOUL.md              # Agent personality and behavior (required)
-  hooks/               # Hook files for channel bindings
+  channels/            # Channel prompt files for bindings
     my-binding.md      # Prompt for messages on "my-binding"
   scripts/             # Utility scripts (optional)
   .valet/
@@ -627,7 +627,7 @@ Useful topics:
 ## Execution Guidelines
 
 - Always run commands via the Bash tool.
-- When the user asks to set up an agent, guide them through the full workflow (create, connectors, secrets, channels, hooks, deploy).
+- When the user asks to set up an agent, guide them through the full workflow (create, connectors, secrets, channels, channel prompt files, deploy).
 - **Never ask for secret values inside the LLM session.** Direct the user to run `valet secrets set NAME=VALUE` in their own terminal and wait for them to confirm before proceeding. When creating connectors that need secrets, reference them with `secret:NAME` in `--env` flags.
 - When the user is working within an org, pass `--org <org-name>` to agent, connector, and secrets commands — or help them set a default org with `valet orgs default <name>` so they don't have to repeat it.
 - If a command fails, read the error output and troubleshoot. Common issues:
