@@ -381,18 +381,20 @@ Stream live logs from a deployed agent:
 valet logs [name]
 ```
 
-Press Ctrl+C to stop streaming. Each log line is formatted as:
+Each log line is formatted as:
 
 ```
 <timestamp> <source> <process> <level> <message> [key=value ...]
 ```
 
-Structured attributes (tool names, arguments, token counts) appear as sorted `key=value` pairs after the message. Values containing whitespace are quoted. Example:
+Structured attributes (tool names, arguments, token counts, etc.) appear after the message as sorted `key=value` pairs. Values that contain spaces are quoted. For example:
 
 ```
 2026-02-28T00:58:32Z agent web.1 INFO tool_execute_start tool=bash
-2026-02-28T00:58:45Z agent web.1 INFO tool_execute_done duration=2.1s tool=bash
+2026-02-28T00:58:33Z agent web.1 INFO tool_execute_done duration=1.2s tool=bash
 ```
+
+Press Ctrl+C to stop streaming.
 
 ## Interactive Console
 
