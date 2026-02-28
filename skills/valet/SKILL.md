@@ -60,10 +60,10 @@ Creates `.valet/config.json` so subsequent commands auto-detect the agent. This 
 After editing `SOUL.md` or other files, deploy the changes:
 
 ```
-valet agents deploy [name]
+valet agents deploy [-a <name>]
 ```
 
-If no name is given, uses the linked agent from the current directory.
+The agent is determined by the `--agent` flag or the linked agent in the current directory.
 
 ### List agents
 
@@ -76,10 +76,10 @@ Output is grouped: `== personal` first, then each org alphabetically. Every agen
 ### Destroy an agent
 
 ```
-valet agents destroy [name]
+valet agents destroy <name>
 ```
 
-Permanently removes the agent and all releases. Cannot be undone.
+Permanently removes the agent and all releases. Cannot be undone. The agent name is required.
 
 ## Connectors (MCP Tool Access)
 
@@ -131,9 +131,11 @@ When you run `valet connectors create` inside a linked agent directory, the conn
 ### Manually attach/detach
 
 ```
-valet connectors attach <connector-name> [agent-name]
-valet connectors detach <connector-name> [agent-name]
+valet connectors attach <connector-name> [-a <agent-name>]
+valet connectors detach <connector-name> [-a <agent-name>]
 ```
+
+The agent is determined by the `-a`/`--agent` flag or the linked agent in the current directory.
 
 ### Inspect and list
 
@@ -160,7 +162,6 @@ Detaches from all agents. Cannot be undone.
 valet channels create webhook [name] \
   --agent <agent-name> \
   --session-strategy per_invocation \
-  --verify hmac-sha256 \
   --signature-header X-Hub-Signature-256 \
   --delivery-key-header X-GitHub-Delivery \
   --delivery-key-path event.id
@@ -169,17 +170,15 @@ valet channels create webhook [name] \
 Flags:
 - `--agent` or `-a`: Agent that owns this channel (uses linked agent if omitted)
 - `--session-strategy` or `-s`: `per_invocation` (default) or `persistent`
-- `--verify`: Verification scheme — `none`, `hmac-sha256` (default), `svix`, `stripe`, or `static-token`
-- `--secret`: Webhook secret (auto-generated for `hmac-sha256` and `static-token` if omitted; required for `svix` and `stripe`)
-- `--signature-header`: Header name for the signature (`hmac-sha256` and `static-token` only; default: `X-Webhook-Signature`)
+- `--signature-header`: Header name for HMAC verification (default: `X-Webhook-Signature`)
 - `--delivery-key-header`: HTTP header containing a unique delivery ID for deduplication (e.g. `X-GitHub-Delivery`)
 - `--delivery-key-path`: Dot-notation path to a unique delivery ID in the JSON body for deduplication (e.g. `event.id`). Use this for providers that embed the delivery ID in the body rather than a header
+- `--no-secret`: Skip secret generation
 - `--prompt`: Override prompt path (default: `channels/<name>.md`)
 
 The command outputs:
 - **Webhook URL**: The endpoint external services send messages to
-- **Webhook secret**: The signing secret (scheme-dependent)
-- **Verify**: The verification scheme and, for `hmac-sha256`/`static-token`, the signature header
+- **Webhook secret**: The HMAC-SHA256 signing secret
 - **Dedup**: The delivery key header and/or body path, if configured
 - **Agent**: The owning agent, prompt path, and session strategy
 
@@ -325,13 +324,13 @@ valet connectors create my-connector \
 ### List log drains
 
 ```
-valet drains [--agent <name>]
+valet drains [-a <name>]
 ```
 
 ### Create a log drain
 
 ```
-valet drains create <endpoint> [--agent <name>] [--header Key=Value]
+valet drains create <endpoint> [-a <name>] [--header Key=Value]
 ```
 
 Logs are delivered as OTLP JSON via HTTP POST.
@@ -339,13 +338,13 @@ Logs are delivered as OTLP JSON via HTTP POST.
 ### Destroy a log drain
 
 ```
-valet drains destroy <endpoint> [--agent <name>]
+valet drains destroy <endpoint> [-a <name>]
 ```
 
 ### Inspect a log drain
 
 ```
-valet drains info <endpoint> [--agent <name>]
+valet drains info <endpoint> [-a <name>]
 ```
 
 ## Process Management
@@ -353,61 +352,61 @@ valet drains info <endpoint> [--agent <name>]
 ### List processes
 
 ```
-valet ps [name]
+valet ps [-a <name>]
 ```
 
-Lists processes for a deployed agent.
+Lists processes for a deployed agent. The agent is determined by the `-a`/`--agent` flag or the linked agent in the current directory.
 
 ### Restart processes
 
 ```
-valet ps restart [name]
+valet ps restart [-a <name>]
 ```
 
-Restarts all processes. Picks up env/secret changes without redeploying.
+Restarts all processes. Picks up env/secret changes without redeploying. The agent is determined by the `-a`/`--agent` flag or the linked agent in the current directory.
 
 ## Run
 
 Send a single prompt to an agent and stream the response:
 
 ```
-valet run <agent> <prompt> [--json] [--timeout duration]
+valet run <prompt> [-a <agent>] [--json] [--timeout duration]
 ```
 
-Useful for testing agents without starting an interactive console session.
+The agent is determined by the `-a`/`--agent` flag or the linked agent in the current directory. Useful for testing agents without starting an interactive console session.
 
 ## Logs
 
 Stream live logs from a deployed agent:
 
 ```
-valet logs [name]
+valet logs [-a <name>]
 ```
 
-Each log line is formatted as:
+The agent is determined by the `-a`/`--agent` flag or the linked agent in the current directory.
+
+Press Ctrl+C to stop streaming. Each log line is formatted as:
 
 ```
 <timestamp> <source> <process> <level> <message> [key=value ...]
 ```
 
-Structured attributes (tool names, arguments, token counts, etc.) appear after the message as sorted `key=value` pairs. Values that contain spaces are quoted. For example:
+Structured attributes (tool names, arguments, token counts) appear as sorted `key=value` pairs after the message. Values containing whitespace are quoted. Example:
 
 ```
 2026-02-28T00:58:32Z agent web.1 INFO tool_execute_start tool=bash
-2026-02-28T00:58:33Z agent web.1 INFO tool_execute_done duration=1.2s tool=bash
+2026-02-28T00:58:45Z agent web.1 INFO tool_execute_done duration=2.1s tool=bash
 ```
-
-Press Ctrl+C to stop streaming.
 
 ## Interactive Console
 
 Start a REPL session with an agent:
 
 ```
-valet console [name]
+valet console [-a <name>]
 ```
 
-Uses the linked agent if no name is provided.
+The agent is determined by the `-a`/`--agent` flag or the linked agent in the current directory.
 
 ## Common Multi-Step Workflows
 
