@@ -160,6 +160,7 @@ Detaches from all agents. Cannot be undone.
 valet channels create webhook [name] \
   --agent <agent-name> \
   --session-strategy per_invocation \
+  --verify hmac-sha256 \
   --signature-header X-Hub-Signature-256 \
   --delivery-key-header X-GitHub-Delivery \
   --delivery-key-path event.id
@@ -168,15 +169,17 @@ valet channels create webhook [name] \
 Flags:
 - `--agent` or `-a`: Agent that owns this channel (uses linked agent if omitted)
 - `--session-strategy` or `-s`: `per_invocation` (default) or `persistent`
-- `--signature-header`: Header name for HMAC verification (default: `X-Webhook-Signature`)
+- `--verify`: Verification scheme — `none`, `hmac-sha256` (default), `svix`, `stripe`, or `static-token`
+- `--secret`: Webhook secret (auto-generated for `hmac-sha256` and `static-token` if omitted; required for `svix` and `stripe`)
+- `--signature-header`: Header name for the signature (`hmac-sha256` and `static-token` only; default: `X-Webhook-Signature`)
 - `--delivery-key-header`: HTTP header containing a unique delivery ID for deduplication (e.g. `X-GitHub-Delivery`)
 - `--delivery-key-path`: Dot-notation path to a unique delivery ID in the JSON body for deduplication (e.g. `event.id`). Use this for providers that embed the delivery ID in the body rather than a header
-- `--no-secret`: Skip secret generation
 - `--prompt`: Override prompt path (default: `channels/<name>.md`)
 
 The command outputs:
 - **Webhook URL**: The endpoint external services send messages to
-- **Webhook secret**: The HMAC-SHA256 signing secret
+- **Webhook secret**: The signing secret (scheme-dependent)
+- **Verify**: The verification scheme and, for `hmac-sha256`/`static-token`, the signature header
 - **Dedup**: The delivery key header and/or body path, if configured
 - **Agent**: The owning agent, prompt path, and session strategy
 
