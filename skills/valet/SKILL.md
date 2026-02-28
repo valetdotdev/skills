@@ -63,7 +63,7 @@ After editing `SOUL.md` or other files, deploy the changes:
 valet agents deploy [-a <name>]
 ```
 
-The agent is determined by the `--agent` (`-a`) flag or the linked agent in the current directory.
+The agent is determined by the `--agent` flag or the linked agent in the current directory.
 
 ### List agents
 
@@ -79,7 +79,7 @@ Output is grouped: `== personal` first, then each org alphabetically. Every agen
 valet agents destroy <name>
 ```
 
-Permanently removes the agent and all releases. Cannot be undone. The agent name is required (no linked-agent fallback).
+Permanently removes the agent and all releases. Cannot be undone.
 
 ## Connectors (MCP Tool Access)
 
@@ -134,8 +134,6 @@ When you run `valet connectors create` inside a linked agent directory, the conn
 valet connectors attach <connector-name> [-a <agent-name>]
 valet connectors detach <connector-name> [-a <agent-name>]
 ```
-
-Use `--agent <name>` or `-a <name>` to specify the agent. If omitted, uses the linked agent.
 
 ### Inspect and list
 
@@ -295,13 +293,13 @@ Secrets keep sensitive values (API keys, tokens) outside the LLM context. Connec
 ### List secret names
 
 ```
-valet secrets [-a <agent-name> | --org <name>]
+valet secrets [--agent <name> | --org <name>]
 ```
 
 ### Remove a secret
 
 ```
-valet secrets unset <NAME> [-a <agent-name> | --org <name>] [--force]
+valet secrets unset <NAME> [--agent <name> | --org <name>] [--force]
 ```
 
 ### Critical: Handling secrets safely
@@ -327,13 +325,13 @@ valet connectors create my-connector \
 ### List log drains
 
 ```
-valet drains [-a <agent-name>]
+valet drains [--agent <name>]
 ```
 
 ### Create a log drain
 
 ```
-valet drains create <endpoint> [-a <agent-name>] [--header Key=Value]
+valet drains create <endpoint> [--agent <name>] [--header Key=Value]
 ```
 
 Logs are delivered as OTLP JSON via HTTP POST.
@@ -341,13 +339,13 @@ Logs are delivered as OTLP JSON via HTTP POST.
 ### Destroy a log drain
 
 ```
-valet drains destroy <endpoint> [-a <agent-name>]
+valet drains destroy <endpoint> [--agent <name>]
 ```
 
 ### Inspect a log drain
 
 ```
-valet drains info <endpoint> [-a <agent-name>]
+valet drains info <endpoint> [--agent <name>]
 ```
 
 ## Process Management
@@ -355,38 +353,38 @@ valet drains info <endpoint> [-a <agent-name>]
 ### List processes
 
 ```
-valet ps [-a <agent-name>]
+valet ps [-a <name>]
 ```
 
-Lists processes for a deployed agent. Use `--agent <name>` or `-a <name>` to specify the agent; uses the linked agent if omitted.
+Lists processes for a deployed agent.
 
 ### Restart processes
 
 ```
-valet ps restart [-a <agent-name>]
+valet ps restart [-a <name>]
 ```
 
-Restarts all processes. Picks up env/secret changes without redeploying. Use `--agent <name>` or `-a <name>` to specify the agent; uses the linked agent if omitted.
+Restarts all processes. Picks up env/secret changes without redeploying.
 
 ## Run
 
 Send a single prompt to an agent and stream the response:
 
 ```
-valet run <prompt> [-a <agent-name>] [--json] [--timeout duration]
+valet run <prompt> [-a <agent>] [--json] [--timeout duration]
 ```
 
-Use `--agent <name>` or `-a <name>` to specify the agent; uses the linked agent if omitted. Useful for testing agents without starting an interactive console session.
+The agent is determined by the `--agent` flag or the linked agent in the current directory. Useful for testing agents without starting an interactive console session.
 
 ## Logs
 
 Stream live logs from a deployed agent:
 
 ```
-valet logs [-a <agent-name>]
+valet logs [-a <name>]
 ```
 
-Use `--agent <name>` or `-a <name>` to specify the agent; uses the linked agent if omitted. Each log line is formatted as:
+Each log line is formatted as:
 
 ```
 <timestamp> <source> <process> <level> <message> [key=value ...]
@@ -406,10 +404,10 @@ Press Ctrl+C to stop streaming.
 Start a REPL session with an agent:
 
 ```
-valet console [-a <agent-name>]
+valet console [-a <name>]
 ```
 
-Use `--agent <name>` or `-a <name>` to specify the agent; uses the linked agent if omitted.
+The agent is determined by the `--agent` flag or the linked agent in the current directory.
 
 ## Common Multi-Step Workflows
 
