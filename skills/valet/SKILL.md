@@ -60,10 +60,10 @@ Creates `.valet/config.json` so subsequent commands auto-detect the agent. This 
 After editing `SOUL.md` or other files, deploy the changes:
 
 ```
-valet agents deploy [name]
+valet agents deploy [-a <name>]
 ```
 
-If no name is given, uses the linked agent from the current directory.
+The agent is determined by the `--agent` flag or the linked agent in the current directory.
 
 ### List agents
 
@@ -76,7 +76,7 @@ Output is grouped: `== personal` first, then each org alphabetically. Every agen
 ### Destroy an agent
 
 ```
-valet agents destroy [name]
+valet agents destroy <name>
 ```
 
 Permanently removes the agent and all releases. Cannot be undone.
@@ -131,8 +131,8 @@ When you run `valet connectors create` inside a linked agent directory, the conn
 ### Manually attach/detach
 
 ```
-valet connectors attach <connector-name> [agent-name]
-valet connectors detach <connector-name> [agent-name]
+valet connectors attach <connector-name> [-a <agent-name>]
+valet connectors detach <connector-name> [-a <agent-name>]
 ```
 
 ### Inspect and list
@@ -353,7 +353,7 @@ valet drains info <endpoint> [--agent <name>]
 ### List processes
 
 ```
-valet ps [name]
+valet ps [-a <name>]
 ```
 
 Lists processes for a deployed agent.
@@ -361,7 +361,7 @@ Lists processes for a deployed agent.
 ### Restart processes
 
 ```
-valet ps restart [name]
+valet ps restart [-a <name>]
 ```
 
 Restarts all processes. Picks up env/secret changes without redeploying.
@@ -371,17 +371,17 @@ Restarts all processes. Picks up env/secret changes without redeploying.
 Send a single prompt to an agent and stream the response:
 
 ```
-valet run <agent> <prompt> [--json] [--timeout duration]
+valet run <prompt> [-a <agent>] [--json] [--timeout duration]
 ```
 
-Useful for testing agents without starting an interactive console session.
+The agent is determined by the `--agent` flag or the linked agent in the current directory. Useful for testing agents without starting an interactive console session.
 
 ## Logs
 
 Stream live logs from a deployed agent:
 
 ```
-valet logs [name]
+valet logs [-a <name>]
 ```
 
 Each log line is formatted as:
@@ -404,10 +404,10 @@ Press Ctrl+C to stop streaming.
 Start a REPL session with an agent:
 
 ```
-valet console [name]
+valet console [-a <name>]
 ```
 
-Uses the linked agent if no name is provided.
+The agent is determined by the `--agent` flag or the linked agent in the current directory.
 
 ## Common Multi-Step Workflows
 
