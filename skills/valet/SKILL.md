@@ -183,6 +183,25 @@ The command outputs:
 - **Dedup**: The delivery key header and/or body path, if configured
 - **Agent**: The owning agent, prompt path, and session strategy
 
+### Create a Telegram channel
+
+```
+valet channels create telegram [name] \
+  --agent <agent-name> \
+  --session-strategy per_conversation
+```
+
+Flags:
+- `--agent` or `-a`: Agent that owns this channel (uses linked agent if omitted)
+- `--session-strategy` or `-s`: `per_invocation` (default) or `per_conversation`
+- `--prompt`: Override prompt path (default: `channels/<name>.md`)
+
+Webhook-specific flags (`--verify`, `--secret`, `--signature-header`, `--delivery-key-header`, `--delivery-key-path`) are not used with Telegram channels and will produce an error if supplied.
+
+The command outputs:
+- **Telegram link**: A `t.me` deep link that users click to connect their Telegram account to this channel
+- **Agent**: The owning agent, prompt path, and session strategy
+
 ### Inspect and list
 
 ```
