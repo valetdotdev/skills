@@ -73,6 +73,29 @@ valet agents
 
 Output is grouped: `== personal` first, then each org alphabetically. Every agent belongs to exactly one group.
 
+### Show agent details
+
+```
+valet agents info [name]
+```
+
+Displays the agent's owner, current release, process state, channels, and connectors. The agent is determined by the positional argument, the `--agent`/`-a` flag, or the linked agent in the current directory.
+
+Flags:
+- `--agent` or `-a`: Agent to show info for (uses linked agent if omitted)
+
+Fields are omitted when there's nothing to show. Process states are collapsed for display: `pending`/`starting` → `starting`, `down`/`stopping` → `down`. Duration is formatted as `8s`, `12m`, `3h 22m`, `1d 4h`.
+
+Example output:
+```
+=== Agent: my-agent
+  owner:      personal
+  release:    v3
+  process:    up for 3h 22m
+  channels:   slack-channel, support-webhook
+  connectors: github-mcp, linear-mcp
+```
+
 ### Destroy an agent
 
 ```
