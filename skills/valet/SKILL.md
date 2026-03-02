@@ -68,10 +68,12 @@ If no name is given, uses the linked agent from the current directory.
 ### List agents
 
 ```
-valet agents
+valet agents [--personal] [--org <name>]
 ```
 
-Output is grouped: `== personal` first, then each org alphabetically. Every agent belongs to exactly one group.
+With no flags, lists all visible agents — personal and org — grouped by workspace. Use `--personal` to show only personal agents, or `--org <name>` to show only a specific organization's agents. The two flags cannot be used together.
+
+Output is grouped: `== personal` first, then each org alphabetically. Each agent is shown by name only.
 
 ### Destroy an agent
 
