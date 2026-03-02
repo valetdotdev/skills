@@ -159,7 +159,6 @@ Detaches from all agents. Cannot be undone.
 ```
 valet channels create webhook [name] \
   --agent <agent-name> \
-  --session-strategy per_invocation \
   --verify hmac-sha256 \
   --signature-header X-Hub-Signature-256 \
   --delivery-key-header X-GitHub-Delivery \
@@ -168,7 +167,6 @@ valet channels create webhook [name] \
 
 Flags:
 - `--agent` or `-a`: Agent that owns this channel (uses linked agent if omitted)
-- `--session-strategy` or `-s`: `per_invocation` (default) or `persistent`
 - `--verify`: Verification scheme — `none`, `hmac-sha256` (default), `svix`, `stripe`, or `static-token`
 - `--secret`: Webhook secret (auto-generated for `hmac-sha256` and `static-token` if omitted; required for `svix` and `stripe`)
 - `--signature-header`: Header name for the signature (`hmac-sha256` and `static-token` only; default: `X-Webhook-Signature`)
