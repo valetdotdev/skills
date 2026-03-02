@@ -68,10 +68,12 @@ The agent is determined by the `--agent` flag or the linked agent in the current
 ### List agents
 
 ```
-valet agents
+valet agents [--personal] [--org <name>]
 ```
 
-Output is grouped: `== personal` first, then each org alphabetically. Every agent belongs to exactly one group.
+With no flags, lists all visible agents — personal and org — grouped by workspace. Use `--personal` to show only personal agents, or `--org <name>` to show only a specific organization's agents. The two flags cannot be used together.
+
+Output is grouped: `== personal` first, then each org alphabetically. Each agent is shown by name only.
 
 ### Show agent details
 
