@@ -40,12 +40,14 @@ Check auth status with `valet auth whoami`.
 The current directory must contain a `SOUL.md` file. This creates the agent, links the directory, and deploys v1:
 
 ```
-valet agents create [name] [--org <org-name>] [--personal]
+valet agents create [name] [--org <org-name>] [--personal] [--no-wait]
 ```
 
 Name is optional; the server generates one if omitted. Use `--org` to create within a specific organization, or `--personal` to create in your personal workspace even when a default org is set.
 
 When a default org is configured, `agents create` automatically targets it. Pass `--personal` to bypass the default org.
+
+After deploying, the command waits for the agent runtime to become ready, printing `Waiting for agent to start... done` when complete. Use `--no-wait` to skip the readiness check and return immediately after the release is activated.
 
 ### Link a directory to an existing agent
 
@@ -60,10 +62,12 @@ Creates `.valet/config.json` so subsequent commands auto-detect the agent. This 
 After editing `SOUL.md` or other files, deploy the changes:
 
 ```
-valet agents deploy [-a <name>]
+valet agents deploy [-a <name>] [--no-wait]
 ```
 
 The agent is determined by the `--agent` flag or the linked agent in the current directory.
+
+After deploying, the command waits for the agent runtime to become ready, printing `Waiting for agent to start... done` when complete. Use `--no-wait` to skip the readiness check and return immediately after the release is activated.
 
 ### List agents
 
@@ -418,6 +422,11 @@ valet run <prompt> [-a <agent>] [--json] [--timeout duration]
 
 The agent is determined by the `--agent` flag or the linked agent in the current directory. Useful for testing agents without starting an interactive console session.
 
+Before sending the prompt, `valet run` checks the agent's state:
+- **`up`**: proceeds immediately.
+- **`starting` / `pending`**: prints `Waiting for agent to start...`, polls until ready, then re-fetches the agent for a fresh URL and token.
+- **`crashed` / `down` / `inactive`**: prints a clear error message and exits with code 1.
+
 ## Logs
 
 Stream live logs from a deployed agent:
@@ -450,6 +459,11 @@ valet console [-a <name>]
 ```
 
 The agent is determined by the `--agent` flag or the linked agent in the current directory.
+
+Before opening the session, `valet console` checks the agent's state:
+- **`up`**: proceeds immediately.
+- **`starting` / `pending`**: prints `Waiting for agent to start...`, polls until ready, then opens the session.
+- **`crashed` / `down` / `inactive`**: prints a clear error message and exits with code 1.
 
 ## Common Multi-Step Workflows
 
