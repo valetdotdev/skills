@@ -434,6 +434,7 @@ Want to proceed with this plan, or would you like to adjust anything?
    - [ ] Channel files have Scope section if webhook-driven
    - [ ] Channel files include webhook payload location instruction
    - [ ] No secrets or API keys in any file
+   - [ ] AGENTS.md written as the last step (see "Writing AGENTS.md")
 6. Create and deploy:
    ```
    cd <agent-name>
@@ -453,6 +454,7 @@ Want to proceed with this plan, or would you like to adjust anything?
    ```
 10. Deploy to pick up channel files: `valet agents deploy`
 11. If the agent has channels, run the interactive test loop (see "Interactive test loop" under Common Workflows).
+12. **Last step**: Write `AGENTS.md` in the project root (see "Writing AGENTS.md"). This summarizes the full setup for future developers.
 
 ### Design edge cases
 
@@ -531,6 +533,7 @@ Follow the same generation flow as "Designing a New Agent" (Step 4 above), but s
 - **Guardrails Never**: From corrections, observed mistakes, and domain norms
 - Replace session-specific values with `<placeholder>`s
 - Genericize Q&A exchanges as guidance (e.g., "if ambiguous, prefer X")
+- **Last step**: Write `AGENTS.md` in the project root (see "Writing AGENTS.md")
 
 ### Edge cases
 
@@ -657,10 +660,52 @@ identifiers in the payload. Use any tools to fully understand and act
 on that specific content, but do not act on unrelated content.
 ```
 
+## Writing AGENTS.md
+
+`AGENTS.md` is the **last file written** before the session ends. It lives in the root of the agent project directory and serves as a human- and LLM-readable setup guide for anyone who needs to deploy this agent in the future.
+
+**NEVER include secret values, API keys, or tokens in AGENTS.md.** Only describe what is needed and why.
+
+### Template
+
+```markdown
+This folder contains the source for a Skilled Agent originally built for the Valet runtime. Changes should follow the Skilled Agent open standard.
+
+## Setup
+
+### Connectors
+
+- **<connector-name>**: <plain-English description of what it provides and why the agent needs it>
+  [Repeat for each connector]
+
+### Channels
+
+- **<channel-name>** (<channel-type>): <what triggers this channel and what the agent does when it fires>
+  [Repeat for each channel]
+
+### Secrets
+
+- **<SECRET_NAME>**: <what this secret is for, where to obtain it, and any scopes or permissions required>
+  [Repeat for each secret]
+
+### External Setup
+
+[If the agent requires any configuration outside of Valet — third-party service setup, OAuth apps, cloud console steps, DNS records, etc. — describe each step here in plain English. Be specific enough that a person unfamiliar with the project can follow along.]
+```
+
+### Rules
+
+- **Write in plain English.** Describe each requirement as a noun and a reason: "A GitHub connector for reading source code and pull requests", not `npx -y @modelcontextprotocol/server-github --args ...`.
+- **Be specific about secrets.** Say "A GitHub personal access token with `repo` scope for reading private repositories", not "GITHUB_TOKEN".
+- **Include external setup.** If the agent depends on a Slack app, a Google Cloud project, a webhook registration in a third-party service, or anything else outside Valet — document the steps. This is often the part a future developer will struggle with most.
+- **Omit sections that don't apply.** If the agent has no channels, leave out the Channels section. If there's no external setup, leave that out too.
+- **Write this file last.** It summarizes the completed agent, so it should reflect the final state of the project after all connectors, channels, and secrets are configured.
+
 ## Agent Project Structure
 
 ```
 my-agent/
+  AGENTS.md            # Setup guide for future developers (required)
   SOUL.md              # Agent identity and behavior (required)
   channels/            # Channel files (for webhook/trigger-driven agents)
     <channel-name>.md
