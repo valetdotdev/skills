@@ -25,7 +25,7 @@ Check auth status with `valet auth whoami`.
 
 ## Core Concepts
 
-- **Agent**: An AI agent defined by a `SOUL.md` file in a project directory. Agents are deployed as versioned releases.
+- **Agent**: An AI agent defined by a `SOUL.md` file in a project directory. Agents are deployed as versioned releases. Each agent has a process that transitions through states: `inactive`, `starting`, `pending`, `up`, `crashed`, `down`.
 - **Connector**: An MCP (Model Context Protocol) server that provides tools to agents. Transports: `stdio`, `sse`, `streamable-http`.
 - **Channel**: A message entry point (e.g., webhook) owned by exactly one agent. Each channel has a session strategy and a prompt path.
 - **Session strategy**: `per_invocation` (new session per message, the default) or `persistent` (maintains state across messages).
@@ -37,13 +37,13 @@ Check auth status with `valet auth whoami`.
 
 ### Create an agent
 
-The current directory must contain a `SOUL.md` file. This creates the agent, links the directory, and deploys v1:
+The current directory must contain a `SOUL.md` file. This creates the agent, links the directory, deploys v1, and waits for the runtime to become ready:
 
 ```
-valet agents create [name] [--org <org-name>] [--personal]
+valet agents create [name] [--org <org-name>] [--personal] [--no-wait]
 ```
 
-Name is optional; the server generates one if omitted. Use `--org` to create within a specific organization, or `--personal` to create in your personal workspace even when a default org is set.
+Name is optional; the server generates one if omitted. Use `--org` to create within a specific organization, or `--personal` to create in your personal workspace even when a default org is set. Use `--no-wait` to skip the readiness check and return immediately after the release is activated.
 
 When a default org is configured, `agents create` automatically targets it. Pass `--personal` to bypass the default org.
 
@@ -60,10 +60,10 @@ Creates `.valet/config.json` so subsequent commands auto-detect the agent. This 
 After editing `SOUL.md` or other files, deploy the changes:
 
 ```
-valet agents deploy [-a <name>]
+valet agents deploy [-a <name>] [--no-wait]
 ```
 
-The agent is determined by the `--agent` flag or the linked agent in the current directory.
+The agent is determined by the `--agent` flag or the linked agent in the current directory. After deploying, waits for the agent runtime to become ready. Use `--no-wait` to skip the readiness check and return immediately after the release is activated.
 
 ### List agents
 
@@ -224,6 +224,38 @@ Webhook-specific flags (`--verify`, `--secret`, `--signature-header`, `--deliver
 The command outputs:
 - **Telegram link**: A `t.me` deep link that users click to connect their Telegram account to this channel
 - **Agent**: The owning agent, prompt path, and session strategy
+
+### Create a heartbeat channel
+
+Fires on a recurring interval:
+
+```
+valet channels create heartbeat [name] \
+  --agent <agent-name> \
+  --every 5m
+```
+
+Flags:
+- `--agent` or `-a`: Agent that owns this channel (uses linked agent if omitted)
+- `--every`: Heartbeat interval (e.g. `5m`, `1h`)
+- `--prompt`: Override prompt path (default: `channels/<name>.md`)
+
+### Create a cron channel
+
+Fires on a cron schedule:
+
+```
+valet channels create cron [name] \
+  --agent <agent-name> \
+  --cron "0 9 * * *"
+```
+
+Flags:
+- `--agent` or `-a`: Agent that owns this channel (uses linked agent if omitted)
+- `--cron`: Raw crontab expression (e.g. `"0 9 * * *"`)
+- `--schedule`: Human-readable schedule as an alternative to `--cron` (e.g. `"every day at 9am"`)
+- `--timezone`: IANA timezone (default: UTC)
+- `--prompt`: Override prompt path (default: `channels/<name>.md`)
 
 ### Inspect and list
 
@@ -441,6 +473,22 @@ Structured attributes (tool names, arguments, token counts, etc.) appear after t
 
 Press Ctrl+C to stop streaming.
 
+## Running Commands with Secrets
+
+Run a command with secrets injected into its environment:
+
+```
+valet exec --secrets <comma-separated-names> [-a <agent>] -- <command> [args...]
+```
+
+Fetches the requested secret values from the control plane and executes the given command with those secrets added to the environment. The current process is replaced by the command.
+
+Example:
+```
+valet exec --secrets GITHUB_TOKEN --agent my-agent -- gh pr list
+valet exec --secrets GITHUB_TOKEN,SLACK_TOKEN -- env
+```
+
 ## Interactive Console
 
 Start a REPL session with an agent:
@@ -450,6 +498,16 @@ valet console [-a <name>]
 ```
 
 The agent is determined by the `--agent` flag or the linked agent in the current directory.
+
+## Agent Readiness
+
+After deploy, the agent runtime takes time to start. The CLI automatically waits for readiness in `agents create`, `agents deploy`, `run`, and `console`. If the agent is still starting (`starting` or `pending` state), the CLI polls until it reaches `up`. If the agent is in a terminal state, the CLI shows a clear error:
+
+- `crashed`: "Error: agent has crashed, redeploy with 'valet agents deploy'"
+- `down`: "Error: agent is stopped"
+- `inactive`: "Error: agent has not been deployed yet, deploy with 'valet agents deploy'"
+
+Use `--no-wait` on `agents create` and `agents deploy` to skip the readiness check.
 
 ## Common Multi-Step Workflows
 
@@ -600,6 +658,15 @@ valet connectors create new-tool \
 ```
 
 If the directory is linked, this auto-attaches and deploys.
+
+### Debugging a failing agent
+
+```
+valet agents info my-agent
+valet ps --agent my-agent
+valet logs --agent my-agent
+valet ps restart --agent my-agent
+```
 
 ### Redeploying after changes
 
@@ -1034,6 +1101,8 @@ Useful topics:
   - Not logged in: run `valet auth login`
   - No `SOUL.md` in directory: create one or `cd` to the right directory
   - Not linked: run `valet agents link <name>`
+  - Agent crashed after deploy: check logs with `valet logs`, fix the issue, redeploy
+  - Agent not ready: the CLI waits automatically; if it reports crashed/down/inactive, troubleshoot accordingly
 - When the user asks to create an agent from scratch, follow the "Designing a new agent" workflow under Common Multi-Step Workflows.
 - When the user asks to capture the current session as an agent, follow the "Learning from the current session" workflow under Common Multi-Step Workflows.
 - When writing SOUL.md, follow the template and synthesis rules in "Writing SOUL.md". Never leave Purpose or Workflow empty.
