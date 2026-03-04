@@ -67,6 +67,22 @@ Useful topic guides: `getting-started`, `agent-lifecycle`, `channels`, `connecto
 
 When you encounter an unfamiliar flag, subcommand, or error — run `valet help` for that command before guessing. The CLI help is authoritative and up to date.
 
+
+## Onboarding
+
+### Scaffold a new agent project
+
+Create a new agent project directory without running the full setup flow:
+
+```
+valet new <name> [--dir <path>]
+```
+
+Creates `<name>/` (or the path specified by `--dir`) containing `SOUL.md`, `AGENTS.md`, `skills/`, and `channels/`. The project is ready to edit — update `SOUL.md` to define your agent, then run `valet agents create` to deploy it.
+
+Flags:
+- `--dir`: Directory to create the project in (default: `./<name>`)
+
 ## Core Concepts
 
 - **Agent**: An AI agent defined by a `SOUL.md` file in a project directory. Agents are deployed as versioned releases.
@@ -200,9 +216,54 @@ Key flags: `--verify` (scheme: `none`, `hmac-sha256`, `svix`, `stripe`, `static-
 
 The command outputs the **webhook URL** and **signing secret** — always save and report these to the user.
 
-### Other channel types
+### Create a heartbeat channel
 
-The CLI also supports `telegram`, `heartbeat`, and `cron` channels. Run `valet channels create --help` or `valet topics channels` for details on these types.
+Fire a prompt to the agent on a fixed interval:
+
+```
+valet channels create heartbeat [name] \
+  --agent <agent-name> \
+  --every 5m
+```
+
+Flags:
+- `--agent` or `-a`: Agent that owns this channel (uses linked agent if omitted)
+- `--every`: Interval duration, e.g. `5m`, `1h`, `30s` (required)
+- `--timezone`: IANA timezone for display purposes (default: UTC)
+- `--prompt`: Override prompt path (default: `channels/<name>.md`)
+
+Webhook-specific flags (`--verify`, `--secret`, `--signature-header`, `--delivery-key-header`, `--delivery-key-path`) are not used with heartbeat channels and will produce an error if supplied.
+
+The command outputs the interval and the next scheduled fire time.
+
+### Create a cron channel
+
+Fire a prompt to the agent on a cron schedule:
+
+```
+valet channels create cron [name] \
+  --agent <agent-name> \
+  --schedule "every day at 9am"
+```
+
+Or use a raw crontab expression:
+
+```
+valet channels create cron [name] \
+  --agent <agent-name> \
+  --cron "0 9 * * *"
+```
+
+Flags:
+- `--agent` or `-a`: Agent that owns this channel (uses linked agent if omitted)
+- `--schedule`: Human-readable schedule (e.g. `"every day at 9am"`, `"every monday at 9:00am"`, `"weekdays at 9:00am"`)
+- `--cron`: Raw crontab expression (e.g. `"0 9 * * *"`). Mutually exclusive with `--schedule`
+- `--timezone`: IANA timezone (default: UTC)
+- `--prompt`: Override prompt path (default: `channels/<name>.md`)
+
+`--schedule` and `--cron` are mutually exclusive; exactly one is required. Webhook-specific flags are not used with cron channels.
+
+The command outputs the schedule, next fire time, and timezone.
 
 ### List, inspect, destroy
 
@@ -739,3 +800,4 @@ All deployed files are **read-only** at runtime. The agent can write new files (
   - Not linked → `valet agents link <name>`
   - Agent crashed → check `valet logs`, fix, redeploy
   - **Homebrew errors → do NOT troubleshoot. Stop and ask the user to resolve manually.**
+
