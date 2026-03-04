@@ -5,69 +5,131 @@ description: Use when the user wants to manage Valet agents, channels, connector
 
 You are an expert at using the Valet CLI to manage AI agents on the Valet platform. You execute `valet` commands via the Bash tool to accomplish tasks. Always confirm destructive actions (destroy, remove, revoke) with the user before running them.
 
+**Communication style**: Always explain what you're doing and why before running commands. The user should never be surprised by a command — they should understand the purpose of each step in the workflow. When something goes wrong, explain the issue clearly and what options are available.
+
 ## Installation
 
-If `valet` is not installed, install it with:
+Before running any valet commands, check whether the CLI is installed by running `valet version`.
+
+If `valet` is not installed, **explain to the user why it is needed before attempting installation**:
+
+> The Valet CLI is required to create, deploy, and manage agents on the Valet platform. All valet commands depend on this CLI being installed locally. I'll install it for you now via Homebrew.
+
+Then check whether Homebrew is available by running `brew --version`.
+
+**If Homebrew is not installed**, ask the user whether they'd like to install Homebrew first. If they agree, install it with the official installer:
+
+```
+/bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+```
+
+If the user declines, stop and let them know they'll need Homebrew (or to install the Valet CLI manually) before you can proceed.
+
+**If Homebrew is installed**, install the Valet CLI:
 
 ```
 brew install valetdotdev/tap/valet-cli
 ```
 
+**IMPORTANT — Homebrew failures**: If `brew install valetdotdev/tap/valet-cli` fails for any reason — tap errors, permission issues, network problems, formula conflicts, or anything else — **do not attempt to troubleshoot, retry, or work around the issue**. Instead, inform the user:
+
+> It looks like the Homebrew installation didn't succeed. Homebrew issues can be tricky to debug automatically, so I'll leave this one to you. Please run `brew install valetdotdev/tap/valet-cli` in your terminal and resolve any issues manually. Once the CLI is installed, come back and we'll pick up where we left off.
+
+Then **stop the current workflow**. Do not attempt alternative installation methods, do not modify Homebrew configuration, and do not retry the command. Wait for the user to confirm the CLI is installed before continuing.
+
 ## Prerequisites
 
-The user must be logged in before any other command will work:
+After the CLI is installed, the user **must be authenticated** before any other command will work. Explain this to the user:
+
+> Before we can create or manage agents, you need to be logged in to your Valet account. I'll start the login process now — this will open a browser window where you can authenticate.
+
+Then run:
 
 ```
 valet auth login
 ```
 
-Check auth status with `valet auth whoami`.
+After login, verify the session is active with `valet auth whoami`. If authentication fails, let the user know and do not proceed with any other valet commands until they are successfully logged in.
+
+## Using the Built-in Help
+
+The Valet CLI has extensive built-in help. **Use it proactively** when you need details about a command, flag, or feature not covered in this skill file:
+
+```
+valet help                          # Top-level help
+valet help <command>                # Command-specific help (e.g. valet help channels)
+valet <command> <subcommand> --help # Subcommand help (e.g. valet channels create --help)
+valet topics                        # List help guides
+valet topics <name>                 # Read a specific guide
+```
+
+Useful topic guides: `getting-started`, `agent-lifecycle`, `channels`, `connectors-overview`.
+
+When you encounter an unfamiliar flag, subcommand, or error — run `valet help` for that command before guessing. The CLI help is authoritative and up to date.
+
+
+## Onboarding
+
+### Guided setup (new users)
+
+Run the guided four-step onboarding flow to get started from scratch:
+
+```
+valet setup
+```
+
+Steps: (1) log in, (2) install the `/valet` skill for Claude Code, (3) scaffold a new agent project, (4) deploy and verify. Each step can be skipped if already completed. Press Ctrl+C at any prompt to cancel.
+
+### Scaffold a new agent project
+
+Create a new agent project directory without running the full setup flow:
+
+```
+valet new <name> [--dir <path>]
+```
+
+Creates `<name>/` (or the path specified by `--dir`) containing `SOUL.md`, `AGENTS.md`, `skills/`, and `channels/`. The project is ready to edit — update `SOUL.md` to define your agent, then run `valet agents create` to deploy it.
+
+Flags:
+- `--dir`: Directory to create the project in (default: `./<name>`)
 
 ## Core Concepts
 
 - **Agent**: An AI agent defined by a `SOUL.md` file in a project directory. Agents are deployed as versioned releases.
 - **Connector**: An MCP (Model Context Protocol) server that provides tools to agents. Transports: `stdio`, `sse`, `streamable-http`.
-- **Channel**: A message entry point (e.g., webhook) owned by exactly one agent. Each channel has a session strategy and a prompt path.
+- **Channel**: A message entry point (webhook, Telegram, heartbeat, cron) owned by exactly one agent.
 - **Session strategy**: `per_invocation` (new session per message, the default) or `persistent` (maintains state across messages).
-- **Channel file**: A markdown file at `channels/<channel-name>.md` inside the agent project that tells the agent how to handle incoming messages.
-- **Organization**: A shared workspace for teams. Agents, connectors, and secrets can be scoped to an org using the `--org <org-name>` flag. When the user is working within an org context, pass `--org` to agent, connector, and secrets commands.
-- **Default org**: A persistent preference stored in `config.json`. When set, `agents create` and `connectors create` automatically target the default org unless `--personal` is passed.
+- **Channel file**: A markdown file at `channels/<channel-name>.md` that tells the agent how to handle incoming messages.
+- **Organization**: A shared workspace for teams. Agents, connectors, and secrets can be scoped to an org with `--org <name>`.
+- **Secrets**: Sensitive values (API keys, tokens) stored outside the LLM context. Referenced with `secret:NAME` syntax.
 
 ## Agent Lifecycle
 
 ### Create an agent
 
-The current directory must contain a `SOUL.md` file. This creates the agent, links the directory, and deploys v1:
+The current directory must contain a `SOUL.md` file. This creates the agent, links the directory, deploys v1, and waits for readiness:
 
 ```
 valet agents create [name] [--org <org-name>] [--personal] [--no-wait]
 ```
 
-Name is optional; the server generates one if omitted. Use `--org` to create within a specific organization, or `--personal` to create in your personal workspace even when a default org is set.
+Name is optional (auto-generated if omitted). Use `--org` for an org workspace, `--personal` to bypass the default org.
 
-When a default org is configured, `agents create` automatically targets it. Pass `--personal` to bypass the default org.
-
-After deploying, the command waits for the agent runtime to become ready, printing `Waiting for agent to start... done` when complete. Use `--no-wait` to skip the readiness check and return immediately after the release is activated.
-
-### Link a directory to an existing agent
+### Link a directory
 
 ```
 valet agents link <name>
 ```
 
-Creates `.valet/config.json` so subsequent commands auto-detect the agent. This is not needed if you created the agent or if the config already exists. 
+Creates `.valet/config.json` so subsequent commands auto-detect the agent. Not needed if you created the agent from this directory.
 
-### Deploy a new release
+### Deploy changes
 
-After editing `SOUL.md` or other files, deploy the changes:
+After editing `SOUL.md`, channel files, or other project files:
 
 ```
 valet agents deploy [-a <name>] [--no-wait]
 ```
-
-The agent is determined by the `--agent` flag or the linked agent in the current directory.
-
-After deploying, the command waits for the agent runtime to become ready, printing `Waiting for agent to start... done` when complete. Use `--no-wait` to skip the readiness check and return immediately after the release is activated.
 
 ### List agents
 
@@ -75,32 +137,13 @@ After deploying, the command waits for the agent runtime to become ready, printi
 valet agents [--personal] [--org <name>]
 ```
 
-With no flags, lists all visible agents — personal and org — grouped by workspace. Use `--personal` to show only personal agents, or `--org <name>` to show only a specific organization's agents. The two flags cannot be used together.
-
-Output is grouped: `== personal` first, then each org alphabetically. Each agent is shown by name only.
-
 ### Show agent details
 
 ```
 valet agents info [name]
 ```
 
-Displays the agent's owner, current release, process state, channels, and connectors. The agent is determined by the positional argument, the `--agent`/`-a` flag, or the linked agent in the current directory.
-
-Flags:
-- `--agent` or `-a`: Agent to show info for (uses linked agent if omitted)
-
-Fields are omitted when there's nothing to show. Process states are collapsed for display: `pending`/`starting` → `starting`, `down`/`stopping` → `down`. Duration is formatted as `8s`, `12m`, `3h 22m`, `1d 4h`.
-
-Example output:
-```
-=== Agent: my-agent
-  owner:      personal
-  release:    v3
-  process:    up for 3h 22m
-  channels:   slack-channel, support-webhook
-  connectors: github-mcp, linear-mcp
-```
+Displays owner, current release, process state, channels, and connectors.
 
 ### Destroy an agent
 
@@ -110,9 +153,11 @@ valet agents destroy <name>
 
 Permanently removes the agent and all releases. Cannot be undone.
 
-## Connectors (MCP Tool Access)
+## Connectors
 
-### Create a stdio connector (local command)
+Connectors give agents access to MCP tools. When created inside a linked agent directory, connectors auto-attach and trigger a new deploy.
+
+### Create a stdio connector
 
 ```
 valet connectors create <name> [--org <org-name>] [--personal] \
@@ -122,56 +167,41 @@ valet connectors create <name> [--org <org-name>] [--personal] \
   --env KEY=secret:NAME
 ```
 
-Example — Slack MCP server:
+**Important**: `--args` takes comma-separated values, not space-separated. Use multiple `--env` flags for multiple variables.
+
+Example:
 ```
 valet connectors create slack-server \
   --transport stdio \
   --command npx \
   --args -y,@modelcontextprotocol/server-slack \
-  --env SLACK_BOT_TOKEN=secret:SLACK_BOT_TOKEN_NAME \
-  --env SLACK_TEAM_ID=secret:SLACK_TEAM_ID_NAME
+  --env SLACK_BOT_TOKEN=secret:SLACK_BOT_TOKEN \
+  --env SLACK_TEAM_ID=secret:SLACK_TEAM_ID
 ```
 
-The VAL_ALIAS passed is the name to a secret the user configures outside of the LLM.
-
-**Important**: `--args` takes comma-separated values, not space-separated. Multiple `--env` flags for multiple environment variables. Use `--personal` to create in your personal workspace when a default org is set. 
-
-### Create a remote connector (SSE or streamable-http)
+### Create a remote connector
 
 ```
-valet connectors create <name> [--org <org-name>] [--personal] \
+valet connectors create <name> \
   --transport streamable-http \
   --url https://mcp.example.com/mcp
 ```
 
-For SSE:
-```
-valet connectors create <name> [--org <org-name>] [--personal] \
-  --transport sse \
-  --url https://mcp.example.com/sse
-```
+Use `--header KEY=secret:VAL_ALIAS` for auth headers. Transport can be `streamable-http` or `sse`.
 
-Use `--header KEY=secret:VAL_ALIAS` for auth headers if needed.
-
-### Auto-attach behavior
-
-When you run `valet connectors create` inside a linked agent directory, the connector is automatically attached to that agent and a new release is deployed.
-
-### Manually attach/detach
+### Attach / Detach
 
 ```
 valet connectors attach <connector-name> [-a <agent-name>]
 valet connectors detach <connector-name> [-a <agent-name>]
 ```
 
-### Inspect and list
+### List and inspect
 
 ```
 valet connectors
 valet connectors info <name> [--org <org-name>]
 ```
-
-Output is grouped: `== personal` first, then each org alphabetically.
 
 ### Destroy a connector
 
@@ -179,9 +209,9 @@ Output is grouped: `== personal` first, then each org alphabetically.
 valet connectors destroy <name> [--org <org-name>]
 ```
 
-Detaches from all agents. Cannot be undone.
+## Channels
 
-## Channels (Message Entry Points)
+Channels are message entry points for agents. The most common type is a webhook.
 
 ### Create a webhook channel
 
@@ -189,285 +219,108 @@ Detaches from all agents. Cannot be undone.
 valet channels create webhook [name] \
   --agent <agent-name> \
   --verify hmac-sha256 \
-  --signature-header X-Hub-Signature-256 \
-  --delivery-key-header X-GitHub-Delivery \
-  --delivery-key-path event.id
+  --signature-header X-Hub-Signature-256
 ```
 
-Flags:
-- `--agent` or `-a`: Agent that owns this channel (uses linked agent if omitted)
-- `--verify`: Verification scheme — `none`, `hmac-sha256` (default), `svix`, `stripe`, or `static-token`
-- `--secret`: Webhook secret (auto-generated for `hmac-sha256` and `static-token` if omitted; required for `svix` and `stripe`)
-- `--signature-header`: Header name for the signature (`hmac-sha256` and `static-token` only; default: `X-Webhook-Signature`)
-- `--delivery-key-header`: HTTP header containing a unique delivery ID for deduplication (e.g. `X-GitHub-Delivery`)
-- `--delivery-key-path`: Dot-notation path to a unique delivery ID in the JSON body for deduplication (e.g. `event.id`). Use this for providers that embed the delivery ID in the body rather than a header
-- `--prompt`: Override prompt path (default: `channels/<name>.md`)
+Key flags: `--verify` (scheme: `none`, `hmac-sha256`, `svix`, `stripe`, `static-token`), `--secret`, `--signature-header`, `--delivery-key-header`, `--delivery-key-path`, `--prompt`. Run `valet channels create --help` for full details.
 
-The command outputs:
-- **Webhook URL**: The endpoint external services send messages to
-- **Webhook secret**: The signing secret (scheme-dependent)
-- **Verify**: The verification scheme and, for `hmac-sha256`/`static-token`, the signature header
-- **Dedup**: The delivery key header and/or body path, if configured
-- **Agent**: The owning agent, prompt path, and session strategy
+The command outputs the **webhook URL** and **signing secret** — always save and report these to the user.
 
-### Create a Telegram channel
+### Create a heartbeat channel
+
+Fire a prompt to the agent on a fixed interval:
 
 ```
-valet channels create telegram [name] \
+valet channels create heartbeat [name] \
   --agent <agent-name> \
-  --session-strategy per_conversation
+  --every 5m
 ```
 
 Flags:
 - `--agent` or `-a`: Agent that owns this channel (uses linked agent if omitted)
-- `--session-strategy` or `-s`: `per_invocation` (default) or `per_conversation`
+- `--every`: Interval duration, e.g. `5m`, `1h`, `30s` (required)
+- `--timezone`: IANA timezone for display purposes (default: UTC)
 - `--prompt`: Override prompt path (default: `channels/<name>.md`)
 
-Webhook-specific flags (`--verify`, `--secret`, `--signature-header`, `--delivery-key-header`, `--delivery-key-path`) are not used with Telegram channels and will produce an error if supplied.
+Webhook-specific flags (`--verify`, `--secret`, `--signature-header`, `--delivery-key-header`, `--delivery-key-path`) are not used with heartbeat channels and will produce an error if supplied.
 
-The command outputs:
-- **Telegram link**: A `t.me` deep link that users click to connect their Telegram account to this channel
-- **Agent**: The owning agent, prompt path, and session strategy
+The command outputs the interval and the next scheduled fire time.
 
-### Inspect and list
+### Create a cron channel
+
+Fire a prompt to the agent on a cron schedule:
+
+```
+valet channels create cron [name] \
+  --agent <agent-name> \
+  --schedule "every day at 9am"
+```
+
+Or use a raw crontab expression:
+
+```
+valet channels create cron [name] \
+  --agent <agent-name> \
+  --cron "0 9 * * *"
+```
+
+Flags:
+- `--agent` or `-a`: Agent that owns this channel (uses linked agent if omitted)
+- `--schedule`: Human-readable schedule (e.g. `"every day at 9am"`, `"every monday at 9:00am"`, `"weekdays at 9:00am"`)
+- `--cron`: Raw crontab expression (e.g. `"0 9 * * *"`). Mutually exclusive with `--schedule`
+- `--timezone`: IANA timezone (default: UTC)
+- `--prompt`: Override prompt path (default: `channels/<name>.md`)
+
+`--schedule` and `--cron` are mutually exclusive; exactly one is required. Webhook-specific flags are not used with cron channels.
+
+The command outputs the schedule, next fire time, and timezone.
+
+### List, inspect, destroy
 
 ```
 valet channels
 valet channels info <name> [--agent <agent-name>]
-```
-
-### Destroy a channel
-
-```
 valet channels destroy <name> [--agent <agent-name>]
-```
-
-Permanently removes the channel. Cannot be undone.
-
-## Organizations
-
-### List your organizations
-
-```
-valet orgs
-```
-
-The current default org is marked with `(default)` in the output.
-
-### Create an organization
-
-```
-valet orgs create <name>
-```
-
-Automatically sets the new org as the default org.
-
-### Set the default org
-
-Show, set, or clear the default org:
-
-```
-valet orgs default            # show current default org
-valet orgs default <name>     # set default org
-valet orgs default --clear    # clear the default org
-```
-
-The default org is stored in `config.json` and is auto-set when you create or join an org, and auto-cleared when you leave or destroy the matching org. When set, `agents create` and `connectors create` target it automatically.
-
-### Destroy an organization
-
-```
-valet orgs destroy <name>
-```
-
-Permanently removes the org. Cannot be undone. Clears the default org if it matched.
-
-### Organization info
-
-```
-valet orgs info <name>
-```
-
-### Invite a member to an org
-
-```
-valet orgs invite <name> <email>
-```
-
-Generates an invitation code.
-
-### Join an org via invitation
-
-```
-valet orgs join <code>
-```
-
-Automatically sets the joined org as the default org.
-
-### Leave an organization
-
-```
-valet orgs leave <name>
-```
-
-Clears the default org if it matched.
-
-### List org members
-
-```
-valet orgs members <name>
-```
-
-Shows members and pending invitations.
-
-### Remove a member from an org
-
-```
-valet orgs remove <name> <email>
-```
-
-### Revoke a pending org invitation
-
-```
-valet orgs revoke <name> <email>
 ```
 
 ## Secrets
 
-Secrets keep sensitive values (API keys, tokens) outside the LLM context. Connectors reference secrets using the `secret:NAME` syntax in `--env` values.
+Secrets keep sensitive values outside the LLM context. Connectors reference them with `secret:NAME` in `--env` values.
 
-### List secret names
-
-```
-valet secrets [--agent <name> | --org <name>]
-```
-
-### Remove a secret
-
-```
-valet secrets unset <NAME> [--agent <name> | --org <name>] [--force]
-```
-
-### Critical: Handling secrets safely
+### Critical: handling secrets safely
 
 **NEVER ask the user for secret values within the LLM session.** Instead:
 
 1. Tell the user what secrets they need to configure.
-2. Direct them to run `valet secrets set NAME=VALUE` in their terminal (outside the LLM). Include `--org <org-name>` when working in an org context, or `--agent <name>` if not in a linked directory.
+2. Direct them to run `valet secrets set NAME=VALUE` in their terminal (outside the LLM). Include `--org <org-name>` or `--agent <name>` flags as needed.
 3. Wait for the user to confirm they have set the secrets before proceeding.
 
-When creating connectors that need secrets, reference them with `secret:NAME` in `--env` flags:
+### List and remove
 
 ```
-valet connectors create my-connector \
-  --transport stdio \
-  --command npx \
-  --args -y,@some/mcp-server \
-  --env API_KEY=secret:EXAMPLE_NAME
+valet secrets [--agent <name> | --org <name>]
+valet secrets unset <NAME> [--agent <name> | --org <name>] [--force]
 ```
 
-## Log Drains
+## Organizations, Process Management, and Other Commands
 
-### List log drains
+The following features are available but not detailed here. Use `valet help <command>` to learn about them when needed:
 
-```
-valet drains [--agent <name>]
-```
+| Command | Purpose | Help |
+|---------|---------|------|
+| `valet orgs` | Create, manage, and switch between shared workspaces | `valet help orgs` |
+| `valet run <prompt>` | Send a single prompt to an agent | `valet help run` |
+| `valet console` | Start an interactive REPL with an agent | `valet help console` |
+| `valet exec` | Run a command with secrets injected into its environment | `valet help exec` |
+| `valet logs` | Stream live logs from a deployed agent | `valet help logs` |
+| `valet ps` | List or restart agent processes | `valet help ps` |
+| `valet drains` | Configure log drains (OTLP HTTP) | `valet help drains` |
 
-### Create a log drain
+**Org tips**: When working within an org, pass `--org <name>` to agent, connector, and secrets commands — or set a default with `valet orgs default <name>`. Use `--personal` to bypass the default org.
 
-```
-valet drains create <endpoint> [--agent <name>] [--header Key=Value]
-```
+## Common Workflows
 
-Logs are delivered as OTLP JSON via HTTP POST.
-
-### Destroy a log drain
-
-```
-valet drains destroy <endpoint> [--agent <name>]
-```
-
-### Inspect a log drain
-
-```
-valet drains info <endpoint> [--agent <name>]
-```
-
-## Process Management
-
-### List processes
-
-```
-valet ps [-a <name>]
-```
-
-Lists processes for a deployed agent.
-
-### Restart processes
-
-```
-valet ps restart [-a <name>]
-```
-
-Restarts all processes. Picks up env/secret changes without redeploying.
-
-## Run
-
-Send a single prompt to an agent and stream the response:
-
-```
-valet run <prompt> [-a <agent>] [--json] [--timeout duration]
-```
-
-The agent is determined by the `--agent` flag or the linked agent in the current directory. Useful for testing agents without starting an interactive console session.
-
-Before sending the prompt, `valet run` checks the agent's state:
-- **`up`**: proceeds immediately.
-- **`starting` / `pending`**: prints `Waiting for agent to start...`, polls until ready, then re-fetches the agent for a fresh URL and token.
-- **`crashed` / `down` / `inactive`**: prints a clear error message and exits with code 1.
-
-## Logs
-
-Stream live logs from a deployed agent:
-
-```
-valet logs [-a <name>]
-```
-
-Each log line is formatted as:
-
-```
-<timestamp> <source> <process> <level> <message> [key=value ...]
-```
-
-Structured attributes (tool names, arguments, token counts, etc.) appear after the message as sorted `key=value` pairs. Values that contain spaces are quoted. For example:
-
-```
-2026-02-28T00:58:32Z agent web.1 INFO tool_execute_start tool=bash
-2026-02-28T00:58:33Z agent web.1 INFO tool_execute_done duration=1.2s tool=bash
-```
-
-Press Ctrl+C to stop streaming.
-
-## Interactive Console
-
-Start a REPL session with an agent:
-
-```
-valet console [-a <name>]
-```
-
-The agent is determined by the `--agent` flag or the linked agent in the current directory.
-
-Before opening the session, `valet console` checks the agent's state:
-- **`up`**: proceeds immediately.
-- **`starting` / `pending`**: prints `Waiting for agent to start...`, polls until ready, then opens the session.
-- **`crashed` / `down` / `inactive`**: prints a clear error message and exits with code 1.
-
-## Common Multi-Step Workflows
-
-### Full agent setup with connectors and webhook
+### Full agent setup
 
 1. Create the agent from a directory with `SOUL.md`:
    ```
@@ -495,7 +348,7 @@ Before opening the session, `valet console` checks the agent's state:
      --signature-header X-Hub-Signature-256
    ```
 
-5. Create the channel file at `channels/my-channel.md` that tells the agent how to process incoming messages. See [Writing channel files](#writing-channel-files) for guidance on scoping.
+5. Create the channel file at `channels/my-channel.md` (see "Writing Channel Files").
 
 6. Deploy to pick up the channel file:
    ```
@@ -504,132 +357,50 @@ Before opening the session, `valet console` checks the agent's state:
 
 7. Validate end-to-end with an interactive test loop (see below).
 
-### Interactive test loop (mandatory for first-time setup)
+### Interactive test loop (mandatory for first-time channel setup)
 
-After deploying an agent with channels for the first time, always
-validate it works end-to-end before considering setup complete.
-
-1. Start streaming logs to a temp file in the background:
+1. Start streaming logs in the background:
    ```
    valet logs > /tmp/valet-test-<agent-name>.log 2>&1
    ```
    (Run via Bash with `run_in_background: true`.)
 
-2. Tell the user the agent is live and ask them to trigger it via the
-   real channel — send the email, push to GitHub, submit the form,
-   whatever the channel expects. Be specific about what they need to
-   do.
+2. Ask the user to trigger the channel (send the email, push to GitHub, etc.). Be specific about what they need to do.
 
-3. Wait for the user to confirm the trigger completed (or report that
-   something went wrong).
+3. Wait for the user to confirm the trigger completed.
 
 4. Stop the background log stream and read the log file.
 
-5. Review the logs. Look for:
-   - **Healthy signs**: Few turns, `mcp_call_tool_start` /
-     `mcp_call_tool_done` pairs, `dispatch_complete`.
-   - **Unhealthy signs**: Many consecutive turns with only built-in
-     tool calls (agent is searching/looping), no
-     `mcp_call_tool_start` (agent can't find its tools), no
-     `dispatch_complete` (agent timed out or got stuck).
+5. Review the logs:
+   - **Healthy**: Few turns, `mcp_call_tool_start`/`mcp_call_tool_done` pairs, `dispatch_complete`.
+   - **Unhealthy**: Many turns with only built-in tools (agent looping), no `mcp_call_tool_start` (can't find tools), no `dispatch_complete` (timeout/stuck).
 
-6. If the logs show problems, diagnose and fix — update SOUL.md or
-   the channel prompt, then redeploy:
-   ```
-   valet agents deploy
-   ```
+6. If problems, fix SOUL.md or channel prompt, redeploy, and repeat.
 
-7. Loop back to step 1 until the user confirms the agent is working
-   correctly.
-
-### Setting up an org-owned agent
-
-1. Create the agent within an org:
-   ```
-   cd my-agent-project
-   valet agents create my-agent --org my-org
-   ```
-
-2. Direct the user to set secrets scoped to the org:
-   ```
-   valet secrets set API_KEY=<their-key> --org my-org
-   ```
-
-3. Create connectors within the org:
-   ```
-   valet connectors create my-connector --org my-org \
-     --transport stdio \
-     --command npx \
-     --args -y,@some/mcp-server \
-     --env API_KEY=secret:API_KEY
-   ```
-
-4. Continue with channels, hooks, and deploy as usual.
-
-### Using the default org
-
-If you work primarily within one org, set it as the default so you don't have to pass `--org` every time:
-
-```
-valet orgs default my-org
-```
-
-After this, `agents create` and `connectors create` automatically target `my-org`. To create something in your personal workspace instead:
-
-```
-valet agents create my-agent --personal
-```
-
-To stop using a default org:
-
-```
-valet orgs default --clear
-```
-
-### Complete teardown (order matters)
+### Teardown (order matters)
 
 Destroy channels and connectors before the agent:
-
 ```
 valet channels destroy <channel-name>
 valet connectors destroy <connector-name>
 valet agents destroy <agent-name>
 ```
 
-### Adding a new connector to an existing agent
-
-First, have the user set any needed secrets in their terminal:
-```
-valet secrets set API_KEY=...
-```
-
-Then create the connector referencing the secret:
-```
-cd my-agent-project
-valet connectors create new-tool \
-  --transport stdio \
-  --command npx \
-  --args -y,@some/mcp-server \
-  --env API_KEY=secret:API_KEY
-```
-
-If the directory is linked, this auto-attaches and deploys.
-
-### Redeploying after changes
-
-After completing editing `SOUL.md`, channel files, or other agent files:
+### Debugging
 
 ```
-valet agents deploy
+valet agents info my-agent   # Check state, channels, connectors
+valet logs --agent my-agent  # Stream live logs
+valet ps restart -a my-agent # Restart without redeploying
 ```
 
-### Designing a new agent
+## Designing a New Agent
 
 **When to use**: The user asks to "build an agent", "create an agent from scratch", "design an automation", or provides skill/MCP URLs to assemble into an agent.
 
 Be curious, confirmatory, and opinionated. Suggest improvements, anticipate edge cases, and help refine the idea. **7 questions max, fewer if sufficient.**
 
-#### Step 1: Parse the user's input
+### Step 1: Parse the user's input
 
 The user's prompt may contain a description of what they want and/or URLs pointing to skills, tools, or MCP servers. Extract both.
 
@@ -644,7 +415,7 @@ For each URL: fetch with `WebFetch`, identify type, discover the full package, e
 
 If no URLs, proceed directly to the interview.
 
-#### Step 2: Interview
+### Step 2: Interview
 
 Use `AskUserQuestion` for structured choices, direct conversation for open-ended questions. Track question count — stop and build once you have enough.
 
@@ -657,7 +428,7 @@ Ask about the trigger if not already clear:
 - Webhook — event-driven (email, push, form submission)
 - Prompt — user sends a message via `valet run` or console
 
-**Questions 2–6 — Adaptive deep-dive** 
+**Questions 2–6 — Adaptive deep-dive**
 
 Be opinionated: suggest better approaches, flag automatable manual steps, raise obvious edge cases. **Stop early** if 1–3 questions gives a clear picture of the user intent.
 
@@ -667,7 +438,6 @@ Some example topics you might need to understand better are:
 * Workflow clarification — decision points, branching logic
 * Output format — where/how results are delivered (Slack channel, email, file, etc.)
 * Edge cases and guardrails — suggest failure modes, ask about constraints
-
 
 #### Tool discovery
 
@@ -681,7 +451,48 @@ When the user mentions a capability not covered by imported URLs:
 
 Always prefer existing connectors in the user's org over creating new ones.
 
-#### Step 3: Generate the agent
+### Step 3: Present the plan and confirm
+
+After the interview and any tool/skill discovery, **stop and present a clear plan to the user before building anything**. The plan sets expectations about what will happen on their machine, what the agent will do automatically, and what the user will need to do manually. This gives the user a chance to change direction before any work begins — especially important when external setup (API credentials, third-party configuration, cloud consoles) is involved.
+
+Present the plan in this format:
+
+```
+Here's the plan for your <agent-name> agent:
+
+**What I'll create on your machine:**
+- A project directory with SOUL.md defining the agent's identity and behavior
+- [Channel files for <channel-type> triggers, if applicable]
+- [Skill files for <connector> usage, if applicable]
+
+**What I'll set up on the Valet platform:**
+- The agent itself (registered and deployed)
+- [Connectors: <list each connector by name and what it provides>]
+- [Channels: <list each channel by type and purpose>]
+
+**What you'll need to do:**
+- [Set secrets in your terminal: <list each secret and what it's for>]
+- [External setup: <specific steps, e.g., "Create a Google Cloud project,
+  enable the Gmail API, and generate OAuth credentials — I'll walk you
+  through this when we get there">]
+- [Any other manual steps the user must perform]
+
+[If external setup is complex, call it out explicitly: "The <service>
+integration requires some setup on your end — <brief description of
+what's involved>. If that feels like too much, we could <alternative
+approach> instead."]
+
+Want to proceed with this plan, or would you like to adjust anything?
+```
+
+**Guidelines for the plan:**
+
+- **Be specific about user obligations.** Don't say "set up API credentials" — say "create a Slack app at api.slack.com, add the `chat:write` scope, install it to your workspace, and copy the Bot User OAuth Token." The user needs to know what they're signing up for.
+- **Flag complexity honestly.** If an integration requires navigating a cloud console, setting up OAuth, configuring webhooks on a third-party service, or any multi-step external process — say so clearly. This is often where users decide to change approach.
+- **Offer alternatives when they exist.** If the user's goal can be achieved a simpler way (different service, fewer integrations, manual step instead of automation), mention it.
+- **Wait for explicit confirmation.** Do not proceed to Step 4 until the user says yes. If they want changes, revise the plan and present it again.
+
+### Step 4: Generate the agent
 
 1. Create the project directory: `mkdir -p <agent-name>/channels`
 2. Write `SOUL.md` following the "Writing SOUL.md" guidance below
@@ -694,6 +505,7 @@ Always prefer existing connectors in the user's org over creating new ones.
    - [ ] Channel files have Scope section if webhook-driven
    - [ ] Channel files include webhook payload location instruction
    - [ ] No secrets or API keys in any file
+   - [ ] AGENTS.md written as the last step (see "Writing AGENTS.md")
 6. Create and deploy:
    ```
    cd <agent-name>
@@ -712,25 +524,25 @@ Always prefer existing connectors in the user's org over creating new ones.
    valet channels create webhook <channel-name>
    ```
 10. Deploy to pick up channel files: `valet agents deploy`
-11. If the agent has channels, run the interactive test loop (see
-    "Interactive test loop" under Common Multi-Step Workflows).
+11. If the agent has channels, run the interactive test loop (see "Interactive test loop" under Common Workflows).
+12. **Last step**: Write `AGENTS.md` in the project root (see "Writing AGENTS.md"). This summarizes the full setup for future developers.
 
-#### Edge cases
+### Design edge cases
 
 | Case | Handling |
 |------|----------|
-| No URLs, pure description | Standard confirmatory interview.|
+| No URLs, pure description | Standard confirmatory interview. |
 | URLs only, no description | Present imported capabilities, ask what the agent should do with them. |
 | Mix of URLs and description | Fetch URLs first, then interview with imported context. |
 | URL unreachable | Report error. Ask for alternative URL or direct paste. |
 | Name collision | Run `valet agents` to check. Ask to choose a different name. |
 | MCP server needs API keys | Document in SOUL.md Environment Requirements. Direct user to `valet secrets set`. Never ask for actual values. |
 
-### Learning from the current session
+## Learning from the Current Session
 
 **When to use**: The user says "save this as an agent", "capture this workflow", "learn from this session", or "make this repeatable".
 
-#### Step 1: Locate the session log
+### Step 1: Locate the session log
 
 1. Convert the current working directory to the Claude projects path:
    `~/.claude/projects/-<cwd-with-slashes-replaced-by-dashes>/`
@@ -740,7 +552,7 @@ Always prefer existing connectors in the user's org over creating new ones.
    ls -t ~/.claude/projects/-<path>/*.jsonl | head -1
    ```
 
-#### Step 2: Parse the session
+### Step 2: Parse the session
 
 Read the JSONL file with the Read tool. Each line is a JSON object. Extract:
 
@@ -757,7 +569,7 @@ Also check `~/.claude/projects/<project-path>/sessions-index.json` for `summary`
 
 If the session is empty (no user prompts besides the learn trigger), inform the user and stop.
 
-#### Step 3: Present analysis and interview
+### Step 3: Present analysis and interview
 
 Show the analysis:
 
@@ -778,9 +590,13 @@ Ask clarifying questions (skip any with obvious answers from the session):
 3. **Corrections**: Surface each detected correction and ask whether the agent should always follow the corrected approach.
 4. **Name**: Propose a kebab-case name (<64 chars). Let the user confirm.
 
-#### Step 4: Generate the agent
+### Step 4: Present plan and confirm
 
-Follow the same generation flow as "Designing a new agent" (Step 3 above), but source content from the session:
+Follow the same confirmation flow as "Designing a New Agent" Step 3. Present what will be created, what platform resources will be set up, and what the user needs to do. Wait for confirmation.
+
+### Step 5: Generate the agent
+
+Follow the same generation flow as "Designing a New Agent" (Step 4 above), but source content from the session:
 
 - **Purpose**: From user prompts + corrections + interview refinements
 - **Workflow phases**: From the chronological sequence of tool calls, grouped by logical purpose (e.g., "Data Collection", "Analysis", "Post Results")
@@ -788,8 +604,9 @@ Follow the same generation flow as "Designing a new agent" (Step 3 above), but s
 - **Guardrails Never**: From corrections, observed mistakes, and domain norms
 - Replace session-specific values with `<placeholder>`s
 - Genericize Q&A exchanges as guidance (e.g., "if ambiguous, prefer X")
+- **Last step**: Write `AGENTS.md` in the project root (see "Writing AGENTS.md")
 
-#### Edge cases
+### Edge cases
 
 | Case | Handling |
 |------|----------|
@@ -798,128 +615,9 @@ Follow the same generation flow as "Designing a new agent" (Step 3 above), but s
 | Long session (>500 entries) | Sample first 3 + last 3 user prompts. Summarize tool usage by frequency. |
 | Many corrections | Present each one. Let the user decide which to encode as guardrails. |
 
-## Writing Channel Files
-
-Channel files are instructions TO the agent, not descriptions OF the
-channel. Write them as direct imperatives.
-
-A channel file tells the agent what to do when a webhook arrives.
-Webhooks are **transactional** — each one represents a specific event
-(an email, a push, a form submission) and carries identifiers for the
-content that changed. The channel file must scope the agent's actions
-to that transaction.
-
-**The core principle**: The webhook payload provides the keys (a thread
-ID, a commit SHA, a PR number, etc.) that define the agent's scope of
-work. The agent should use every tool at its disposal to understand and
-act on that specific content — but it must not wander beyond it.
-
-Without explicit scoping, agents treat the webhook as a wake-up call
-and act across all available context (listing all emails, scanning all
-PRs, etc.). The channel file prevents this.
-
-### Webhook payload location (critical)
-
-The JSON webhook payload is appended directly after the channel file
-instructions in the user message at runtime. The agent receives the
-channel prompt followed by the raw JSON — inline, in the same message.
-
-Every channel file **must** include this at the
-top, before any other instructions:
-
-```
-The JSON webhook payload is appended directly after these instructions
-in the user message. Parse it inline — do not fetch, list, or search
-for the payload elsewhere. Do NOT use tools to read the payload.
-```
-
-Without this, agents waste dozens of turns searching for the payload
-with tool calls. They read the channel file, don't find JSON in it,
-and spiral into list/read/search loops. This single instruction
-prevents that entirely.
-
-### Structure of a channel file
-
-A channel file should contain:
-
-1. **Payload location** — the webhook payload instruction above.
-2. **What happened** — a plain description of the event.
-3. **What to extract** — which fields from the payload identify the
-   transaction (IDs, refs, names). Be explicit about field names.
-4. **Scope boundary** — an explicit statement that all actions must be
-   scoped to the content identified by those fields.
-5. **What to do** — step-by-step instructions for processing.
-
-Keep channel prompts focused — the agent should complete the task in
-1-3 tool calls after parsing the inline payload, not 15.
-
-### Example: email webhook
-
-```markdown
-# New Email Received
-
-The JSON webhook payload is appended directly after these instructions
-in the user message. Parse it inline — do not fetch, list, or search
-for the payload elsewhere. Do NOT use tools to read the payload.
-
-You received a webhook for a single new email.
-
-## Scope
-
-Extract the `thread_id` from the payload. All actions in this
-invocation are scoped to this thread. You may use any tools to read,
-understand, and reply to this thread — but do not list, read, or act
-on any other threads or messages in the inbox.
-
-## Steps
-
-1. Extract `thread_id`, `from_`, `subject`, and `text` from the
-   payload.
-2. [... task-specific steps ...]
-```
-
-### Example: GitHub push webhook
-
-```markdown
-# GitHub Push Event
-
-The JSON webhook payload is appended directly after these instructions
-in the user message. Parse it inline — do not fetch, list, or search
-for the payload elsewhere. Do NOT use tools to read the payload.
-
-You received a push event webhook.
-
-## Scope
-
-Extract the `ref` and `commits` array from the payload. Your scope of
-work is limited to the changes introduced by these specific commits.
-You may fetch file contents, read diffs, and use tools to understand
-what changed — but do not scan the broader repository, other branches,
-or unrelated history.
-
-## Steps
-
-1. Parse the `commits` array from the payload.
-2. [... task-specific steps ...]
-```
-
-### Reinforcing scope in SOUL.md
-
-The channel file scopes each invocation, but the agent's `SOUL.md` should reinforce the general principle so it applies across all channels:
-
-```markdown
-## Webhook Scope Rule
-
-When you receive a webhook, your scope of work is defined by the
-identifiers in the payload (thread IDs, commit SHAs, PR numbers, etc.).
-Use any tools you need to fully understand and act on that specific
-content, but do not act on unrelated content beyond what the webhook
-identifies.
-```
-
 ## Writing SOUL.md
 
-SOUL.md defines the agent's identity and behavior. It's the only required file in an agent project. Every deployed agent must have one.
+SOUL.md defines the agent's identity and behavior. It's the only required file.
 
 ### Template
 
@@ -928,13 +626,11 @@ SOUL.md defines the agent's identity and behavior. It's the only required file i
 
 ## Purpose
 
-<2-3 sentences: what this agent does and why. Be specific — name the tools,
-the inputs, and the outputs.>
+<2-3 sentences: what this agent does and why. Name the specific tools, inputs, and outputs.>
 
 ## Personality
 
-<3-4 named traits matching the agent's domain. Each has a bold name and
-one-sentence description.>
+<3-4 traits matching the agent's domain. Skip for simple utility agents.>
 
 - **<Trait>**: <Description>
 
@@ -952,106 +648,166 @@ one-sentence description.>
 ## Guardrails
 
 ### Always
-- <Positive constraint from patterns, requirements, or domain norms>
+- <Positive constraint>
 
 ### Never
-- <Negative constraint from corrections, limitations, or safety rules>
+- <Negative constraint>
 ```
 
 ### Optional sections
 
-Not every agent needs every section. Simple agents (like a webhook email forwarder) may only need Purpose, a few behavior rules, and Guardrails. Richer agents add sections as needed:
-
-- **Target Channel** — Fixed output destination (Slack channel, email address). Include the channel ID if known.
-- **Environment Requirements** — API keys, runtime dependencies (Node.js, yt-dlp). Document what must be configured as secrets.
-- **Skills Used** — Document which connectors/MCP tools/built-in tools the agent uses and how. Useful for agents with many integrations.
-- **Webhook Scope Rule** — If the agent handles webhooks, include a scope section (see "Reinforcing scope in SOUL.md" under Writing Channel Files).
-- **MEMORY.md Format** — If the agent needs to track state across invocations, define the format. Note: written files persist across sessions but not across deploys (see "File lifecycle at runtime").
-- Custom domain-specific sections as needed (e.g., "YouTube Source", "Target Subreddits").
+Add as needed: **Target Channel**, **Environment Requirements**, **Webhook Scope Rule**, **Skills Used**, **MEMORY.md Format**.
 
 ### Synthesis rules
 
-- **Purpose**: Specific what + why. Name the concrete inputs, outputs, and tools. Good: "Monitors Lenny's Podcast YouTube channel for new episodes, downloads transcripts, summarizes content, and posts digests to #customer-research on Slack." Bad: "Processes data from various sources."
-- **Personality**: Match the domain. Research agent = "analytical, precise, quote-driven". Content agent = "creative, engaging". Code agent = "methodical, constructive". Skip this section for simple utility agents.
-- **Workflow**: Concrete numbered steps referencing actual tool names. Group into phases by logical purpose (Data Collection → Analysis → Output). Include code snippets or command patterns when they clarify the workflow.
-- **Guardrails Always**: From positive patterns — things the agent must consistently do (check for duplicates, verify message length, include timestamps).
-- **Guardrails Never**: From corrections and constraints — things the agent must avoid (don't process unrelated content, don't hardcode channel IDs, don't ask for secrets).
-- **Placeholders**: Replace session-specific or user-specific values (database IDs, channel IDs, user URLs, API keys) with `<placeholder-name>`. Exception: well-known stable values (like a specific Slack channel name) can stay if the agent's purpose is tied to them.
-
+- **Purpose**: Specific what + why. Name inputs, outputs, and tools. Good: "Monitors YouTube channel X for new episodes, downloads transcripts, and posts digests to #channel on Slack." Bad: "Processes data."
+- **Workflow**: Concrete numbered steps with actual tool names. Group into phases by logical purpose.
+- **Guardrails Always**: From positive patterns the agent must consistently follow.
+- **Guardrails Never**: From corrections and constraints the agent must avoid.
+- **Placeholders**: Replace user-specific values (IDs, URLs, keys) with `<placeholder-name>`.
 
 ### Common mistakes
 
-- **Empty or vague Purpose**: "This agent processes data" — doesn't say what data, from where, or what it produces. Always name the specific inputs, tools, and outputs.
-- **Missing Workflow**: A Purpose without a Workflow leaves the agent guessing how to accomplish its goal. Always include concrete steps.
-- **Hardcoded values that should be placeholders**: Embedding specific user IDs, database IDs, or API endpoints that will differ per deployment. Use `<placeholder-name>` syntax.
-- **Missing Guardrails**: Every agent needs at least a few constraints. Even simple agents should have Never rules to prevent scope creep.
-- **Vague instructions**: "Handle errors appropriately" — specify how. "Process the data" — specify which data, which tools, what output.
-- **No scope boundary for webhook agents**: Without explicit scope rules, webhook agents will wander beyond the payload. Always include scope constraints.
+- Empty or vague Purpose — always name specific inputs, tools, and outputs
+- Missing Workflow — Purpose without steps leaves the agent guessing
+- Hardcoded values that should be `<placeholder>`s
+- No scope boundary for webhook agents (see Writing Channel Files)
 
-## Writing Skill Files
+## Writing Channel Files
 
-Skill files provide additional instructions on how to complete specific tasks or use specific tools. They're optional and may be included by reference by the users intial prompt. The skills should complement SOUL.md's Workflow section, and must be referenced by SOUL.md or a Channel file to be used..
+Channel files tell the agent what to do when a message arrives. They are instructions TO the agent, written as direct imperatives.
 
-### When to write
+### Webhook payload location (critical)
 
-Copy in a skill when the user references the inclusion of an existing skill.
+The JSON webhook payload is appended inline after the channel file in the user message. Every channel file **must** start with:
 
-Write a new skill file when the agent uses a connector in a non-obvious way — custom input patterns, specific field mappings, or error handling strategies. Skip for straightforward tool usage where the tool's built-in description is sufficient.
+```
+The JSON webhook payload is appended directly after these instructions
+in the user message. Parse it inline — do not fetch, list, or search
+for the payload elsewhere. Do NOT use tools to read the payload.
+```
+
+Without this, agents waste turns searching for the payload with tool calls.
+
+### Structure
+
+1. **Payload location** — the instruction above
+2. **What happened** — describe the event
+3. **What to extract** — which payload fields identify the transaction (IDs, refs)
+4. **Scope boundary** — all actions must be scoped to those identifiers
+5. **What to do** — step-by-step processing instructions
+
+### Example
+
+```markdown
+# New Email Received
+
+The JSON webhook payload is appended directly after these instructions
+in the user message. Parse it inline — do not fetch, list, or search
+for the payload elsewhere. Do NOT use tools to read the payload.
+
+You received a webhook for a single new email.
+
+## Scope
+
+Extract the `thread_id` from the payload. All actions are scoped to
+this thread. Do not list, read, or act on any other threads.
+
+## Steps
+
+1. Extract `thread_id`, `from_`, `subject`, and `text` from the payload.
+2. [... task-specific steps ...]
+```
+
+### Reinforcing scope in SOUL.md
+
+For webhook-driven agents, add to SOUL.md:
+
+```markdown
+## Webhook Scope Rule
+
+When you receive a webhook, your scope of work is defined by the
+identifiers in the payload. Use any tools to fully understand and act
+on that specific content, but do not act on unrelated content.
+```
+
+## Writing AGENTS.md
+
+`AGENTS.md` is the **last file written** before the session ends. It lives in the root of the agent project directory and serves as a human- and LLM-readable setup guide for anyone who needs to deploy this agent in the future.
+
+**NEVER include secret values, API keys, or tokens in AGENTS.md.** Only describe what is needed and why.
+
+### Template
+
+```markdown
+This folder contains the source for a Skilled Agent originally built for the Valet runtime. Changes should follow the Skilled Agent open standard.
+
+## Setup
+
+### Connectors
+
+- **<connector-name>**: <plain-English description of what it provides and why the agent needs it>
+  [Repeat for each connector]
+
+### Channels
+
+- **<channel-name>** (<channel-type>): <what triggers this channel and what the agent does when it fires>
+  [Repeat for each channel]
+
+### Secrets
+
+- **<SECRET_NAME>**: <what this secret is for, where to obtain it, and any scopes or permissions required>
+  [Repeat for each secret]
+
+### External Setup
+
+[If the agent requires any configuration outside of Valet — third-party service setup, OAuth apps, cloud console steps, DNS records, etc. — describe each step here in plain English. Be specific enough that a person unfamiliar with the project can follow along.]
+```
+
+### Rules
+
+- **Write in plain English.** Describe each requirement as a noun and a reason: "A GitHub connector for reading source code and pull requests", not `npx -y @modelcontextprotocol/server-github --args ...`.
+- **Be specific about secrets.** Say "A GitHub personal access token with `repo` scope for reading private repositories", not "GITHUB_TOKEN".
+- **Include external setup.** If the agent depends on a Slack app, a Google Cloud project, a webhook registration in a third-party service, or anything else outside Valet — document the steps. This is often the part a future developer will struggle with most.
+- **Omit sections that don't apply.** If the agent has no channels, leave out the Channels section. If there's no external setup, leave that out too.
+- **Write this file last.** It summarizes the completed agent, so it should reflect the final state of the project after all connectors, channels, and secrets are configured.
 
 ## Agent Project Structure
 
-A typical agent project directory:
-
 ```
 my-agent/
+  AGENTS.md            # Setup guide for future developers (required)
   SOUL.md              # Agent identity and behavior (required)
-  channels/            # Channel files for webhook-driven agents
+  channels/            # Channel files (for webhook/trigger-driven agents)
     <channel-name>.md
   skills/              # Agent-scoped skill documentation (optional)
     <connector-name>/
       SKILL.md
-  scripts/             # Utility scripts (optional)
   .valet/
-    config.json        # Auto-managed by valet CLI
+    config.json        # Auto-managed by CLI
 ```
 
-### File lifecycle at runtime
-
-All files included in the deployed agent bundle (`SOUL.md`, `channels/`, `skills/`, `scripts/`, etc.) are **read-only** to the agent at runtime. The agent cannot modify its own SOUL.md, channel files, or skill files.
-
-The agent **can** write new files (e.g., `MEMORY.md`, temp files, output artifacts). Written files persist across sessions but **do not survive deploys** — each `valet agents deploy` starts from a clean copy of the project directory. Design agents accordingly: any state that must survive a deploy should be stored externally (e.g., in a database, a Notion page, or an MCP-accessible service).
-
-## Help and Discovery
-
-```
-valet help                          # Top-level help
-valet help <command>                # Command-specific help
-valet <command> <subcommand> --help # Subcommand help
-valet topics                        # List help guides
-valet topics <name>                 # Read a specific guide
-valet version                       # Print CLI version
-```
-
-Useful topics:
-- `getting-started` — initial setup walkthrough
-- `agent-lifecycle` — creating, deploying, and managing agents
-- `channels` — channels, ownership, and session strategies
-- `connectors-overview` — connector types and configuration
+All deployed files are **read-only** at runtime. The agent can write new files (e.g., MEMORY.md), but written files **do not survive deploys**.
 
 ## Execution Guidelines
 
 - Always run commands via the Bash tool.
-- When the user asks to set up an agent, guide them through the full workflow (create, connectors, secrets, channels, hooks, deploy).
-- **Never ask for secret values inside the LLM session.** Direct the user to run `valet secrets set NAME=VALUE` in their own terminal and wait for them to confirm before proceeding. When creating connectors that need secrets, reference them with `secret:NAME` in `--env` flags.
-- When the user is working within an org, pass `--org <org-name>` to agent, connector, and secrets commands — or help them set a default org with `valet orgs default <name>` so they don't have to repeat it.
-- If a command fails, read the error output and troubleshoot. Common issues:
-  - Not logged in: run `valet auth login`
-  - No `SOUL.md` in directory: create one or `cd` to the right directory
-  - Not linked: run `valet agents link <name>`
-- When the user asks to create an agent from scratch, follow the "Designing a new agent" workflow under Common Multi-Step Workflows.
-- When the user asks to capture the current session as an agent, follow the "Learning from the current session" workflow under Common Multi-Step Workflows.
-- When writing SOUL.md, follow the template and synthesis rules in "Writing SOUL.md". Never leave Purpose or Workflow empty.
+- **Be explanatory**: Before running any valet command, briefly tell the user *what* you're about to do and *why*. Don't silently execute commands — the user should always understand the purpose of each step.
+- **Installation guardrails**: Follow the Installation section strictly. If the CLI is not installed, explain why it's needed and attempt installation via Homebrew. If Homebrew fails, **stop immediately** — do not retry, work around, or troubleshoot brew issues. Let the user resolve it manually.
+- **Authentication first**: Always verify the user is logged in (`valet auth whoami`) before running any non-auth valet commands. If not logged in, explain that authentication is required and run `valet auth login`. Do not proceed until authentication succeeds.
+- **Use `valet help` proactively**: When you encounter a command, flag, or feature you're unsure about, run `valet help <command>` before guessing. The CLI help is the authoritative source.
+- **Never ask for secret values inside the LLM session.** Direct the user to run `valet secrets set NAME=VALUE` in their own terminal and wait for confirmation.
+- When the user asks to create an agent from scratch, follow "Designing a New Agent".
+- When the user asks to capture the current session as an agent, follow "Learning from the Current Session".
+- When writing SOUL.md, follow the template and synthesis rules. Never leave Purpose or Workflow empty.
 - For destructive commands (`destroy`, `remove`, `revoke`), always confirm with the user first.
-- When creating webhook channels, always save and report back the webhook URL and signing secret (these are newly generated endpoint details, not user credentials) — the user will need these to configure their external service.
-- When writing channel prompt files, always state explicitly that the webhook payload is inline in the user message. Agents cannot infer this — they will waste turns searching for data if you don't tell them where it is.
-- After deploying an agent with channels for the first time, always run through at least one interactive test cycle (log → trigger → review) with the user before considering the setup complete.
+- When creating webhook channels, always report back the webhook URL and signing secret.
+- When writing channel prompt files, always include the webhook payload location instruction.
+- After deploying an agent with channels for the first time, always run the interactive test loop.
+- If a command fails, read the error output and troubleshoot. Common issues:
+  - Not logged in → `valet auth login`
+  - No `SOUL.md` → create one or `cd` to the right directory
+  - Not linked → `valet agents link <name>`
+  - Agent crashed → check `valet logs`, fix, redeploy
+  - **Homebrew errors → do NOT troubleshoot. Stop and ask the user to resolve manually.**
+
