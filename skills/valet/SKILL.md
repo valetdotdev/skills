@@ -70,16 +70,6 @@ When you encounter an unfamiliar flag, subcommand, or error — run `valet help`
 
 ## Onboarding
 
-### Guided setup (new users)
-
-Run the guided four-step onboarding flow to get started from scratch:
-
-```
-valet setup
-```
-
-Steps: (1) log in, (2) install the `/valet` skill for Claude Code, (3) scaffold a new agent project, (4) deploy and verify. Each step can be skipped if already completed. Press Ctrl+C at any prompt to cancel.
-
 ### Scaffold a new agent project
 
 Create a new agent project directory without running the full setup flow:
