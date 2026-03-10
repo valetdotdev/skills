@@ -360,6 +360,33 @@ valet secrets set <NAME=VALUE>... [--org <org>] [--agent <agent>] [--no-wait]
 
 Must specify exactly one scope: `--org` or `--agent` (or run from a linked agent directory). Agent-scoped secrets trigger a redeploy; org-scoped do not.
 
+### How secret:NAME resolution works
+
+**The entire value must be `secret:NAME`.** The system checks if a value starts with `secret:` and replaces the whole value with the secret's stored content. It does **not** do substring interpolation. This means you cannot embed a secret reference inside a larger string.
+
+```
+# WRONG — "Bearer secret:API_KEY" does NOT start with "secret:", so it
+# is passed through as a literal string. The secret is never resolved.
+--header "Authorization=Bearer secret:API_KEY"
+
+# CORRECT — the entire value is the secret reference. Bake the prefix
+# into the secret value itself.
+--header "Authorization=secret:API_KEY"
+# Then set the secret WITH the Bearer prefix:
+valet secrets set API_KEY="Bearer sk-abc123" --org acme
+```
+
+**Rule: always store the complete value the connector needs as the secret.** Common patterns:
+
+| What the service expects | Header flag | Secret value to set |
+|--------------------------|-------------|---------------------|
+| `Bearer <token>` | `--header "Authorization=secret:TOKEN"` | `TOKEN="Bearer sk-abc123"` |
+| `Bot <token>` | `--header "Authorization=secret:BOT_TOKEN"` | `BOT_TOKEN="Bot xoxb-abc"` |
+| `token <token>` | `--header "Authorization=secret:TOKEN"` | `TOKEN="token ghp_abc"` |
+| Raw key (no prefix) | `--header "X-API-Key=secret:KEY"` | `KEY="abc123"` |
+
+When directing the user to set secrets, **always tell them what format the value should be in**, including any prefix the service expects.
+
 ### List and remove
 
 ```
