@@ -89,7 +89,7 @@ Flags:
 - **Organization**: A team workspace that owns agents, connectors, channels, and secrets. All agents belong to an org — the default org is used when `--org` is omitted.
 - **Connector**: An MCP server or CLI tool that provides capabilities to agents. Types: `mcp-server` (MCP tools via client) and `command` (CLI with secret injection). Transports: `stdio`, `sse`, `streamable-http`.
 - **Channel**: A message entry point for agents. Types: `webhook`, `telegram`, `heartbeat`, `cron`. Each channel has a session strategy and a prompt path.
-- **Secret**: An encrypted credential scoped to an agent or organization. Referenced with `secret:NAME` syntax in connector and channel configurations. Agent-scoped secrets override org-scoped secrets of the same name.
+- **Secret**: An encrypted credential scoped to an agent or organization. Referenced with `{{NAME}}` template syntax in connector and channel configurations. Agent-scoped secrets override org-scoped secrets of the same name.
 - **Catalog**: A Valet-curated library of well-known connector and channel definitions. Browse with `valet connectors catalog` or `valet channels catalog`. Add from the catalog instead of configuring from scratch.
 - **Shared resources**: Connectors, channels, and secrets can be scoped to an org and shared across agents. The pattern is: add from catalog (or create) at the org level, then attach to agents that need them. This maximizes reuse and simplifies credential rotation.
 - **Channel file**: A markdown file at `channels/<channel-name>.md` that tells the agent how to handle incoming messages.
@@ -187,21 +187,25 @@ valet connectors add github --org acme
 Only use `create` when the catalog doesn't have what you need:
 
 ```
-valet connectors create <name> --transport <type> \
-  [--command <cmd>] [--args <args>] [--url <url>] \
-  [--env K=V] [--header K=V] \
-  [--org <org>] [--agent <agent>]
+valet connectors create <name> [--type <type>] \
+  [--transport <type>] [--command <cmd>] [--args <args>] \
+  [--url <url>] [--env K=V] [--header K=V] \
+  [--secrets <names>] [--org <org>] [--agent <agent>]
 ```
 
-**Important**: `--args` takes comma-separated values, not space-separated. Use multiple `--env` and `--header` flags for multiple values. Use `secret:NAME` syntax to reference secrets:
+Two connector types are supported (default: `mcp-server`):
+
+**MCP server connectors** (`--type mcp-server`) register an MCP server. Use `--transport stdio` with `--command` for local processes, or `--transport sse`/`streamable-http` with `--url` for remote servers:
+
+**Important**: `--args` takes comma-separated values, not space-separated. Use multiple `--env` and `--header` flags for multiple values. Use `{{NAME}}` template syntax to reference secrets:
 
 ```
 valet connectors create slack-server --org acme \
   --transport stdio \
   --command npx \
   --args -y,@modelcontextprotocol/server-slack \
-  --env SLACK_BOT_TOKEN=secret:SLACK_BOT_TOKEN \
-  --env SLACK_TEAM_ID=secret:SLACK_TEAM_ID
+  --env SLACK_BOT_TOKEN={{SLACK_BOT_TOKEN}} \
+  --env SLACK_TEAM_ID={{SLACK_TEAM_ID}}
 ```
 
 For remote connectors:
@@ -209,8 +213,17 @@ For remote connectors:
 valet connectors create <name> \
   --transport streamable-http \
   --url https://mcp.example.com/mcp \
-  --header Authorization=secret:API_TOKEN
+  --header Authorization={{API_TOKEN}}
 ```
+
+**Command connectors** (`--type command`) wrap CLI tools. They require `--command` and accept `--secrets` (comma-separated secret names injected at runtime):
+
+```
+valet connectors create gh --type command \
+  --command gh --secrets GITHUB_TOKEN
+```
+
+Run `valet connectors create --help` for all options.
 
 ### Attach / Detach
 
@@ -285,9 +298,9 @@ valet channels create webhook [name] \
   [--verify <scheme>]
 ```
 
-Verification schemes: `hmac-sha256` (default), `stripe`, `svix`, `static-token`, `none`. Key flags: `--secret`, `--signature-header`, `--delivery-key-header`, `--delivery-key-path`, `--prompt`. Run `valet channels create --help` for full details.
+Verification schemes: `hmac-sha256` (default), `stripe`, `svix`, `static-token`, `none`. Key flags: `--secret` (raw secret value) or `--secret-name` (reference to a managed secret; mutually exclusive with `--secret`), `--signature-header`, `--delivery-key-header`, `--delivery-key-path`, `--prompt`. Run `valet channels create --help` for full details.
 
-The command outputs the **webhook URL** and **signing secret** — always save and report these to the user.
+The command outputs the **webhook URL**, **signing secret**, and (if applicable) **managed secret name** — always save and report these to the user.
 
 ### Create a heartbeat channel
 
@@ -342,7 +355,7 @@ valet channels destroy <name>
 
 ## Secrets
 
-Secrets are encrypted credentials stored in Valet. They keep sensitive values outside the LLM context. Connectors and channels reference them with `secret:NAME` syntax.
+Secrets are encrypted credentials stored in Valet. They keep sensitive values outside the LLM context. Connectors and channels reference them with `{{NAME}}` template syntax.
 
 **Scoping**: Secrets exist at two levels — org-scoped (shared across agents in the org) and agent-scoped (single agent). When both exist with the same name, the agent-scoped secret wins. **Default to org-scoped secrets for reuse.**
 
@@ -362,30 +375,20 @@ valet secrets set <NAME=VALUE>... [--org <org>] [--agent <agent>] [--no-wait]
 
 Must specify exactly one scope: `--org` or `--agent` (or run from a linked agent directory). Agent-scoped secrets trigger a redeploy; org-scoped do not.
 
-### How secret:NAME resolution works
+### How {{NAME}} template syntax works
 
-**The entire value must be `secret:NAME`.** The system checks if a value starts with `secret:` and replaces the whole value with the secret's stored content. It does **not** do substring interpolation. This means you cannot embed a secret reference inside a larger string.
+Use `{{NAME}}` anywhere in a connector `--env`, `--header`, or `--url` value to reference a secret. The template is resolved at deploy time by the control plane, which replaces `{{NAME}}` with the secret's stored content. Templates can appear anywhere in a value — including inside larger strings:
 
 ```
-# WRONG — "Bearer secret:API_KEY" does NOT start with "secret:", so it
-# is passed through as a literal string. The secret is never resolved.
---header "Authorization=Bearer secret:API_KEY"
+# Embed a secret inside a URL:
+--url https://{{DB_HOST}}/api
 
-# CORRECT — the entire value is the secret reference. Bake the prefix
-# into the secret value itself.
---header "Authorization=secret:API_KEY"
-# Then set the secret WITH the Bearer prefix:
-valet secrets set API_KEY="Bearer sk-abc123" --org acme
+# Use a secret as part of a header value:
+--header "Authorization=Bearer {{API_TOKEN}}"
+
+# Full value is a secret:
+--env SLACK_BOT_TOKEN={{SLACK_BOT_TOKEN}}
 ```
-
-**Rule: always store the complete value the connector needs as the secret.** Common patterns:
-
-| What the service expects | Header flag | Secret value to set |
-|--------------------------|-------------|---------------------|
-| `Bearer <token>` | `--header "Authorization=secret:TOKEN"` | `TOKEN="Bearer sk-abc123"` |
-| `Bot <token>` | `--header "Authorization=secret:BOT_TOKEN"` | `BOT_TOKEN="Bot xoxb-abc"` |
-| `token <token>` | `--header "Authorization=secret:TOKEN"` | `TOKEN="token ghp_abc"` |
-| Raw key (no prefix) | `--header "X-API-Key=secret:KEY"` | `KEY="abc123"` |
 
 When directing the user to set secrets, **always tell them what format the value should be in**, including any prefix the service expects.
 
@@ -494,7 +497,7 @@ The same applies to any connector command. If your connector's `--command` or `-
 
 ### What to test
 
-Any connector command that references `secret:NAME` in its `--env` flags should be verified locally. Reproduce the exact command the connector will run, wrapping it in `valet exec`:
+Any connector command that references secrets in its `--env` flags should be verified locally. Reproduce the exact command the connector will run, wrapping it in `valet exec`:
 
 ```
 # If the connector is defined as:
@@ -502,7 +505,7 @@ valet connectors create github-server \
   --transport stdio \
   --command npx \
   --args -y,@modelcontextprotocol/server-github \
-  --env GITHUB_PERSONAL_ACCESS_TOKEN=secret:GITHUB_TOKEN
+  --env GITHUB_PERSONAL_ACCESS_TOKEN={{GITHUB_TOKEN}}
 
 # Test the underlying command locally:
 valet exec --secrets GITHUB_TOKEN -a my-agent -- \
@@ -512,7 +515,7 @@ valet exec --secrets GITHUB_TOKEN -a my-agent -- \
 For remote connectors (SSE/streamable-http) with secret-backed headers or URLs, test with curl:
 
 ```
-# If the connector uses --header Authorization=secret:API_TOKEN --url https://mcp.example.com/mcp
+# If the connector uses --header Authorization={{API_TOKEN}} --url https://mcp.example.com/mcp
 # Test the endpoint is reachable and the token works:
 valet exec --secrets API_TOKEN -a my-agent -- \
   curl -s -o /dev/null -w "%{http_code}" -H "Authorization: {{API_TOKEN}}" https://mcp.example.com/mcp
@@ -558,7 +561,7 @@ The recommended workflow maximizes reuse by setting up resources at the org leve
      --transport stdio \
      --command npx \
      --args -y,@example/mcp-server \
-     --env API_KEY=secret:API_KEY
+     --env API_KEY={{API_KEY}}
    ```
 
 4. Add channels from the catalog at the org level (for webhooks):
@@ -611,7 +614,7 @@ For standalone agents that don't need to share resources:
    valet connectors create my-tool --agent my-agent \
      --transport stdio --command npx \
      --args -y,@example/server \
-     --env API_KEY=secret:API_KEY
+     --env API_KEY={{API_KEY}}
    ```
 
 3. Create channels, channel files, deploy, and test as above.
@@ -788,7 +791,7 @@ Want to proceed with this plan, or would you like to adjust anything?
    valet connectors create <name> --org <org-name> \
      --transport stdio \
      --command <cmd> --args <args> \
-     --env KEY=secret:SECRET_NAME
+     --env KEY={{SECRET_NAME}}
    ```
 8. Set up channels — **check the catalog first** for webhook channels:
    ```
@@ -1085,7 +1088,7 @@ All deployed files are **read-only** at runtime. The agent can write new files (
 - **Authentication first**: Always verify the user is logged in (`valet auth whoami`) before running any non-auth valet commands. If not logged in, explain that authentication is required and run `valet auth login`. Do not proceed until authentication succeeds.
 - **Use `valet help` proactively**: When you encounter a command, flag, or feature you're unsure about, run `valet help <command>` before guessing. The CLI help is the authoritative source.
 - **Never ask for secret values inside the LLM session.** Direct the user to run `valet secrets set NAME=VALUE` in their own terminal and wait for confirmation.
-- **Always verify privileged commands with `valet exec` before deploying.** After the user sets secrets and you create connectors, test the underlying command locally using `valet exec --secrets <names> -- <command>`. This is the only way to run commands with Valet-managed secrets locally. Do not deploy until the command succeeds. If the command needs secrets in arguments (not just env vars), use the `{{SECRET_NAME}}` template syntax.
+- **Always verify privileged commands with `valet exec` before deploying.** After the user sets secrets and you create connectors, test the underlying command locally using `valet exec --secrets <names> -- <command>`. This is the only way to run commands with Valet-managed secrets locally. Do not deploy until the command succeeds. Use `{{SECRET_NAME}}` template syntax to embed secrets in URLs, headers, or env values.
 - When the user asks to create an agent from scratch, follow "Designing a New Agent".
 - When the user asks to capture the current session as an agent, follow "Learning from the Current Session".
 - When writing SOUL.md, follow the template and synthesis rules. Never leave Purpose or Workflow empty.
