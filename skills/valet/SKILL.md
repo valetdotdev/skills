@@ -433,45 +433,53 @@ valet orgs revoke <name> <email>   # Cancel an invitation
 
 `valet exec` is the **only way** to run local commands with Valet-managed secrets injected. Secrets set via `valet secrets set` are stored in the Valet control plane — they are **not** available as shell environment variables. If a command needs a secret (an API key, a token, a URL containing credentials), you must wrap it in `valet exec` or it will not have access to the value.
 
-```
-valet exec --secrets <comma-separated-names> [-a <agent>] -- <command> [args...]
-```
+There are two modes:
 
-Fetches the requested secret values from the control plane and executes the given command with those secrets added to the environment. The current process is replaced by the command.
+### Connector mode (no `--`)
 
-Flags:
-- `--secrets`: Comma-separated secret names to inject (required)
-- `--agent` or `-a`: Agent that owns the secrets (uses linked agent if omitted)
-
-### Environment variable injection
-
-Secrets are injected as environment variables with the same name. Tools that read credentials from the environment (like `gh` reading `GITHUB_TOKEN`) work automatically:
+The first argument is looked up as a connector name. If a `command` connector is found, its secrets are fetched and injected, and the connector's configured command is executed. Extra arguments are appended after the connector's configured args:
 
 ```
-valet exec --secrets GITHUB_TOKEN -a my-agent -- gh pr list
+# Run the "gh" command connector (looks up connector named "gh")
+valet exec -a my-agent gh pr list
+
+# Use linked agent from current directory
+valet exec gh pr list
 ```
+
+### Explicit secrets mode (with `--`)
+
+Secret names are passed as a comma-separated positional argument before `--`. The command and its arguments follow after `--`:
+
+```
+valet exec [-a <agent>] SECRET[,SECRET...] -- command [args...]
+```
+
+Fetches the requested secret values and executes the given command with those secrets injected into the environment. The current process is replaced by the command.
+
+```
+# Run gh with GITHUB_TOKEN injected as an env var
+valet exec -a my-agent GITHUB_TOKEN -- gh pr list
+
+# Pass a secret as a CLI argument using {{}} syntax
+valet exec -a my-agent API_KEY -- curl -H "Authorization: Bearer {{API_KEY}}" https://api.example.com
+
+# Multiple secrets in one command
+valet exec -a my-agent GITHUB_TOKEN,SLACK_TOKEN -- env
+```
+
+Flag: `--agent` or `-a`: Agent that owns the secrets (uses linked agent if omitted). Run `valet exec --help` for full details.
 
 ### Template syntax for CLI arguments
 
-Use `{{SECRET_NAME}}` in command arguments to substitute secret values directly. This is useful for tools that accept credentials as flags or in URLs rather than reading from the environment:
-
-```
-# Curl an endpoint with a secret in the URL
-valet exec --secrets API_KEY -a my-agent -- curl https://api.example.com/data?key={{API_KEY}}
-
-# Pass a secret as an Authorization header
-valet exec --secrets API_KEY -a my-agent -- curl -H "Authorization: Bearer {{API_KEY}}" https://api.example.com
-
-# Multiple secrets in one command
-valet exec --secrets DB_HOST,DB_PASSWORD -a my-agent -- psql "postgresql://user:{{DB_PASSWORD}}@{{DB_HOST}}/mydb"
-```
+Use `{{SECRET_NAME}}` in command arguments to substitute secret values directly. This is useful for tools that accept credentials as flags or in URLs rather than reading from the environment. Works in both modes.
 
 ### Running MCP servers locally
 
 To test an MCP server that requires secret-backed environment variables:
 
 ```
-valet exec --secrets SLACK_BOT_TOKEN,SLACK_TEAM_ID -a my-agent -- \
+valet exec -a my-agent SLACK_BOT_TOKEN,SLACK_TEAM_ID -- \
   npx -y @modelcontextprotocol/server-slack
 ```
 
@@ -485,8 +493,11 @@ Regular shell commands (`curl`, `npx`, `node`, etc.) cannot access Valet secrets
 # WRONG — $API_KEY is not set in your shell
 curl https://api.example.com/data?key=$API_KEY
 
-# CORRECT — valet exec injects the secret
-valet exec --secrets API_KEY -a my-agent -- curl https://api.example.com/data?key={{API_KEY}}
+# CORRECT — valet exec injects the secret (explicit secrets mode)
+valet exec -a my-agent API_KEY -- curl https://api.example.com/data?key={{API_KEY}}
+
+# OR use connector mode if you have a command connector configured
+valet exec -a my-agent my-connector-name
 ```
 
 The same applies to any connector command. If your connector's `--command` or `--args` reference environment variables backed by secrets, test the exact command through `valet exec` before deploying.
@@ -508,7 +519,7 @@ valet connectors create github-server \
   --env GITHUB_PERSONAL_ACCESS_TOKEN={{GITHUB_TOKEN}}
 
 # Test the underlying command locally:
-valet exec --secrets GITHUB_TOKEN -a my-agent -- \
+valet exec -a my-agent GITHUB_TOKEN -- \
   npx -y @modelcontextprotocol/server-github
 ```
 
@@ -517,14 +528,14 @@ For remote connectors (SSE/streamable-http) with secret-backed headers or URLs, 
 ```
 # If the connector uses --header Authorization={{API_TOKEN}} --url https://mcp.example.com/mcp
 # Test the endpoint is reachable and the token works:
-valet exec --secrets API_TOKEN -a my-agent -- \
+valet exec -a my-agent API_TOKEN -- \
   curl -s -o /dev/null -w "%{http_code}" -H "Authorization: {{API_TOKEN}}" https://mcp.example.com/mcp
 ```
 
 Also test any webhook endpoint you plan to call with secrets in the URL:
 
 ```
-valet exec --secrets WEBHOOK_SECRET -a my-agent -- \
+valet exec -a my-agent WEBHOOK_SECRET -- \
   curl -X POST https://hooks.example.com/{{WEBHOOK_SECRET}}/notify -d '{"test": true}'
 ```
 
@@ -584,7 +595,7 @@ The recommended workflow maximizes reuse by setting up resources at the org leve
 
 6. **Verify each connector command locally with `valet exec`** before proceeding:
    ```
-   valet exec --secrets GITHUB_TOKEN -- \
+   valet exec GITHUB_TOKEN -- \
      npx -y @modelcontextprotocol/server-github
    ```
    If this fails (bad token, missing dependency, wrong command), fix it now.
@@ -811,7 +822,7 @@ Want to proceed with this plan, or would you like to adjust anything?
    ```
 10. **Verify each connector command locally with `valet exec`:**
     ```
-    valet exec --secrets SECRET_NAME -a <agent-name> -- <cmd> <args>
+    valet exec -a <agent-name> SECRET_NAME -- <cmd> <args>
     ```
     Fix any failures before proceeding.
 11. Deploy to pick up channel files: `valet agents deploy`
@@ -1088,7 +1099,7 @@ All deployed files are **read-only** at runtime. The agent can write new files (
 - **Authentication first**: Always verify the user is logged in (`valet auth whoami`) before running any non-auth valet commands. If not logged in, explain that authentication is required and run `valet auth login`. Do not proceed until authentication succeeds.
 - **Use `valet help` proactively**: When you encounter a command, flag, or feature you're unsure about, run `valet help <command>` before guessing. The CLI help is the authoritative source.
 - **Never ask for secret values inside the LLM session.** Direct the user to run `valet secrets set NAME=VALUE` in their own terminal and wait for confirmation.
-- **Always verify privileged commands with `valet exec` before deploying.** After the user sets secrets and you create connectors, test the underlying command locally using `valet exec --secrets <names> -- <command>`. This is the only way to run commands with Valet-managed secrets locally. Do not deploy until the command succeeds. Use `{{SECRET_NAME}}` template syntax to embed secrets in URLs, headers, or env values.
+- **Always verify privileged commands with `valet exec` before deploying.** After the user sets secrets and you create connectors, test the underlying command locally using `valet exec <names> -- <command>`. This is the only way to run commands with Valet-managed secrets locally. Do not deploy until the command succeeds. Use `{{SECRET_NAME}}` template syntax to embed secrets in URLs, headers, or env values.
 - When the user asks to create an agent from scratch, follow "Designing a New Agent".
 - When the user asks to capture the current session as an agent, follow "Learning from the Current Session".
 - When writing SOUL.md, follow the template and synthesis rules. Never leave Purpose or Workflow empty.
