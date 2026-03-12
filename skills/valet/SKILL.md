@@ -298,7 +298,7 @@ valet channels create webhook [name] \
   [--verify <scheme>]
 ```
 
-Verification schemes: `hmac-sha256` (default), `stripe`, `svix`, `static-token`, `none`. Key flags: `--secret` (raw secret value) or `--secret-name` (reference to a managed secret; mutually exclusive with `--secret`), `--signature-header`, `--delivery-key-header`, `--delivery-key-path`, `--prompt`. Run `valet channels create --help` for full details.
+Verification schemes: `hmac-sha256` (default), `stripe`, `svix`, `static-token`, `none`. Key flags: `--secret-name` (reference to a managed secret; required for `stripe` and `svix`), `--signature-header`, `--delivery-key-header`, `--delivery-key-path`, `--prompt`. For `hmac-sha256` and `static-token`, a managed secret is auto-generated if `--secret-name` is omitted. Run `valet channels create --help` for full details.
 
 The command outputs the **webhook URL**, **signing secret**, and (if applicable) **managed secret name** — always save and report these to the user.
 
