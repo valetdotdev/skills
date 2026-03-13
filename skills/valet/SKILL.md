@@ -241,6 +241,8 @@ valet connectors [--org <org>] [--agent <agent>]
 valet connectors info <name>
 ```
 
+`valet connectors info` shows name, type, transport, command, args, URL, env, headers, secrets (for connectors with `--secrets` configured), and catalog origin.
+
 ### Destroy a connector
 
 ```
