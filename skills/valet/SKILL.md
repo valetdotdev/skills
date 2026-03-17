@@ -90,7 +90,8 @@ Flags:
 - **Connector**: An MCP server or CLI tool that provides capabilities to agents. Types: `mcp-server` (MCP tools via client) and `command` (CLI with secret injection). Transports: `stdio`, `sse`, `streamable-http`.
 - **Channel**: A message entry point for agents. Types: `webhook`, `telegram`, `heartbeat`, `cron`. Each channel has a session strategy and a prompt path.
 - **Secret**: An encrypted credential scoped to an agent or organization. Referenced with `{{NAME}}` template syntax in connector and channel configurations. Agent-scoped secrets override org-scoped secrets of the same name.
-- **Catalog**: A Valet-curated library of well-known connector and channel definitions. Browse with `valet connectors catalog` or `valet channels catalog`.
+- **Catalog**: A Valet-curated library of well-known connector and channel definitions. Browse with `valet connectors catalog` or `valet channels catalog`. Add from the catalog instead of configuring from scratch.
+- **Shared resources**: Connectors, channels, and secrets can be scoped to an org and shared across agents. The pattern is: add from catalog (or create) at the org level, then attach to agents that need them. This maximizes reuse and simplifies credential rotation.
 - **Channel file**: A markdown file at `channels/<channel-name>.md` that tells the agent how to handle incoming messages.
 
 ## Resource Creation Principles
@@ -193,6 +194,15 @@ valet connectors add github --org acme
 
 ### Create a custom connector
 
+Only use `create` when the catalog doesn't have what you need:
+
+```
+valet connectors create <name> [--type <type>] \
+  [--transport <type>] [--command <cmd>] [--args <args>] \
+  [--url <url>] [--env K=V] [--header K=V] \
+  [--secrets <names>] [--org <org>] [--agent <agent>]
+```
+
 Two types: `mcp-server` (default) and `command`. **Important**: `--args` takes comma-separated values. Use `{{NAME}}` to reference secrets.
 
 ```
@@ -202,14 +212,18 @@ valet connectors create slack-server --org acme \
   --args -y,@modelcontextprotocol/server-slack \
   --env SLACK_BOT_TOKEN={{SLACK_BOT_TOKEN}} \
   --env SLACK_TEAM_ID={{SLACK_TEAM_ID}}
+```
 
 # MCP server — remote transport
 valet connectors create <name> \
   --transport streamable-http \
   --url https://mcp.example.com/mcp \
   --header Authorization={{API_TOKEN}}
+```
 
-# Command connector — wraps a CLI tool
+**Command connectors** (`--type command`) wrap CLI tools. They require `--command` and accept `--secrets` (comma-separated secret names injected at runtime):
+
+```
 valet connectors create gh --type command \
   --command gh --secrets GITHUB_TOKEN
 ```
@@ -231,6 +245,8 @@ valet connectors detach <name> [--agent <agent>]
 valet connectors [--org <org>] [--agent <agent>]
 valet connectors info <name>
 ```
+
+`valet connectors info` shows name, type, transport, command, args, URL, env, headers, secrets (for connectors with `--secrets` configured), and catalog origin.
 
 ### Destroy a connector
 
@@ -287,7 +303,7 @@ valet channels create webhook [name] \
   [--verify <scheme>]
 ```
 
-Verification schemes: `hmac-sha256` (default), `stripe`, `svix`, `static-token`, `none`. Use `--secret` for a raw value. Run `valet channels create webhook --help` for all flags.
+Verification schemes: `hmac-sha256` (default), `slack`, `stripe`, `svix`, `static-token`, `none`. Key flags: `--secret-name` (reference to a managed secret; required for `slack`, `stripe`, and `svix`), `--signature-header` (not used with `slack` or `svix`), `--delivery-key-header`, `--delivery-key-path`, `--prompt`. For `hmac-sha256` and `static-token`, a managed secret is auto-generated if `--secret-name` is omitted. The `slack` scheme implements Slack's Events API signing protocol and handles `url_verification` challenges automatically. Run `valet channels create webhook --help` for full details.
 
 The command outputs the **webhook URL**, **signing secret**, and (if applicable) **managed secret name** — always save and report these to the user.
 
@@ -319,7 +335,7 @@ valet channels destroy <name>
 
 ## Secrets
 
-Secrets are encrypted credentials stored in Valet. They keep sensitive values outside the LLM context.
+Secrets are encrypted credentials stored in Valet. They keep sensitive values outside the LLM context. Connectors and channels reference them with `{{NAME}}` template syntax.
 
 **NEVER ask the user for secret values within the LLM session.** Direct them to run `valet secrets set NAME=VALUE --org <org>` in their terminal and wait for confirmation before proceeding.
 
@@ -384,26 +400,109 @@ valet orgs revoke <name> <email>   # Cancel an invitation
 
 `valet exec` is the **only way** to run local commands with Valet-managed secrets injected. Secrets are stored in the control plane — they are **not** available as shell environment variables. Always test secret-backed commands before deploying.
 
+There are two modes:
+
+### Connector mode (no `--`)
+
+The first argument is looked up as a connector name. If a `command` connector is found, its secrets are fetched and injected, and the connector's configured command is executed. Extra arguments are appended after the connector's configured args:
+
 ```
-valet exec --secrets <comma-separated-names> [-a <agent>] -- <command> [args...]
+# Run the "gh" command connector (looks up connector named "gh")
+valet exec -a my-agent gh pr list
+
+# Use linked agent from current directory
+valet exec gh pr list
 ```
 
-Secrets are injected as environment variables. Use `{{SECRET_NAME}}` in arguments for tools that need credentials as flags or in URLs. Run `valet help exec` for full details.
+### Explicit secrets mode (with `--`)
+
+Secret names are passed as a comma-separated positional argument before `--`. The command and its arguments follow after `--`:
 
 ```
-# Environment variable injection (tools like gh read from env automatically)
-valet exec --secrets GITHUB_TOKEN -a my-agent -- gh pr list
+valet exec [-a <agent>] SECRET[,SECRET...] -- command [args...]
+```
 
-# Template substitution in arguments
-valet exec --secrets API_KEY -a my-agent -- curl https://api.example.com/data?key={{API_KEY}}
+Fetches the requested secret values and executes the given command with those secrets injected into the environment. The current process is replaced by the command.
 
-# Test an MCP server connector locally
-valet exec --secrets SLACK_BOT_TOKEN,SLACK_TEAM_ID -a my-agent -- \
+```
+# Run gh with GITHUB_TOKEN injected as an env var
+valet exec -a my-agent GITHUB_TOKEN -- gh pr list
+
+# Pass a secret as a CLI argument using {{}} syntax
+valet exec -a my-agent API_KEY -- curl -H "Authorization: Bearer {{API_KEY}}" https://api.example.com
+
+# Multiple secrets in one command
+valet exec -a my-agent GITHUB_TOKEN,SLACK_TOKEN -- env
+```
+
+Flag: `--agent` or `-a`: Agent that owns the secrets (uses linked agent if omitted). Run `valet exec --help` for full details.
+
+### Template syntax for CLI arguments
+
+Use `{{SECRET_NAME}}` in command arguments to substitute secret values directly. This is useful for tools that accept credentials as flags or in URLs rather than reading from the environment. Works in both modes.
+
+### Running MCP servers locally
+
+To test an MCP server that requires secret-backed environment variables:
+
+```
+valet exec -a my-agent SLACK_BOT_TOKEN,SLACK_TEAM_ID -- \
   npx -y @modelcontextprotocol/server-slack
 
-# Test a remote connector's auth
-valet exec --secrets API_TOKEN -a my-agent -- \
+Without `valet exec`, the MCP server would start without the required tokens and fail to authenticate.
+
+### Why valet exec is required
+
+Regular shell commands (`curl`, `npx`, `node`, etc.) cannot access Valet secrets. This will **not** work:
+
+```
+# WRONG — $API_KEY is not set in your shell
+curl https://api.example.com/data?key=$API_KEY
+
+# CORRECT — valet exec injects the secret (explicit secrets mode)
+valet exec -a my-agent API_KEY -- curl https://api.example.com/data?key={{API_KEY}}
+
+# OR use connector mode if you have a command connector configured
+valet exec -a my-agent my-connector-name
+```
+
+The same applies to any connector command. If your connector's `--command` or `--args` reference environment variables backed by secrets, test the exact command through `valet exec` before deploying.
+
+## Pre-Deploy Verification with valet exec
+
+**Before deploying an agent, locally test every command that requires secrets using `valet exec`.** This catches authentication failures, wrong secret names, malformed URLs, and missing dependencies before they cause the agent to crash in production.
+
+### What to test
+
+Any connector command that references secrets in its `--env` flags should be verified locally. Reproduce the exact command the connector will run, wrapping it in `valet exec`:
+
+```
+# If the connector is defined as:
+valet connectors create github-server \
+  --transport stdio \
+  --command npx \
+  --args -y,@modelcontextprotocol/server-github \
+  --env GITHUB_PERSONAL_ACCESS_TOKEN={{GITHUB_TOKEN}}
+
+# Test the underlying command locally:
+valet exec -a my-agent GITHUB_TOKEN -- \
+  npx -y @modelcontextprotocol/server-github
+```
+
+For remote connectors (SSE/streamable-http) with secret-backed headers or URLs, test with curl:
+
+```
+# If the connector uses --header Authorization={{API_TOKEN}} --url https://mcp.example.com/mcp
+# Test the endpoint is reachable and the token works:
+valet exec -a my-agent API_TOKEN -- \
   curl -s -o /dev/null -w "%{http_code}" -H "Authorization: {{API_TOKEN}}" https://mcp.example.com/mcp
+```
+
+Also test any webhook endpoint you plan to call with secrets in the URL:
+
+```
+valet exec -a my-agent WEBHOOK_SECRET -- \
+  curl -X POST https://hooks.example.com/{{WEBHOOK_SECRET}}/notify -d '{"test": true}'
 ```
 
 ### Verification checklist
@@ -427,18 +526,78 @@ Follow Resource Creation Principles — set up org-scoped resources first, then 
 3. Add channels (catalog first for webhooks) at the org level
 4. Create the agent and attach org resources:
    ```
+   valet secrets set GITHUB_TOKEN=<their-token> --org acme
+   ```
+
+2. Add connectors from the catalog at the org level:
+   ```
+   valet connectors catalog
+   valet connectors add github --org acme
+   ```
+
+3. If no catalog entry exists, create a custom connector at the org level:
+   ```
+   valet connectors create my-tool --org acme \
+     --transport stdio \
+     --command npx \
+     --args -y,@example/mcp-server \
+     --env API_KEY={{API_KEY}}
+   ```
+
+4. Add channels from the catalog at the org level (for webhooks):
+   ```
+   valet channels add github-webhook --org acme
+   ```
+
+5. Create the agent and attach org resources:
+   ```
+   cd my-agent-project
    valet agents create my-agent --org acme \
      --attach-connector github \
      --attach-channel github-webhook
    ```
-5. Verify each connector locally with `valet exec` — do not deploy until tests pass
-6. Create channel files at `channels/<channel-name>.md` (see "Writing Channel Files")
-7. Deploy: `valet agents deploy`
-8. Run the interactive test loop (see below)
+   Or attach after creation:
+   ```
+   valet connectors attach github --agent my-agent
+   valet channels attach github-webhook --agent my-agent --events pull_request
+   ```
+
+6. **Verify each connector command locally with `valet exec`** before proceeding:
+   ```
+   valet exec GITHUB_TOKEN -- \
+     npx -y @modelcontextprotocol/server-github
+   ```
+   If this fails (bad token, missing dependency, wrong command), fix it now.
+
+7. Create the channel file at `channels/<channel-name>.md` (see "Writing Channel Files").
+
+8. Deploy to pick up the channel file:
+   ```
+   valet agents deploy
+   ```
+
+9. Validate end-to-end with an interactive test loop (see below).
 
 ### One-off agent setup (agent-scoped)
 
-For standalone agents that don't need to share resources — create the agent first, then set agent-scoped secrets, create agent-scoped connectors, add channels, and deploy. Same verification and testing steps as above.
+For standalone agents that don't need to share resources:
+
+1. Create the agent:
+   ```
+   cd my-agent-project
+   valet agents create my-agent
+   ```
+
+2. Set agent-scoped secrets and create agent-scoped connectors:
+   ```
+   valet secrets set API_KEY=<value> --agent my-agent
+   valet connectors create my-tool --agent my-agent \
+     --transport stdio --command npx \
+     --args -y,@example/server \
+     --env API_KEY={{API_KEY}}
+   ```
+
+3. Create channels, channel files, deploy, and test as above.
 
 ### Interactive test loop (mandatory for first-time channel setup)
 
@@ -589,12 +748,46 @@ Want to proceed with this plan, or would you like to adjust anything?
    - [ ] Channel files include webhook payload location instruction
    - [ ] No secrets or API keys in any file
    - [ ] AGENTS.md written as the last step (see "Writing AGENTS.md")
-6. Direct the user to set secrets, then set up connectors and channels following Resource Creation Principles
-7. Create and deploy the agent, attaching org resources
-8. Verify each connector locally with `valet exec` — fix failures before proceeding
-9. Deploy to pick up channel files: `valet agents deploy`
-10. If the agent has channels, run the interactive test loop (see "Interactive test loop" under Common Workflows)
-11. **Last step**: Write `AGENTS.md` in the project root (see "Writing AGENTS.md")
+6. Direct the user to set secrets at the org level (preferred) or agent level:
+   ```
+   valet secrets set SECRET_NAME=<value> --org <org-name>
+   ```
+7. Set up connectors — **check the catalog first**:
+   ```
+   valet connectors catalog
+   valet connectors add <entry> --org <org-name>
+   ```
+   Only create custom connectors if no catalog entry exists:
+   ```
+   valet connectors create <name> --org <org-name> \
+     --transport stdio \
+     --command <cmd> --args <args> \
+     --env KEY={{SECRET_NAME}}
+   ```
+8. Set up channels — **check the catalog first** for webhook channels:
+   ```
+   valet channels catalog
+   valet channels add <entry> --org <org-name>
+   ```
+   Or create directly:
+   ```
+   valet channels create webhook <channel-name> --agent <agent-name>
+   ```
+9. Create and deploy the agent, attaching org resources:
+   ```
+   cd <agent-name>
+   valet agents create [name] --org <org-name> \
+     --attach-connector <connector> \
+     --attach-channel <channel>
+   ```
+10. **Verify each connector command locally with `valet exec`:**
+    ```
+    valet exec -a <agent-name> SECRET_NAME -- <cmd> <args>
+    ```
+    Fix any failures before proceeding.
+11. Deploy to pick up channel files: `valet agents deploy`
+12. If the agent has channels, run the interactive test loop (see "Interactive test loop" under Common Workflows).
+13. **Last step**: Write `AGENTS.md` in the project root (see "Writing AGENTS.md"). This summarizes the full setup for future developers.
 
 ### Design edge cases
 
@@ -859,11 +1052,16 @@ All deployed files are **read-only** at runtime. The agent can write new files (
 
 ## Execution Guidelines
 
-- Always run commands via the Bash tool. Before running any valet command, briefly tell the user *what* you're about to do and *why*.
-- **Authentication first**: Verify login with `valet auth whoami` before any non-auth commands.
-- **Use `valet help` proactively**: Run `valet help <command>` whenever you're unsure about flags or behavior. The CLI help is authoritative.
-- Follow Resource Creation Principles and the Secrets, Installation, and Pre-Deploy Verification sections — do not repeat their rules here.
-- When the user asks to create an agent from scratch, follow "Designing a New Agent". To capture a session, follow "Learning from the Current Session".
+- Always run commands via the Bash tool.
+- **Be explanatory**: Before running any valet command, briefly tell the user *what* you're about to do and *why*. Don't silently execute commands — the user should always understand the purpose of each step.
+- **Installation guardrails**: Follow the Installation section strictly. If the CLI is not installed, explain why it's needed and attempt installation via Homebrew. If Homebrew fails, **stop immediately** — do not retry, work around, or troubleshoot brew issues. Let the user resolve it manually.
+- **Authentication first**: Always verify the user is logged in (`valet auth whoami`) before running any non-auth valet commands. If not logged in, explain that authentication is required and run `valet auth login`. Do not proceed until authentication succeeds.
+- **Use `valet help` proactively**: When you encounter a command, flag, or feature you're unsure about, run `valet help <command>` before guessing. The CLI help is the authoritative source.
+- **Never ask for secret values inside the LLM session.** Direct the user to run `valet secrets set NAME=VALUE` in their own terminal and wait for confirmation.
+- **Always verify privileged commands with `valet exec` before deploying.** After the user sets secrets and you create connectors, test the underlying command locally using `valet exec <names> -- <command>`. This is the only way to run commands with Valet-managed secrets locally. Do not deploy until the command succeeds. Use `{{SECRET_NAME}}` template syntax to embed secrets in URLs, headers, or env values.
+- When the user asks to create an agent from scratch, follow "Designing a New Agent".
+- When the user asks to capture the current session as an agent, follow "Learning from the Current Session".
+- When writing SOUL.md, follow the template and synthesis rules. Never leave Purpose or Workflow empty.
 - For destructive commands (`destroy`, `remove`, `revoke`), always confirm with the user first.
 - When creating webhook channels, report the webhook URL and signing secret. When writing channel files, include the payload location instruction.
 - After deploying an agent with channels for the first time, run the interactive test loop.
