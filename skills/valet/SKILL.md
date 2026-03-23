@@ -617,7 +617,7 @@ For standalone agents that don't need to share resources:
    - **Healthy**: Few turns, `mcp_call_tool_start`/`mcp_call_tool_done` pairs, `dispatch_complete`.
    - **Unhealthy**: Many turns with only built-in tools (agent looping), no `mcp_call_tool_start` (can't find tools), no `dispatch_complete` (timeout/stuck).
 
-6. If problems, fix SOUL.md or channel prompt, redeploy, and repeat.
+6. If problems, fix SOUL.md or channel prompt, redeploy, and repeat. Each change triggers a full VM reboot — wait for it to complete and stream fresh logs before evaluating.
 
 ### Teardown (order matters)
 
@@ -667,6 +667,8 @@ If no URLs, proceed directly to the interview.
 ### Step 2: Interview
 
 Use `AskUserQuestion` for structured choices, direct conversation for open-ended questions. Track question count — stop and build once you have enough.
+
+**Important: When using `AskUserQuestion`, the `question` field must be a complete, clear question sentence that ends with a question mark.** The user sees this question text prominently — it's the primary thing they read to understand what you're asking. Bad: "Trigger" or "Trigger type". Good: "How should this agent be triggered?" Option labels should be short (1-5 words) with the description providing detail.
 
 **Question 1 — Confirm understanding + trigger type:**
 
