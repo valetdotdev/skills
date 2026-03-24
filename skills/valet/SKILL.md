@@ -221,22 +221,21 @@ valet connectors create <name> \
   --header Authorization={{API_TOKEN}}
 ```
 
-**Command connectors** (`--type command`) wrap CLI tools. They require `--command` and accept `--secrets` (comma-separated secret names injected at runtime):
+**Command connectors** (`--type command`) wrap CLI tools. They require `--command` and accept `--secrets` (comma-separated secret names injected at runtime).
+
+**Naming rule**: Name the connector after the CLI command the agent will type. The connector name becomes the executable on the agent's PATH, so it must match the command exactly. For tools installed via npx, the CLI command may differ from the npm package name — always use the CLI command.
 
 ```
+# "gh" CLI → connector named "gh"
 valet connectors create gh --type command \
   --command gh --secrets GITHUB_TOKEN
-```
 
-**How command connectors surface to agents**: At runtime, the supervisor generates a wrapper script in `~/bin/` named after the **connector name** (not the underlying command). The connector name becomes an executable on the agent's PATH that transparently injects secrets and runs the configured command.
-
-For example, a connector created as:
-```
-valet connectors create agentmail-cli --type command \
+# "agentmail" CLI (npm package: agentmail-cli) → connector named "agentmail"
+valet connectors create agentmail --type command \
   --command npx --args -y,agentmail-cli --secrets AGENTMAIL_API_KEY
 ```
 
-...generates `~/bin/agentmail-cli` on the agent's PATH. The agent invokes it as `agentmail-cli inboxes list` — **not** `npx agentmail-cli inboxes list` (which bypasses the wrapper and gets no secrets). SOUL.md workflow steps must reference the **connector name** as the command.
+**How command connectors surface to agents**: At runtime, the supervisor generates a wrapper script in `~/bin/` named after the **connector name**. The connector name becomes an executable on the agent's PATH that transparently injects secrets and runs the configured command. Only the connector name is on PATH — the agent runs `agentmail inboxes list`, not `npx agentmail-cli inboxes list` (which bypasses the wrapper and gets no secrets).
 
 Run `valet connectors create --help` for all flags.
 
@@ -940,12 +939,12 @@ Add as needed: **Target Channel**, **Environment Requirements**, **Webhook Scope
 
 ### Command connector references in SOUL.md
 
-When the agent uses a command connector, the SOUL.md workflow must reference the **connector name** as the command — not the underlying CLI tool or `npx` invocation. The runtime generates a wrapper script named after the connector that handles secret injection transparently.
+When the agent uses a command connector, the SOUL.md workflow must reference the **connector name** as the command — not the npm package name, underlying transport, or `npx` invocation. The connector name is the CLI command the agent types, and it is the only name on the agent's PATH.
 
-Good: `Run agentmail-cli inboxes list to verify the CLI is connected.`
-Bad: `Run npx agentmail-cli inboxes list` or `Run agentmail inboxes list`
+Good: `Run agentmail inboxes list to verify the CLI is connected.`
+Bad: `Run npx agentmail-cli inboxes list` or `Run agentmail-cli inboxes list`
 
-The connector name is what appears on the agent's PATH. Using the wrong name either bypasses secret injection (calling npx directly) or fails entirely (command not found).
+Using the wrong name either bypasses secret injection (calling npx directly) or fails entirely (command not found). When creating connectors, always name them after the CLI command (see naming rule in the Connectors section).
 
 ### Common mistakes
 
@@ -953,7 +952,7 @@ The connector name is what appears on the agent's PATH. Using the wrong name eit
 - Missing Workflow — Purpose without steps leaves the agent guessing
 - Hardcoded values that should be `<placeholder>`s
 - No scope boundary for webhook agents (see Writing Channel Files)
-- Using the wrong command name for command connectors — always use the connector name, not the underlying CLI tool or npx
+- Using the wrong command name for command connectors — the connector must be named after the CLI command (e.g., `agentmail` not `agentmail-cli`), and SOUL.md must reference that same name
 
 ## Writing Channel Files
 
