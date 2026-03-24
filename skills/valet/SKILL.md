@@ -307,6 +307,16 @@ Verification schemes: `hmac-sha256` (default), `slack`, `stripe`, `svix`, `stati
 
 The command outputs the **webhook URL**, **signing secret**, and (if applicable) **managed secret name** — always save and report these to the user.
 
+### Create a Slack channel
+
+```
+valet channels create slack [name] \
+  [--agent <agent-name>] [--org <org>] \
+  [--bot-name <display-name>]
+```
+
+Creates a Slack channel that enables agents to participate in your Slack workspace. The `--bot-name` flag sets the Slack bot display name (default: agent name, resolved server-side). The command outputs the bot name and workspace after setup. Run `valet channels create slack --help` for all flags.
+
 ### Create a heartbeat channel
 
 ```
