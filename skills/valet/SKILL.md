@@ -228,6 +228,16 @@ valet connectors create gh --type command \
   --command gh --secrets GITHUB_TOKEN
 ```
 
+**How command connectors surface to agents**: At runtime, the supervisor generates a wrapper script in `~/bin/` named after the **connector name** (not the underlying command). The connector name becomes an executable on the agent's PATH that transparently injects secrets and runs the configured command.
+
+For example, a connector created as:
+```
+valet connectors create agentmail-cli --type command \
+  --command npx --args -y,agentmail-cli --secrets AGENTMAIL_API_KEY
+```
+
+...generates `~/bin/agentmail-cli` on the agent's PATH. The agent invokes it as `agentmail-cli inboxes list` — **not** `npx agentmail-cli inboxes list` (which bypasses the wrapper and gets no secrets). SOUL.md workflow steps must reference the **connector name** as the command.
+
 Run `valet connectors create --help` for all flags.
 
 ### Attach / Detach
@@ -928,12 +938,22 @@ Add as needed: **Target Channel**, **Environment Requirements**, **Webhook Scope
 - **Guardrails Never**: From corrections and constraints the agent must avoid.
 - **Placeholders**: Replace user-specific values (IDs, URLs, keys) with `<placeholder-name>`.
 
+### Command connector references in SOUL.md
+
+When the agent uses a command connector, the SOUL.md workflow must reference the **connector name** as the command — not the underlying CLI tool or `npx` invocation. The runtime generates a wrapper script named after the connector that handles secret injection transparently.
+
+Good: `Run agentmail-cli inboxes list to verify the CLI is connected.`
+Bad: `Run npx agentmail-cli inboxes list` or `Run agentmail inboxes list`
+
+The connector name is what appears on the agent's PATH. Using the wrong name either bypasses secret injection (calling npx directly) or fails entirely (command not found).
+
 ### Common mistakes
 
 - Empty or vague Purpose — always name specific inputs, tools, and outputs
 - Missing Workflow — Purpose without steps leaves the agent guessing
 - Hardcoded values that should be `<placeholder>`s
 - No scope boundary for webhook agents (see Writing Channel Files)
+- Using the wrong command name for command connectors — always use the connector name, not the underlying CLI tool or npx
 
 ## Writing Channel Files
 
