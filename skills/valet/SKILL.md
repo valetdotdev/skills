@@ -63,7 +63,7 @@ valet topics                        # List help guides
 valet topics <name>                 # Read a specific guide
 ```
 
-Useful topic guides: `getting-started`, `agent-lifecycle`, `channels`, `connectors-overview`.
+Useful topic guides: `getting-started`, `agent-lifecycle`, `channels`, `connectors-overview` (covers both MCP server and command connectors).
 
 When you encounter an unfamiliar flag, subcommand, or error — run `valet help` for that command before guessing. The CLI help is authoritative and up to date.
 
