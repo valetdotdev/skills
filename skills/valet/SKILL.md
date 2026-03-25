@@ -138,8 +138,10 @@ Creates `.valet/config.json` so subsequent commands auto-detect the agent. Not n
 After editing `SOUL.md`, channel files, or other project files:
 
 ```
-valet agents deploy [-a <name>] [--no-wait]
+valet agents deploy [-a <name>] [--org <org>] [--no-wait]
 ```
+
+Use `--org` to specify the target organization when you belong to multiple orgs. When omitted, the default org from your config is used.
 
 ### List agents
 
