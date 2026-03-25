@@ -63,7 +63,7 @@ valet topics                        # List help guides
 valet topics <name>                 # Read a specific guide
 ```
 
-Useful topic guides: `getting-started`, `agent-lifecycle`, `channels`, `connectors-overview`.
+Useful topic guides: `getting-started`, `agent-lifecycle`, `channels`, `connectors-overview` (covers both MCP server and command connectors).
 
 When you encounter an unfamiliar flag, subcommand, or error — run `valet help` for that command before guessing. The CLI help is authoritative and up to date.
 
@@ -125,6 +125,21 @@ Sources for `--from`:
 
 Use `--attach-connector` and `--attach-channel` to wire org-scoped resources to the agent at creation time (repeatable flags).
 
+### Manifest inline channels (cron and heartbeat)
+
+When a `valet.yaml` manifest declares `cron` or `heartbeat` channels using `type:` instead of `catalog:`, `valet agents create --from` automatically creates those channels during the deploy flow — no separate `valet channels create` step needed:
+
+```yaml
+channels:
+  - type: cron
+    schedule: "every day at 9am"
+    timezone: America/New_York
+  - type: heartbeat
+    every: 5m
+```
+
+Use `type` (mutually exclusive with `catalog`) to declare inline channels. Supported fields: `schedule` (human-readable), `cron` (raw crontab expression), `every` (heartbeat interval), `timezone` (IANA timezone, default UTC). Run `valet agents create --help` for all options.
+
 ### Link a directory
 
 ```
@@ -138,8 +153,10 @@ Creates `.valet/config.json` so subsequent commands auto-detect the agent. Not n
 After editing `SOUL.md`, channel files, or other project files:
 
 ```
-valet agents deploy [-a <name>] [--no-wait]
+valet agents deploy [-a <name>] [--org <org>] [--no-wait]
 ```
+
+Use `--org` to specify the target organization when you belong to multiple orgs. When omitted, the default org from your config is used.
 
 ### List agents
 
@@ -315,6 +332,16 @@ valet channels create webhook [name] \
 Verification schemes: `hmac-sha256` (default), `slack`, `stripe`, `svix`, `static-token`, `none`. Key flags: `--secret-name` (reference to a managed secret; required for `slack`, `stripe`, and `svix`), `--signature-header` (not used with `slack` or `svix`), `--delivery-key-header`, `--delivery-key-path`, `--prompt`. For `hmac-sha256` and `static-token`, a managed secret is auto-generated if `--secret-name` is omitted. The `slack` scheme implements Slack's Events API signing protocol and handles `url_verification` challenges automatically. Run `valet channels create webhook --help` for full details.
 
 The command outputs the **webhook URL**, **signing secret**, and (if applicable) **managed secret name** — always save and report these to the user.
+
+### Create a Slack channel
+
+```
+valet channels create slack [name] \
+  [--agent <agent-name>] [--org <org>] \
+  [--bot-name <display-name>]
+```
+
+Creates a Slack channel that enables agents to participate in your Slack workspace. Before creating the channel, the CLI automatically checks whether the org has a connected Slack workspace. If not connected, it prompts you to connect via OAuth, opens a browser window for authorization, and polls until the connection is confirmed. The `--bot-name` flag sets the Slack bot display name (default: agent name, resolved server-side). The command outputs the bot name and workspace after setup. Run `valet channels create slack --help` for all flags.
 
 ### Create a heartbeat channel
 
