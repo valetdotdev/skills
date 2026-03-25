@@ -125,6 +125,21 @@ Sources for `--from`:
 
 Use `--attach-connector` and `--attach-channel` to wire org-scoped resources to the agent at creation time (repeatable flags).
 
+### Manifest inline channels (cron and heartbeat)
+
+When a `valet.yaml` manifest declares `cron` or `heartbeat` channels using `type:` instead of `catalog:`, `valet agents create --from` automatically creates those channels during the deploy flow — no separate `valet channels create` step needed:
+
+```yaml
+channels:
+  - type: cron
+    schedule: "every day at 9am"
+    timezone: America/New_York
+  - type: heartbeat
+    every: 5m
+```
+
+Use `type` (mutually exclusive with `catalog`) to declare inline channels. Supported fields: `schedule` (human-readable), `cron` (raw crontab expression), `every` (heartbeat interval), `timezone` (IANA timezone, default UTC). Run `valet agents create --help` for all options.
+
 ### Link a directory
 
 ```
