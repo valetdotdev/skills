@@ -169,18 +169,18 @@ Lists agents in the default org, or the org specified with `--org` / `-o`. Error
 ### Show agent details
 
 ```
-valet agents info <name>
+valet agents info <name> [--org <org>]
 ```
 
-Displays owner, current release, process state, channels, and connectors.
+Displays owner, current release, process state (including `idle`), channels, and connectors. Use `--org` when looking up by name and you belong to multiple organizations. When `--agent` is a UUID, `--org` is not required. Run `valet agents info --help` for all options.
 
 ### Destroy an agent
 
 ```
-valet agents destroy <name> [--force]
+valet agents destroy <name> [--org <org>] [--force]
 ```
 
-Permanently removes the agent and all releases. Use `--force` to skip the confirmation prompt. Cannot be undone.
+Permanently removes the agent and all releases. Use `--org` to scope the lookup to a specific organization. Use `--force` to skip the confirmation prompt. Cannot be undone.
 
 ## Connectors
 
@@ -425,11 +425,11 @@ valet orgs revoke <name> <email>   # Cancel an invitation
 
 | Command | Purpose | Help |
 |---------|---------|------|
-| `valet run <prompt>` | Send a single prompt to an agent | `valet help run` |
-| `valet console` | Start an interactive REPL with an agent | `valet help console` |
+| `valet run <prompt>` | Send a single prompt to an agent; supports `--org` | `valet help run` |
+| `valet console` | Start an interactive REPL with an agent; supports `--org` | `valet help console` |
 | `valet exec` | Run a command with secrets injected into its environment | `valet help exec` |
-| `valet logs [-n <num>]` | Stream live logs; shows 100 historical lines by default (`-n 0` for live only) | `valet help logs` |
-| `valet ps` | List or restart agent processes | `valet help ps` |
+| `valet logs [-n <num>]` | Stream live logs; shows 100 historical lines by default (`-n 0` for live only); supports `--org` | `valet help logs` |
+| `valet ps` | List agent processes (can show `idle` state); supports `--org` | `valet help ps` |
 | `valet drains` | Configure log drains (OTLP HTTP) | `valet help drains` |
 
 ## Pre-Deploy Verification with valet exec
@@ -674,10 +674,12 @@ valet agents destroy <agent-name> --force
 ### Debugging
 
 ```
-valet agents info my-agent        # Check state, channels, connectors
-valet logs --agent my-agent       # Stream live logs (last 100 lines, then live)
-valet logs --agent my-agent -n 0  # Live logs only, skip history
-valet ps restart -a my-agent      # Restart without redeploying
+valet agents info my-agent                   # Check state, channels, connectors
+valet agents info my-agent --org my-org      # Specify org when looking up by name
+valet logs --agent my-agent                  # Stream live logs (last 100 lines, then live)
+valet logs --agent my-agent -n 0             # Live logs only, skip history
+valet ps restart -a my-agent                 # Restart without redeploying
+valet ps restart -a my-agent --org my-org    # Restart with explicit org
 ```
 
 ## Designing a New Agent
