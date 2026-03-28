@@ -312,13 +312,19 @@ valet channels add github-webhook --org acme
 Attach an org channel to an agent. Use `--events` to filter which event types are delivered:
 
 ```
-valet channels attach <name> [--agent <agent>] [--as <alias>] [--events <types>]
-valet channels detach <name> [--agent <agent>]
+valet channels attach <name> [--agent <agent>] [--as <alias>] [--events <types>] [--bot-name <name>]
+valet channels detach <name> [--agent <agent>] [--force]
 ```
+
+For Slack channels, `--bot-name` sets the bot display name (defaults to agent name). After attaching, the CLI opens a browser for the Slack OAuth install flow and shows the bot name and workspace.
+
+For Slack channels, detaching destroys the per-agent Slack bot. The CLI prompts for confirmation before proceeding. Use `--force` to skip the prompt.
 
 Example:
 ```
 valet channels attach github-webhook --agent my-reviewer --events pull_request,issue_comment
+valet channels attach slack --agent my-agent --bot-name my-bot
+valet channels detach slack --force
 ```
 
 ### Create a webhook channel
@@ -368,6 +374,8 @@ valet channels [--org <org>] [--agent <agent>]
 valet channels info <name>
 valet channels destroy <name>
 ```
+
+For Slack channels, `valet channels` shows the workspace name in the listing. Destroying an org-level Slack channel cascades — all per-agent Slack bots are destroyed first, then the org Slack connection is removed.
 
 ## Secrets
 
