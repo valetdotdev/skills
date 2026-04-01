@@ -89,7 +89,7 @@ Flags:
 - **Organization**: A team workspace that owns agents, connectors, channels, and secrets. All agents belong to an org — the default org is used when `--org` is omitted.
 - **Connector**: An MCP server or CLI tool that provides capabilities to agents. Types: `mcp-server` (MCP tools via client) and `command` (CLI with secret injection). Transports: `stdio`, `sse`, `streamable-http`.
 - **Channel**: A message entry point for agents. Types: `webhook`, `telegram`, `heartbeat`, `cron`. Each channel has a session strategy and a prompt path.
-- **Secret**: An encrypted credential scoped to an agent or organization. Referenced with `{{NAME}}` template syntax in connector and channel configurations. Agent-scoped secrets override org-scoped secrets of the same name.
+- **Secret**: An encrypted credential scoped to an org or agent. Referenced with `{{NAME}}` template syntax in connector and channel configurations. Agent-scoped secrets override org-scoped secrets of the same name.
 - **Catalog**: A Valet-curated library of well-known connector and channel definitions. Browse with `valet connectors catalog` or `valet channels catalog`. Add from the catalog instead of configuring from scratch.
 - **Shared resources**: Connectors, channels, and secrets can be scoped to an org and shared across agents. The pattern is: add from catalog (or create) at the org level, then attach to agents that need them. This maximizes reuse and simplifies credential rotation.
 - **Channel file**: A markdown file at `channels/<channel-name>.md` that tells the agent how to handle incoming messages.
@@ -169,18 +169,18 @@ Lists agents in the default org, or the org specified with `--org` / `-o`. Error
 ### Show agent details
 
 ```
-valet agents info <name>
+valet agents info <name> [--org <org>]
 ```
 
-Displays owner, current release, process state, channels, and connectors.
+Displays owner, current release, process state (including `idle`), channels, and connectors. Use `--org` when looking up by name and you belong to multiple organizations. When `--agent` is a UUID, `--org` is not required. Run `valet agents info --help` for all options.
 
 ### Destroy an agent
 
 ```
-valet agents destroy <name> [--force]
+valet agents destroy <name> [--org <org>] [--force]
 ```
 
-Permanently removes the agent and all releases. Use `--force` to skip the confirmation prompt. Cannot be undone.
+Permanently removes the agent and all releases. Use `--org` to scope the lookup to a specific organization. Use `--force` to skip the confirmation prompt. Cannot be undone.
 
 ## Connectors
 
@@ -193,7 +193,7 @@ valet connectors catalog
 valet connectors catalog get <name>
 ```
 
-The catalog contains Valet-curated connector definitions for well-known services (GitHub, Slack, Sentry, Linear, etc.). Each entry defines transport, command, and required secret slots.
+The catalog contains Valet-curated connector definitions for well-known services (GitHub, Slack, Sentry, Linear, etc.). Each entry defines transport, command, and required secret slots. Optional slots are labeled `(optional)` in the output of `valet connectors catalog get <name>`.
 
 ### Add from the catalog (preferred)
 
@@ -299,7 +299,7 @@ The catalog contains Valet-curated channel definitions for well-known services (
 valet channels add <entry> [--org <org>] [--agent <agent>] [--as <name>]
 ```
 
-Adds a channel from the catalog. Use `--as` to rename the instance.
+Adds a channel from the catalog. Use `--as` to rename the instance. If the catalog entry defines secret slots (e.g. `WEBHOOK_SECRET`), managed secrets are auto-generated and stored in `valet secrets`. The `managed` field in the output is the secret name — use `valet secrets set` to rotate it.
 
 Example:
 ```
@@ -312,13 +312,19 @@ valet channels add github-webhook --org acme
 Attach an org channel to an agent. Use `--events` to filter which event types are delivered:
 
 ```
-valet channels attach <name> [--agent <agent>] [--as <alias>] [--events <types>]
-valet channels detach <name> [--agent <agent>]
+valet channels attach <name> [--agent <agent>] [--as <alias>] [--events <types>] [--bot-name <name>]
+valet channels detach <name> [--agent <agent>] [--force]
 ```
+
+For Slack channels, `--bot-name` sets the bot display name (defaults to agent name). After attaching, the CLI opens a browser for the Slack OAuth install flow and shows the bot name and workspace.
+
+For Slack channels, detaching destroys the per-agent Slack bot. The CLI prompts for confirmation before proceeding. Use `--force` to skip the prompt.
 
 Example:
 ```
 valet channels attach github-webhook --agent my-reviewer --events pull_request,issue_comment
+valet channels attach slack --agent my-agent --bot-name my-bot
+valet channels detach slack --force
 ```
 
 ### Create a webhook channel
@@ -329,7 +335,7 @@ valet channels create webhook [name] \
   [--verify <scheme>]
 ```
 
-Verification schemes: `hmac-sha256` (default), `slack`, `stripe`, `svix`, `static-token`, `none`. Key flags: `--secret-name` (reference to a managed secret; required for `slack`, `stripe`, and `svix`), `--signature-header` (not used with `slack` or `svix`), `--delivery-key-header`, `--delivery-key-path`, `--prompt`. For `hmac-sha256` and `static-token`, a managed secret is auto-generated if `--secret-name` is omitted. The `slack` scheme implements Slack's Events API signing protocol and handles `url_verification` challenges automatically. Run `valet channels create webhook --help` for full details.
+Verification schemes: `hmac-sha256` (default), `slack`, `stripe`, `svix`, `static-token`, `none`. Key flags: `--secret-name` (name of an existing secret from `valet secrets` to use instead of auto-generating; required for `slack`, `stripe`, and `svix`), `--signature-header` (not used with `slack` or `svix`), `--delivery-key-header`, `--delivery-key-path`, `--prompt`. For `hmac-sha256` and `static-token`, a managed secret is auto-generated if `--secret-name` is omitted. The `slack` scheme implements Slack's Events API signing protocol and handles `url_verification` challenges automatically. Run `valet channels create webhook --help` for full details.
 
 The command outputs the **webhook URL**, **signing secret**, and (if applicable) **managed secret name** — always save and report these to the user.
 
@@ -369,9 +375,11 @@ valet channels info <name>
 valet channels destroy <name>
 ```
 
+For Slack channels, `valet channels` shows the workspace name in the listing. Destroying an org-level Slack channel cascades — all per-agent Slack bots are destroyed first, then the org Slack connection is removed.
+
 ## Secrets
 
-Secrets are encrypted credentials stored in Valet. They keep sensitive values outside the LLM context. Connectors and channels reference them with `{{NAME}}` template syntax.
+Secrets are credentials (API tokens, service keys, signing secrets) used by connectors and channels at runtime. The agent can invoke tools that depend on secrets but never sees the values — they flow through connectors and channels, not through the agent's environment. Reference a secret in connector or channel configuration with `{{NAME}}` syntax.
 
 **NEVER ask the user for secret values within the LLM session.** Direct them to run `valet secrets set NAME=VALUE --org <org>` in their terminal and wait for confirmation before proceeding.
 
@@ -425,11 +433,11 @@ valet orgs revoke <name> <email>   # Cancel an invitation
 
 | Command | Purpose | Help |
 |---------|---------|------|
-| `valet run <prompt>` | Send a single prompt to an agent | `valet help run` |
-| `valet console` | Start an interactive REPL with an agent | `valet help console` |
+| `valet run <prompt>` | Send a single prompt to an agent; supports `--org` | `valet help run` |
+| `valet console` | Start an interactive REPL with an agent; supports `--org` | `valet help console` |
 | `valet exec` | Run a command with secrets injected into its environment | `valet help exec` |
-| `valet logs` | Stream live logs from a deployed agent | `valet help logs` |
-| `valet ps` | List or restart agent processes | `valet help ps` |
+| `valet logs [-n <num>]` | Stream live logs; shows 100 historical lines by default (`-n 0` for live only); supports `--org` | `valet help logs` |
+| `valet ps` | List agent processes (can show `idle` state); supports `--org` | `valet help ps` |
 | `valet drains` | Configure log drains (OTLP HTTP) | `valet help drains` |
 
 ## Pre-Deploy Verification with valet exec
@@ -674,9 +682,12 @@ valet agents destroy <agent-name> --force
 ### Debugging
 
 ```
-valet agents info my-agent   # Check state, channels, connectors
-valet logs --agent my-agent  # Stream live logs
-valet ps restart -a my-agent # Restart without redeploying
+valet agents info my-agent                   # Check state, channels, connectors
+valet agents info my-agent --org my-org      # Specify org when looking up by name
+valet logs --agent my-agent                  # Stream live logs (last 100 lines, then live)
+valet logs --agent my-agent -n 0             # Live logs only, skip history
+valet ps restart -a my-agent                 # Restart without redeploying
+valet ps restart -a my-agent --org my-org    # Restart with explicit org
 ```
 
 ## Designing a New Agent
