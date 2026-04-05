@@ -28,12 +28,12 @@ If the user declines, stop and let them know they'll need Homebrew (or to instal
 **If Homebrew is installed**, install the Valet CLI:
 
 ```
-brew install valetdotdev/tap/valet-cli
+brew install valetdotdev/tap/valet
 ```
 
-**IMPORTANT — Homebrew failures**: If `brew install valetdotdev/tap/valet-cli` fails for any reason — tap errors, permission issues, network problems, formula conflicts, or anything else — **do not attempt to troubleshoot, retry, or work around the issue**. Instead, inform the user:
+**IMPORTANT — Homebrew failures**: If `brew install valetdotdev/tap/valet` fails for any reason — tap errors, permission issues, network problems, formula conflicts, or anything else — **do not attempt to troubleshoot, retry, or work around the issue**. Instead, inform the user:
 
-> It looks like the Homebrew installation didn't succeed. Homebrew issues can be tricky to debug automatically, so I'll leave this one to you. Please run `brew install valetdotdev/tap/valet-cli` in your terminal and resolve any issues manually. Once the CLI is installed, come back and we'll pick up where we left off.
+> It looks like the Homebrew installation didn't succeed. Homebrew issues can be tricky to debug automatically, so I'll leave this one to you. Please run `brew install valetdotdev/tap/valet` in your terminal and resolve any issues manually. Once the CLI is installed, come back and we'll pick up where we left off.
 
 Then **stop the current workflow**. Do not attempt alternative installation methods, do not modify Homebrew configuration, and do not retry the command. Wait for the user to confirm the CLI is installed before continuing.
 
@@ -88,7 +88,7 @@ Flags:
 - **Agent**: An AI agent defined by a `SOUL.md` file in a project directory. Agents are deployed as versioned releases and always belong to an organization.
 - **Organization**: A team workspace that owns agents, connectors, channels, and secrets. All agents belong to an org — the default org is used when `--org` is omitted.
 - **Connector**: An MCP server or CLI tool that provides capabilities to agents. Types: `mcp-server` (MCP tools via client) and `command` (CLI with secret injection). Transports: `stdio`, `sse`, `streamable-http`.
-- **Channel**: A message entry point for agents. Types: `webhook`, `telegram`, `heartbeat`, `cron`. Each channel has a session strategy and a prompt path.
+- **Channel**: A message entry point for agents. Types: `webhook`, `slack`, `telegram`, `heartbeat`, `cron`. Each channel has a session strategy and a prompt path.
 - **Secret**: An encrypted credential scoped to an org or agent. Referenced with `{{NAME}}` template syntax in connector and channel configurations. Agent-scoped secrets override org-scoped secrets of the same name.
 - **Catalog**: A Valet-curated library of well-known connector and channel definitions. Browse with `valet connectors catalog` or `valet channels catalog`. Add from the catalog instead of configuring from scratch.
 - **Shared resources**: Connectors, channels, and secrets can be scoped to an org and shared across agents. The pattern is: add from catalog (or create) at the org level, then attach to agents that need them. This maximizes reuse and simplifies credential rotation.
@@ -177,10 +177,10 @@ Displays owner, current release, process state (including `idle`), channels, and
 ### Destroy an agent
 
 ```
-valet agents destroy <name> [--org <org>] [--force]
+valet agents destroy <name> [--org <org>]
 ```
 
-Permanently removes the agent and all releases. Use `--org` to scope the lookup to a specific organization. Use `--force` to skip the confirmation prompt. Cannot be undone.
+Permanently removes the agent and all releases. Use `--org` to scope the lookup to a specific organization. Cannot be undone.
 
 ## Connectors
 
@@ -195,60 +195,65 @@ valet connectors catalog get <name>
 
 The catalog contains Valet-curated connector definitions for well-known services (GitHub, Slack, Sentry, Linear, etc.). Each entry defines transport, command, and required secret slots. Optional slots are labeled `(optional)` in the output of `valet connectors catalog get <name>`.
 
-### Add from the catalog (preferred)
+### Create from the catalog (preferred)
 
 ```
-valet connectors add <entry> [--org <org>] [--agent <agent>] [--as <name>]
+valet connectors create <entry> [--org <org>] [--agent <agent>] [--as <name>]
 ```
 
-Adds a connector from the catalog. Use `--as` to rename the instance (useful for multiple instances with different credentials). Required secrets must already be set.
+Creates a connector from the catalog. Use `--as` to rename the instance (useful for multiple instances with different credentials). Required secrets must already be set.
 
 Example:
 ```
 valet secrets set GITHUB_TOKEN=ghp_abc123 --org acme
-valet connectors add github --org acme
+valet connectors create github --org acme
 ```
 
 ### Create a custom connector
 
-Only use `create` when the catalog doesn't have what you need:
+Only use type-specific subcommands when the catalog doesn't have what you need:
 
 ```
-valet connectors create <name> [--type <type>] \
+# MCP server connector
+valet connectors create mcp-server <name> \
   [--transport <type>] [--command <cmd>] [--args <args>] \
   [--url <url>] [--env K=V] [--header K=V] \
-  [--secrets <names>] [--org <org>] [--agent <agent>]
+  [--org <org>] [--agent <agent>]
+
+# Command connector
+valet connectors create command <name> \
+  [--command <cmd>] [--args <args>] [--secrets <names>] \
+  [--org <org>] [--agent <agent>]
 ```
 
-Two types: `mcp-server` (default) and `command`. **Important**: `--args` takes comma-separated values. Use `{{NAME}}` to reference secrets.
+**Important**: `--args` takes comma-separated values. Use `{{NAME}}` to reference secrets in `--env` and `--header` values.
 
 ```
 # MCP server — stdio transport
-valet connectors create slack-server --org acme \
+valet connectors create mcp-server slack-server --org acme \
   --transport stdio --command npx \
   --args -y,@modelcontextprotocol/server-slack \
   --env SLACK_BOT_TOKEN={{SLACK_BOT_TOKEN}} \
   --env SLACK_TEAM_ID={{SLACK_TEAM_ID}}
-```
 
 # MCP server — remote transport
-valet connectors create <name> \
+valet connectors create mcp-server <name> \
   --transport streamable-http \
   --url https://mcp.example.com/mcp \
   --header Authorization={{API_TOKEN}}
 ```
 
-**Command connectors** (`--type command`) wrap CLI tools. They require `--command` and accept `--secrets` (comma-separated secret names injected at runtime).
+**Command connectors** wrap CLI tools. They require `--command` and accept `--secrets` (comma-separated secret names injected at runtime).
 
 **Naming rule**: Name the connector after the CLI command the agent will type. The connector name becomes the executable on the agent's PATH, so it must match the command exactly. For tools installed via npx, the CLI command may differ from the npm package name — always use the CLI command.
 
 ```
 # "gh" CLI → connector named "gh"
-valet connectors create gh --type command \
+valet connectors create command gh \
   --command gh --secrets GITHUB_TOKEN
 
 # "agentmail" CLI (npm package: agentmail-cli) → connector named "agentmail"
-valet connectors create agentmail --type command \
+valet connectors create command agentmail \
   --command npx --args -y,agentmail-cli --secrets AGENTMAIL_API_KEY
 ```
 
@@ -293,18 +298,18 @@ valet channels catalog get <name>
 
 The catalog contains Valet-curated channel definitions for well-known services (GitHub webhooks, Slack Events API, Stripe, etc.). Each entry defines signing scheme, event taxonomy, and required secret slots.
 
-### Add from the catalog (preferred for webhooks)
+### Create from the catalog (preferred for webhooks)
 
 ```
-valet channels add <entry> [--org <org>] [--agent <agent>] [--as <name>]
+valet channels create <entry> [--org <org>] [--agent <agent>] [--as <name>]
 ```
 
-Adds a channel from the catalog. Use `--as` to rename the instance. If the catalog entry defines secret slots (e.g. `WEBHOOK_SECRET`), managed secrets are auto-generated and stored in `valet secrets`. The `managed` field in the output is the secret name — use `valet secrets set` to rotate it.
+Creates a channel from the catalog. Use `--as` to rename the instance. If the catalog entry defines secret slots (e.g. `WEBHOOK_SECRET`), managed secrets are auto-generated and stored in `valet secrets`. The `managed` field in the output is the secret name — use `valet secrets set` to rotate it.
 
 Example:
 ```
 valet secrets set GITHUB_WEBHOOK_SECRET=whsec_abc123 --org acme
-valet channels add github-webhook --org acme
+valet channels create github-webhook --org acme
 ```
 
 ### Attach / Detach
@@ -348,6 +353,15 @@ valet channels create slack [name] \
 ```
 
 Creates a Slack channel that enables agents to participate in your Slack workspace. Before creating the channel, the CLI automatically checks whether the org has a connected Slack workspace. If not connected, it prompts you to connect via OAuth, opens a browser window for authorization, and polls until the connection is confirmed. The `--bot-name` flag sets the Slack bot display name (default: agent name, resolved server-side). The command outputs the bot name and workspace after setup. Run `valet channels create slack --help` for all flags.
+
+### Create a Telegram channel
+
+```
+valet channels create telegram [name] \
+  [--agent <agent-name>]
+```
+
+Creates a Telegram channel and outputs a deep link (`t.me/...`) for connecting the bot. Run `valet channels create telegram --help` for all flags.
 
 ### Create a heartbeat channel
 
@@ -407,7 +421,7 @@ When directing the user to set secrets, **always tell them what format the value
 
 ```
 valet secrets [--agent <name> | --org <name>]
-valet secrets unset <NAME> [--agent <name> | --org <name>]
+valet secrets unset <NAME> [--agent <name> | --org <name>] [--force]
 ```
 
 ## Organizations
@@ -421,13 +435,13 @@ valet orgs info <name>             # Show org details
 valet orgs destroy <name>          # Delete an org
 valet orgs members <name>          # List members
 valet orgs invite <name> <email>   # Invite a member
-valet orgs join <name>             # Accept an invitation
+valet orgs join <code>             # Accept an invitation
 valet orgs leave <name>            # Leave an org
-valet orgs remove <name> <user>    # Remove a member
+valet orgs remove <name> <email>   # Remove a member
 valet orgs revoke <name> <email>   # Cancel an invitation
 ```
 
-**Org tips**: Set a default org with `valet orgs default <name>` so you don't need `--org` on every command.
+**Org tips**: The default org is set automatically when you create or join an org — you don't need `--org` on every command.
 
 ## Other Commands
 
@@ -576,12 +590,12 @@ Follow Resource Creation Principles — set up org-scoped resources first, then 
 2. Add connectors from the catalog at the org level:
    ```
    valet connectors catalog
-   valet connectors add github --org acme
+   valet connectors create github --org acme
    ```
 
 3. If no catalog entry exists, create a custom connector at the org level:
    ```
-   valet connectors create my-tool --org acme \
+   valet connectors create mcp-server my-tool --org acme \
      --transport stdio \
      --command npx \
      --args -y,@example/mcp-server \
@@ -590,7 +604,7 @@ Follow Resource Creation Principles — set up org-scoped resources first, then 
 
 4. Add channels from the catalog at the org level (for webhooks):
    ```
-   valet channels add github-webhook --org acme
+   valet channels create github-webhook --org acme
    ```
 
 5. Create the agent and attach org resources:
@@ -635,7 +649,7 @@ For standalone agents that don't need to share resources:
 2. Set agent-scoped secrets and create agent-scoped connectors:
    ```
    valet secrets set API_KEY=<value> --agent my-agent
-   valet connectors create my-tool --agent my-agent \
+   valet connectors create mcp-server my-tool --agent my-agent \
      --transport stdio --command npx \
      --args -y,@example/server \
      --env API_KEY={{API_KEY}}
@@ -676,7 +690,7 @@ valet channels destroy <agent-channel>
 valet connectors destroy <agent-connector>
 
 # Destroy the agent
-valet agents destroy <agent-name> --force
+valet agents destroy <agent-name>
 ```
 
 ### Debugging
@@ -804,11 +818,11 @@ Want to proceed with this plan, or would you like to adjust anything?
 7. Set up connectors — **check the catalog first**:
    ```
    valet connectors catalog
-   valet connectors add <entry> --org <org-name>
+   valet connectors create <entry> --org <org-name>
    ```
    Only create custom connectors if no catalog entry exists:
    ```
-   valet connectors create <name> --org <org-name> \
+   valet connectors create mcp-server <name> --org <org-name> \
      --transport stdio \
      --command <cmd> --args <args> \
      --env KEY={{SECRET_NAME}}
@@ -816,7 +830,7 @@ Want to proceed with this plan, or would you like to adjust anything?
 8. Set up channels — **check the catalog first** for webhook channels:
    ```
    valet channels catalog
-   valet channels add <entry> --org <org-name>
+   valet channels create <entry> --org <org-name>
    ```
    Or create directly:
    ```
