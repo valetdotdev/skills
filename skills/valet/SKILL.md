@@ -439,20 +439,41 @@ valet orgs join <code>             # Accept an invitation
 valet orgs leave <name>            # Leave an org
 valet orgs remove <name> <email>   # Remove a member
 valet orgs revoke <name> <email>   # Cancel an invitation
+valet orgs set-default <name>      # Switch the default org
 ```
 
-**Org tips**: The default org is set automatically when you create or join an org — you don't need `--org` on every command.
+**Org tips**: The default org is set automatically when you create or join an org — you don't need `--org` on every command. Use `valet orgs set-default <name>` to switch the default after joining multiple orgs. Run `valet orgs set-default --help` for details.
 
 ## Other Commands
 
 | Command | Purpose | Help |
 |---------|---------|------|
 | `valet run <prompt>` | Send a single prompt to an agent; supports `--org` | `valet help run` |
-| `valet console` | Start an interactive REPL with an agent; supports `--org` | `valet help console` |
+| `valet console` | Start an interactive REPL with an agent; supports `--org` and `--resume <session-id>`. Surfaces actionable stream errors (`timed out; try again?`, `rate limited; try again in a moment`, `could not reach server; check your network`) with the raw detail appended after the prefix | `valet help console` |
 | `valet exec` | Run a command with secrets injected into its environment | `valet help exec` |
 | `valet logs [-n <num>]` | Stream live logs; shows 100 historical lines by default (`-n 0` for live only); supports `--org` | `valet help logs` |
 | `valet ps` | List agent processes (can show `idle` state); supports `--org` | `valet help ps` |
 | `valet drains` | Configure log drains (OTLP HTTP) | `valet help drains` |
+
+## Sessions
+
+Sessions persist conversation state so the user can disconnect and come back. Each `valet console` invocation writes to a session, and the same session can be resumed later or deleted.
+
+### Resume a session
+
+```
+valet console [-a <agent>] --resume <session-id>
+```
+
+Reopens the console on an existing session. The transcript is replayed locally and the agent continues where it left off. Use the session ID printed when the console started, or look it up via the dashboard. Without `--resume`, `valet console` starts a new session.
+
+### Delete a session
+
+```
+valet sessions delete <session-id> [-a <agent>]
+```
+
+Removes a session and its transcript. Destructive — confirm before running. Run `valet sessions --help` for the full session subcommand list.
 
 ## Pre-Deploy Verification with valet exec
 
