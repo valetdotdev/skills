@@ -113,8 +113,8 @@ These principles apply to all connectors, channels, and secrets. Follow this pri
 
 1. **Catalog first**: Check `valet connectors catalog` or `valet channels catalog` before creating from scratch. Catalog entries handle transport, commands, and secret slots automatically.
 2. **Reuse existing**: Check `valet connectors --org <org>` or `valet channels --org <org>` for resources that already provide what you need. Attach rather than duplicate.
-3. **Org-scoped by default**: Create resources at the org level (`--org`) so they can be shared across agents. Only use agent-scoped resources when a resource is truly single-agent.
-4. **Secrets at org level**: Default to `--org` for secrets so connectors and channels shared across agents can all access them. Agent-scoped secrets override org-scoped ones of the same name when needed.
+3. **Org-scoped by default**: Always create connectors, channels, and secrets at the org level (`--org`). Org-scoped resources can be attached to any agent in the org, so a single `GITHUB_TOKEN` secret, `github` MCP connector, or `slack` webhook channel is reusable across every agent — no duplication, one place to rotate credentials. **Only drop to `--agent` when you have a concrete reason the resource cannot be shared** (e.g., per-agent rate limits, distinct credentials for the same service, a one-off test agent). When in doubt, use `--org` and attach.
+4. **Secrets at org level by default**: Setting a secret with `--org` makes it available to every org-scoped connector and channel. Any agent that later attaches those connectors/channels automatically inherits access — no secret duplication. Agent-scoped secrets override org-scoped ones of the same name when a specific agent needs a different value.
 5. **Verify before deploying**: Test every secret-backed command locally with `valet exec` before deploying (see "Pre-Deploy Verification").
 
 ## Agent Lifecycle
@@ -200,7 +200,7 @@ Permanently removes the agent and all releases. Use `--org` to scope the lookup 
 
 ## Connectors
 
-Connectors give agents access to MCP tools and CLI commands. Follow the Resource Creation Principles above.
+Connectors give agents access to MCP tools and CLI commands. **Default to `--org` when creating connectors** — an org-scoped connector can be attached to any agent in the org, so one `github` or `slack-mcp` connector serves every agent that needs it. Only use `--agent` when the connector is genuinely single-use. Follow the Resource Creation Principles above.
 
 ### Browse the catalog
 
@@ -303,7 +303,7 @@ valet connectors destroy <name>
 
 ## Channels
 
-Channels are message entry points for agents. Follow the Resource Creation Principles above — the catalog encodes signing schemes and service-specific behaviors for webhook channels.
+Channels are message entry points for agents. **Default to `--org` when creating channels** — an org-scoped webhook or Slack channel can be attached to multiple agents (each with its own `--events` filter or bot name), reusing the same webhook URL and signing secret. Only use `--agent` when the channel truly belongs to one agent (per-agent cron or heartbeat schedules, agent-specific Telegram bots). Follow the Resource Creation Principles above — the catalog encodes signing schemes and service-specific behaviors for webhook channels.
 
 ### Browse the catalog
 
@@ -410,6 +410,8 @@ For Slack channels, `valet channels` shows the workspace name in the listing. De
 ## Secrets
 
 Secrets are credentials (API tokens, service keys, signing secrets) used by connectors and channels at runtime. The agent can invoke tools that depend on secrets but never sees the values — they flow through connectors and channels, not through the agent's environment. Reference a secret in connector or channel configuration with `{{NAME}}` syntax.
+
+**Default to `--org` when setting secrets.** Org-scoped secrets are available to every org-scoped connector and channel, so one `GITHUB_TOKEN` or `SLACK_BOT_TOKEN` serves every agent in the org that references it — and credential rotation is a single `valet secrets set` away. Use `--agent` only when an agent needs a different value for the same secret name (e.g., a distinct API key per agent); the agent-scoped secret overrides the org-scoped one.
 
 **NEVER ask the user for secret values within the LLM session.** Direct them to run `valet secrets set NAME=VALUE --org <org>` in their terminal and wait for confirmation before proceeding.
 
@@ -675,7 +677,7 @@ Follow Resource Creation Principles — set up org-scoped resources first, then 
 
 ### One-off agent setup (agent-scoped)
 
-For standalone agents that don't need to share resources:
+Use this flow **only** when you have a concrete reason an agent cannot share resources — e.g., distinct credentials for the same service, a throwaway test agent, or per-agent rate limits. For everything else, prefer the org-first flow above. Standalone setup:
 
 1. Create the agent (pass `--org` if the user belongs to multiple orgs; omit for single-org users):
    ```
