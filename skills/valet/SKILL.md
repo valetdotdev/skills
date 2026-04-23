@@ -113,7 +113,7 @@ These principles apply to all connectors, channels, and secrets. Follow this pri
 
 1. **Catalog first**: Check `valet connectors catalog` or `valet channels catalog` before creating from scratch. Catalog entries handle transport, commands, and secret slots automatically.
 2. **Reuse existing**: Check `valet connectors --org <org>` or `valet channels --org <org>` for resources that already provide what you need. Attach rather than duplicate.
-3. **Org-scoped by default**: Always create connectors, channels, and secrets at the org level (`--org`). Org-scoped resources can be attached to any agent in the org, so a single `GITHUB_TOKEN` secret, `github` MCP connector, or `slack` webhook channel is reusable across every agent — no duplication, one place to rotate credentials. **Only drop to `--agent` when you have a concrete reason the resource cannot be shared** (e.g., per-agent rate limits, distinct credentials for the same service, a one-off test agent). When in doubt, use `--org` and attach.
+3. **Org-scoped by default**: Always create connectors, channels, and secrets at the org level (`--org`). Org-scoped resources can be attached to any agent in the org, so a single `GITHUB_TOKEN` secret, `github` MCP connector, or `github-webhook` channel is reusable across every agent — no duplication, one place to rotate credentials. **Only drop to `--agent` when you have a concrete reason the resource cannot be shared** (e.g., per-agent rate limits, distinct credentials for the same service, a one-off test agent). When in doubt, use `--org` and attach. (Slack is a special case — see the Channels section.)
 4. **Secrets at org level by default**: Setting a secret with `--org` makes it available to every org-scoped connector and channel. Any agent that later attaches those connectors/channels automatically inherits access — no secret duplication. Agent-scoped secrets override org-scoped ones of the same name when a specific agent needs a different value.
 5. **Verify before deploying**: Test every secret-backed command locally with `valet exec` before deploying (see "Pre-Deploy Verification").
 
@@ -303,7 +303,11 @@ valet connectors destroy <name>
 
 ## Channels
 
-Channels are message entry points for agents. **Default to `--org` when creating channels** — an org-scoped webhook or Slack channel can be attached to multiple agents (each with its own `--events` filter or bot name), reusing the same webhook URL and signing secret. Only use `--agent` when the channel truly belongs to one agent (per-agent cron or heartbeat schedules, agent-specific Telegram bots). Follow the Resource Creation Principles above — the catalog encodes signing schemes and service-specific behaviors for webhook channels.
+Channels are message entry points for agents. **Default to `--org` when creating webhook channels** — one org-scoped webhook can be attached to multiple agents (each with its own `--events` filter), reusing the same webhook URL and signing secret. Use `--agent` when the channel truly belongs to one agent (cron and heartbeat schedules, Telegram bots).
+
+**Slack is a two-step special case.** The org-level Slack channel (`valet channels create slack --org <org>`) authorizes Valet to create apps in your Slack workspace — one per org, a one-time prerequisite, not a reusable channel. Each agent that needs to appear in Slack then gets its **own** per-agent Slack channel (`valet channels create slack --agent <name>` or `valet channels attach slack --agent <name>`), which provisions a dedicated Slack app with its own bot identity. See "Create a Slack channel" below for the full flow.
+
+Follow the Resource Creation Principles above — the catalog encodes signing schemes and service-specific behaviors for webhook channels.
 
 ### Browse the catalog
 
@@ -362,13 +366,25 @@ The command outputs the **webhook URL**, **signing secret**, and (if applicable)
 
 ### Create a Slack channel
 
+Slack is a two-step setup. Do both in order:
+
+**Step 1 — Once per org (prerequisite):** create the org-level Slack channel. This authorizes Valet to create Slack apps in your workspace.
+
 ```
-valet channels create slack [name] \
-  [--agent <agent-name>] [--org <org>] \
-  [--bot-name <display-name>]
+valet channels create slack --org <org>
 ```
 
-Creates a Slack channel that enables agents to participate in your Slack workspace. Before creating the channel, the CLI automatically checks whether the org has a connected Slack workspace. If not connected, it prompts you to connect via OAuth, opens a browser window for authorization, and polls until the connection is confirmed. The `--bot-name` flag sets the Slack bot display name (default: agent name, resolved server-side). The command outputs the bot name and workspace after setup. Run `valet channels create slack --help` for all flags.
+The CLI prompts for a config token and refresh token (generate them at https://api.slack.com/apps under "Your App Configuration Tokens"), stores them encrypted, and records the workspace. There is exactly one org-level Slack channel per org — skip this step if the org is already connected (`valet channels --org <org>` will show a `slack` entry with the workspace name).
+
+**Step 2 — Once per agent that needs to be in Slack:** create a per-agent Slack channel.
+
+```
+valet channels create slack [name] --agent <agent-name> [--bot-name <display-name>]
+```
+
+This provisions a dedicated Slack app for the agent, giving it a unique `@bot-name` in the workspace. If the org-level prerequisite is missing, the command errors and directs you to run Step 1 first. `--bot-name` sets the display name (defaults to agent name, resolved server-side). After creation the CLI opens a browser for the OAuth install flow, polls until install completes, and shows the bot name and workspace. Attaching an existing org's Slack to an agent (`valet channels attach slack --agent <name>`) is equivalent.
+
+Run `valet channels create slack --help` for all flags.
 
 ### Create a Telegram channel
 
