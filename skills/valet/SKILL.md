@@ -63,7 +63,7 @@ valet topics                        # List help guides
 valet topics <name>                 # Read a specific guide
 ```
 
-Useful topic guides: `getting-started`, `agent-lifecycle`, `channels`, `connectors-overview` (covers both MCP server and command connectors).
+Useful topic guides: `getting-started`, `agent-lifecycle`, `channels`, `connectors-overview` (covers both MCP server and command connectors), `resolution` (how the CLI picks `--agent` and `--org`).
 
 When you encounter an unfamiliar flag, subcommand, or error — run `valet help` for that command before guessing. The CLI help is authoritative and up to date.
 
@@ -94,14 +94,27 @@ Flags:
 - **Shared resources**: Connectors, channels, and secrets can be scoped to an org and shared across agents. The pattern is: add from catalog (or create) at the org level, then attach to agents that need them. This maximizes reuse and simplifies credential rotation.
 - **Channel file**: A markdown file at `channels/<channel-name>.md` that tells the agent how to handle incoming messages.
 
+### Resolution
+
+Most commands target an agent, an org, or both. The CLI resolves the target from three sources in strict precedence: **flags → project link → default org**. No mixing — if any flag is passed, project link and default org are ignored. In a linked directory (one with `.valet/config.json`), both agent and org come from the link. Otherwise the default org is used and the agent is unspecified.
+
+Practical rules when writing valet commands:
+
+- Pass `--org` explicitly whenever you know the target org and the user may belong to multiple orgs. Never assume the default org is set.
+- When inside a linked project directory (e.g. after `valet agents create` or `valet agents link`), omit `--agent` / `--org` — the link provides both.
+- If the user belongs to multiple orgs and a command needs disambiguation, `--agent X` alone may error (`agent exists in multiple orgs...`) — add `--org Y`.
+- `valet agents link` requires `--org` for multi-org users and refuses to overwrite an existing link without `--force`.
+
+Run `valet topics resolution` for the full rules. `valet auth whoami` surfaces the user's default org and any linked project so you can see what a bare command will target.
+
 ## Resource Creation Principles
 
 These principles apply to all connectors, channels, and secrets. Follow this priority order every time:
 
 1. **Catalog first**: Check `valet connectors catalog` or `valet channels catalog` before creating from scratch. Catalog entries handle transport, commands, and secret slots automatically.
 2. **Reuse existing**: Check `valet connectors --org <org>` or `valet channels --org <org>` for resources that already provide what you need. Attach rather than duplicate.
-3. **Org-scoped by default**: Create resources at the org level (`--org`) so they can be shared across agents. Only use agent-scoped resources when a resource is truly single-agent.
-4. **Secrets at org level**: Default to `--org` for secrets so connectors and channels shared across agents can all access them. Agent-scoped secrets override org-scoped ones of the same name when needed.
+3. **Org-scoped by default**: Always create connectors, channels, and secrets at the org level (`--org`). Org-scoped resources can be attached to any agent in the org, so a single `GITHUB_TOKEN` secret, `github` MCP connector, or `github-webhook` channel is reusable across every agent — no duplication, one place to rotate credentials. **Only drop to `--agent` when you have a concrete reason the resource cannot be shared** (e.g., per-agent rate limits, distinct credentials for the same service, a one-off test agent). When in doubt, use `--org` and attach. (Slack is a special case — see the Channels section.)
+4. **Secrets at org level by default**: Setting a secret with `--org` makes it available to every org-scoped connector and channel. Any agent that later attaches those connectors/channels automatically inherits access — no secret duplication. Agent-scoped secrets override org-scoped ones of the same name when a specific agent needs a different value.
 5. **Verify before deploying**: Test every secret-backed command locally with `valet exec` before deploying (see "Pre-Deploy Verification").
 
 ## Agent Lifecycle
@@ -143,10 +156,13 @@ Use `type` (mutually exclusive with `catalog`) to declare inline channels. Suppo
 ### Link a directory
 
 ```
-valet agents link <name>
+valet agents link <name> [--org <org>] [--force]
 ```
 
-Creates `.valet/config.json` so subsequent commands auto-detect the agent. Not needed if you created the agent from this directory.
+Creates `.valet/config.json` pinning the current directory to the named agent in the given org. Subsequent commands auto-detect both agent and org from the link. Not needed if you created the agent from this directory.
+
+- `--org` is **required** when you belong to multiple orgs. Single-org users can omit it; the CLI uses the one org.
+- `--force` is required to replace an existing link in this directory. Without it, the command errors if `.valet/config.json` already exists.
 
 ### Deploy changes
 
@@ -156,7 +172,7 @@ After editing `SOUL.md`, channel files, or other project files:
 valet agents deploy [-a <name>] [--org <org>] [--no-wait]
 ```
 
-Use `--org` to specify the target organization when you belong to multiple orgs. When omitted, the default org from your config is used.
+The target follows the standard resolver (flags → project link → default org). Inside a linked directory, both agent and org come from the link; passing `--agent` or `--org` overrides the link entirely.
 
 ### List agents
 
@@ -172,7 +188,7 @@ Lists agents in the default org, or the org specified with `--org` / `-o`. Error
 valet agents info <name> [--org <org>]
 ```
 
-Displays owner, current release, process state (including `idle`), channels, and connectors. Use `--org` when looking up by name and you belong to multiple organizations. When `--agent` is a UUID, `--org` is not required. Run `valet agents info --help` for all options.
+Displays owner, current release, process state (including `idle`), channels, and connectors. Pass `--org` when the agent name is ambiguous across orgs you belong to; otherwise the server resolves the org from your memberships. Run `valet agents info --help` for all options.
 
 ### Destroy an agent
 
@@ -184,7 +200,7 @@ Permanently removes the agent and all releases. Use `--org` to scope the lookup 
 
 ## Connectors
 
-Connectors give agents access to MCP tools and CLI commands. Follow the Resource Creation Principles above.
+Connectors give agents access to MCP tools and CLI commands. **Default to `--org` when creating connectors** — an org-scoped connector can be attached to any agent in the org, so one `github` or `slack-mcp` connector serves every agent that needs it. Only use `--agent` when the connector is genuinely single-use. Follow the Resource Creation Principles above.
 
 ### Browse the catalog
 
@@ -287,7 +303,11 @@ valet connectors destroy <name>
 
 ## Channels
 
-Channels are message entry points for agents. Follow the Resource Creation Principles above — the catalog encodes signing schemes and service-specific behaviors for webhook channels.
+Channels are message entry points for agents. **Default to `--org` when creating webhook channels** — one org-scoped webhook can be attached to multiple agents (each with its own `--events` filter), reusing the same webhook URL and signing secret. Use `--agent` when the channel truly belongs to one agent (cron and heartbeat schedules, Telegram bots).
+
+**Slack is a two-step special case.** The org-level Slack channel (`valet channels create slack --org <org>`) authorizes Valet to create apps in your Slack workspace — one per org, a one-time prerequisite, not a reusable channel. Each agent that needs to appear in Slack then gets its **own** per-agent Slack channel (`valet channels create slack --agent <name>` or `valet channels attach slack --agent <name>`), which provisions a dedicated Slack app with its own bot identity. See "Create a Slack channel" below for the full flow.
+
+Follow the Resource Creation Principles above — the catalog encodes signing schemes and service-specific behaviors for webhook channels.
 
 ### Browse the catalog
 
@@ -346,13 +366,25 @@ The command outputs the **webhook URL**, **signing secret**, and (if applicable)
 
 ### Create a Slack channel
 
+Slack is a two-step setup. Do both in order:
+
+**Step 1 — Once per org (prerequisite):** create the org-level Slack channel. This authorizes Valet to create Slack apps in your workspace.
+
 ```
-valet channels create slack [name] \
-  [--agent <agent-name>] [--org <org>] \
-  [--bot-name <display-name>]
+valet channels create slack --org <org>
 ```
 
-Creates a Slack channel that enables agents to participate in your Slack workspace. Before creating the channel, the CLI automatically checks whether the org has a connected Slack workspace. If not connected, it prompts you to connect via OAuth, opens a browser window for authorization, and polls until the connection is confirmed. The `--bot-name` flag sets the Slack bot display name (default: agent name, resolved server-side). The command outputs the bot name and workspace after setup. Run `valet channels create slack --help` for all flags.
+The CLI prompts for a config token and refresh token (generate them at https://api.slack.com/apps under "Your App Configuration Tokens"), stores them encrypted, and records the workspace. There is exactly one org-level Slack channel per org — skip this step if the org is already connected (`valet channels --org <org>` will show a `slack` entry with the workspace name).
+
+**Step 2 — Once per agent that needs to be in Slack:** create a per-agent Slack channel.
+
+```
+valet channels create slack [name] --agent <agent-name> [--bot-name <display-name>]
+```
+
+This provisions a dedicated Slack app for the agent, giving it a unique `@bot-name` in the workspace. If the org-level prerequisite is missing, the command errors and directs you to run Step 1 first. `--bot-name` sets the display name (defaults to agent name, resolved server-side). After creation the CLI opens a browser for the OAuth install flow, polls until install completes, and shows the bot name and workspace. Attaching an existing org's Slack to an agent (`valet channels attach slack --agent <name>`) is equivalent.
+
+Run `valet channels create slack --help` for all flags.
 
 ### Create a Telegram channel
 
@@ -395,6 +427,8 @@ For Slack channels, `valet channels` shows the workspace name in the listing. De
 
 Secrets are credentials (API tokens, service keys, signing secrets) used by connectors and channels at runtime. The agent can invoke tools that depend on secrets but never sees the values — they flow through connectors and channels, not through the agent's environment. Reference a secret in connector or channel configuration with `{{NAME}}` syntax.
 
+**Default to `--org` when setting secrets.** Org-scoped secrets are available to every org-scoped connector and channel, so one `GITHUB_TOKEN` or `SLACK_BOT_TOKEN` serves every agent in the org that references it — and credential rotation is a single `valet secrets set` away. Use `--agent` only when an agent needs a different value for the same secret name (e.g., a distinct API key per agent); the agent-scoped secret overrides the org-scoped one.
+
 **NEVER ask the user for secret values within the LLM session.** Direct them to run `valet secrets set NAME=VALUE --org <org>` in their terminal and wait for confirmation before proceeding.
 
 ### Set secrets
@@ -403,7 +437,7 @@ Secrets are credentials (API tokens, service keys, signing secrets) used by conn
 valet secrets set <NAME=VALUE>... [--org <org>] [--agent <agent>] [--no-wait]
 ```
 
-Must specify exactly one scope: `--org` or `--agent` (or run from a linked agent directory). Agent-scoped secrets trigger a redeploy; org-scoped do not.
+Scope follows the resolver: `--agent` / `--org` flags, then project link, then default org (org-scoped). Passing `--agent` makes the secret agent-scoped; passing only `--org` (or resolving through the default) makes it org-scoped. Agent-scoped secrets trigger a redeploy; org-scoped do not.
 
 ### {{NAME}} template syntax
 
@@ -442,7 +476,7 @@ valet orgs revoke <name> <email>   # Cancel an invitation
 valet orgs set-default <name>      # Switch the default org
 ```
 
-**Org tips**: The default org is set automatically when you create or join an org — you don't need `--org` on every command. Use `valet orgs set-default <name>` to switch the default after joining multiple orgs. Run `valet orgs set-default --help` for details.
+**Org tips**: The default org is set automatically when you create or join an org — you don't need `--org` on every command when targeting the default. Inside a linked project directory, the link's org takes precedence over the default (see `valet topics resolution`). Use `valet orgs set-default <name>` to switch the default after joining multiple orgs. Run `valet orgs set-default --help` for details.
 
 ## Other Commands
 
@@ -659,12 +693,12 @@ Follow Resource Creation Principles — set up org-scoped resources first, then 
 
 ### One-off agent setup (agent-scoped)
 
-For standalone agents that don't need to share resources:
+Use this flow **only** when you have a concrete reason an agent cannot share resources — e.g., distinct credentials for the same service, a throwaway test agent, or per-agent rate limits. For everything else, prefer the org-first flow above. Standalone setup:
 
-1. Create the agent:
+1. Create the agent (pass `--org` if the user belongs to multiple orgs; omit for single-org users):
    ```
    cd my-agent-project
-   valet agents create my-agent
+   valet agents create my-agent --org acme
    ```
 
 2. Set agent-scoped secrets and create agent-scoped connectors:
