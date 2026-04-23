@@ -63,7 +63,7 @@ valet topics                        # List help guides
 valet topics <name>                 # Read a specific guide
 ```
 
-Useful topic guides: `getting-started`, `agent-lifecycle`, `channels`, `connectors-overview` (covers both MCP server and command connectors).
+Useful topic guides: `getting-started`, `agent-lifecycle`, `channels`, `connectors-overview` (covers both MCP server and command connectors), `resolution` (how the CLI picks `--agent` and `--org`).
 
 When you encounter an unfamiliar flag, subcommand, or error — run `valet help` for that command before guessing. The CLI help is authoritative and up to date.
 
@@ -93,6 +93,19 @@ Flags:
 - **Catalog**: A Valet-curated library of well-known connector and channel definitions. Browse with `valet connectors catalog` or `valet channels catalog`. Add from the catalog instead of configuring from scratch.
 - **Shared resources**: Connectors, channels, and secrets can be scoped to an org and shared across agents. The pattern is: add from catalog (or create) at the org level, then attach to agents that need them. This maximizes reuse and simplifies credential rotation.
 - **Channel file**: A markdown file at `channels/<channel-name>.md` that tells the agent how to handle incoming messages.
+
+### Resolution
+
+Most commands target an agent, an org, or both. The CLI resolves the target from three sources in strict precedence: **flags → project link → default org**. No mixing — if any flag is passed, project link and default org are ignored. In a linked directory (one with `.valet/config.json`), both agent and org come from the link. Otherwise the default org is used and the agent is unspecified.
+
+Practical rules when writing valet commands:
+
+- Pass `--org` explicitly whenever you know the target org and the user may belong to multiple orgs. Never assume the default org is set.
+- When inside a linked project directory (e.g. after `valet agents create` or `valet agents link`), omit `--agent` / `--org` — the link provides both.
+- If the user belongs to multiple orgs and a command needs disambiguation, `--agent X` alone may error (`agent exists in multiple orgs...`) — add `--org Y`.
+- `valet agents link` requires `--org` for multi-org users and refuses to overwrite an existing link without `--force`.
+
+Run `valet topics resolution` for the full rules. `valet auth whoami` surfaces the user's default org and any linked project so you can see what a bare command will target.
 
 ## Resource Creation Principles
 
@@ -143,10 +156,13 @@ Use `type` (mutually exclusive with `catalog`) to declare inline channels. Suppo
 ### Link a directory
 
 ```
-valet agents link <name>
+valet agents link <name> [--org <org>] [--force]
 ```
 
-Creates `.valet/config.json` so subsequent commands auto-detect the agent. Not needed if you created the agent from this directory.
+Creates `.valet/config.json` pinning the current directory to the named agent in the given org. Subsequent commands auto-detect both agent and org from the link. Not needed if you created the agent from this directory.
+
+- `--org` is **required** when you belong to multiple orgs. Single-org users can omit it; the CLI uses the one org.
+- `--force` is required to replace an existing link in this directory. Without it, the command errors if `.valet/config.json` already exists.
 
 ### Deploy changes
 
@@ -156,7 +172,7 @@ After editing `SOUL.md`, channel files, or other project files:
 valet agents deploy [-a <name>] [--org <org>] [--no-wait]
 ```
 
-Use `--org` to specify the target organization when you belong to multiple orgs. When omitted, the default org from your config is used.
+The target follows the standard resolver (flags → project link → default org). Inside a linked directory, both agent and org come from the link; passing `--agent` or `--org` overrides the link entirely.
 
 ### List agents
 
@@ -172,7 +188,7 @@ Lists agents in the default org, or the org specified with `--org` / `-o`. Error
 valet agents info <name> [--org <org>]
 ```
 
-Displays owner, current release, process state (including `idle`), channels, and connectors. Use `--org` when looking up by name and you belong to multiple organizations. When `--agent` is a UUID, `--org` is not required. Run `valet agents info --help` for all options.
+Displays owner, current release, process state (including `idle`), channels, and connectors. Pass `--org` when the agent name is ambiguous across orgs you belong to; otherwise the server resolves the org from your memberships. Run `valet agents info --help` for all options.
 
 ### Destroy an agent
 
@@ -403,7 +419,7 @@ Secrets are credentials (API tokens, service keys, signing secrets) used by conn
 valet secrets set <NAME=VALUE>... [--org <org>] [--agent <agent>] [--no-wait]
 ```
 
-Must specify exactly one scope: `--org` or `--agent` (or run from a linked agent directory). Agent-scoped secrets trigger a redeploy; org-scoped do not.
+Scope follows the resolver: `--agent` / `--org` flags, then project link, then default org (org-scoped). Passing `--agent` makes the secret agent-scoped; passing only `--org` (or resolving through the default) makes it org-scoped. Agent-scoped secrets trigger a redeploy; org-scoped do not.
 
 ### {{NAME}} template syntax
 
@@ -442,7 +458,7 @@ valet orgs revoke <name> <email>   # Cancel an invitation
 valet orgs set-default <name>      # Switch the default org
 ```
 
-**Org tips**: The default org is set automatically when you create or join an org — you don't need `--org` on every command. Use `valet orgs set-default <name>` to switch the default after joining multiple orgs. Run `valet orgs set-default --help` for details.
+**Org tips**: The default org is set automatically when you create or join an org — you don't need `--org` on every command when targeting the default. Inside a linked project directory, the link's org takes precedence over the default (see `valet topics resolution`). Use `valet orgs set-default <name>` to switch the default after joining multiple orgs. Run `valet orgs set-default --help` for details.
 
 ## Other Commands
 
@@ -661,10 +677,10 @@ Follow Resource Creation Principles — set up org-scoped resources first, then 
 
 For standalone agents that don't need to share resources:
 
-1. Create the agent:
+1. Create the agent (pass `--org` if the user belongs to multiple orgs; omit for single-org users):
    ```
    cd my-agent-project
-   valet agents create my-agent
+   valet agents create my-agent --org acme
    ```
 
 2. Set agent-scoped secrets and create agent-scoped connectors:
