@@ -174,6 +174,20 @@ valet agents info <name> [--org <org>]
 
 Displays owner, current release, process state (including `idle`), channels, and connectors. Use `--org` when looking up by name and you belong to multiple organizations. When `--agent` is a UUID, `--org` is not required. Run `valet agents info --help` for all options.
 
+### Agent drafts
+
+Drafts are in-progress versions of an agent's code that haven't been promoted to the main branch yet. The `valet agents drafts` group provides full lifecycle management.
+
+```
+valet agents drafts [--agent <name>] [--org <name>]   # list open drafts
+valet agents drafts info <draft_id>                    # show draft detail
+valet agents drafts checkout <draft_id>                # print clone URL on stdout
+valet agents drafts publish <draft_id>                 # promote draft to main
+valet agents drafts discard <draft_id>                 # delete the draft
+```
+
+Run `valet agents drafts --help` for all options.
+
 ### Destroy an agent
 
 ```
@@ -736,7 +750,7 @@ Be curious, confirmatory, and opinionated. Suggest improvements, anticipate edge
 The user's prompt may contain a description of what they want and/or URLs pointing to skills, tools, or MCP servers. Extract both.
 
 | URL type | Pattern | How to fetch |
-|----------|---------|--------------|
+|----------|---------|--------------| 
 | GitHub SKILL.md | `github.com/.../SKILL.md` | Convert to `raw.githubusercontent.com/...`. Explore parent dir for siblings. |
 | GitHub directory | `github.com/.../tree/...` | Fetch listing. Look for SKILL.md, README.md. |
 | skills.sh listing | `skills.sh/<name>` | Fetch page for description + source repo URL. Follow source link. |
@@ -1218,4 +1232,3 @@ All deployed files are **read-only** at runtime. The agent can write new files (
 - When creating webhook channels, report the webhook URL and signing secret. When writing channel files, include the payload location instruction.
 - After deploying an agent with channels for the first time, run the interactive test loop.
 - If a command fails, read the error and troubleshoot. Common issues: not logged in, no `SOUL.md`, not linked, agent crashed. For Homebrew errors, **stop and let the user resolve manually**.
-
