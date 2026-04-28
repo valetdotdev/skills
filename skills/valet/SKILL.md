@@ -125,6 +125,8 @@ Sources for `--from`:
 
 Use `--attach-connector` and `--attach-channel` to wire org-scoped resources to the agent at creation time (repeatable flags).
 
+When using `--from <local-path>`, the CLI pushes your project source to code.storage without creating `.git` or `.gitignore` inside your directory. Agent directories nested in a monorepo can be staged and committed normally — no manual cleanup needed.
+
 ### Manifest inline channels (cron and heartbeat)
 
 When a `valet.yaml` manifest declares `cron` or `heartbeat` channels using `type:` instead of `catalog:`, `valet agents create --from` automatically creates those channels during the deploy flow — no separate `valet channels create` step needed:
