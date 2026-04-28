@@ -158,6 +158,8 @@ valet agents deploy [-a <name>] [--org <org>] [--no-wait]
 
 Use `--org` to specify the target organization when you belong to multiple orgs. When omitted, the default org from your config is used.
 
+The command reports progress through each step of the deploy pipeline. If the agent has pending connector installs or channel attachments that must be completed before deployment, the command exits with a clear error describing the required configuration.
+
 ### List agents
 
 ```
@@ -1232,3 +1234,7 @@ All deployed files are **read-only** at runtime. The agent can write new files (
 - When creating webhook channels, report the webhook URL and signing secret. When writing channel files, include the payload location instruction.
 - After deploying an agent with channels for the first time, run the interactive test loop.
 - If a command fails, read the error and troubleshoot. Common issues: not logged in, no `SOUL.md`, not linked, agent crashed. For Homebrew errors, **stop and let the user resolve manually**.
+
+## Setup
+
+[If the agent requires any configuration outside of Valet — third-party service setup, OAuth apps, cloud console steps, DNS records, etc. — describe each step here in plain English. Be specific enough that a person unfamiliar with the project can follow along.]
