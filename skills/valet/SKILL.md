@@ -186,9 +186,12 @@ Drafts are in-progress versions of an agent's code that haven't been promoted to
 valet agents drafts [--agent <name>] [--org <name>]   # list open drafts
 valet agents drafts info <draft_id>                    # show draft detail
 valet agents drafts checkout <draft_id>                # print clone URL on stdout
+valet agents drafts push <draft_id> [--dir <path>] [-m <msg>]  # push local files to draft
 valet agents drafts publish <draft_id>                 # promote draft to main
 valet agents drafts discard <draft_id>                 # delete the draft
 ```
+
+Use `drafts push` to ship local file edits to a draft branch without publishing. `--dir` defaults to the current working directory; `--message` (`-m`) sets the commit message (defaults to `"Update draft"`). If no files changed, the command exits 0 without creating a commit.
 
 Run `valet agents drafts --help` for all options.
 
