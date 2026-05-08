@@ -309,6 +309,8 @@ Channels are message entry points for agents. **Default to `--org` when creating
 
 Follow the Resource Creation Principles above — the catalog encodes signing schemes and service-specific behaviors for webhook channels.
 
+**Always pass an explicit name when creating a channel that has a user-visible identity** (Slack `--bot-name`, Telegram bot name, etc.). Auto-defaults from the agent name are not reliable across orgs and surfaces — supply the flag yourself rather than letting it resolve server-side. For Slack specifically, this means passing `--bot-name <display-name>` on every `valet channels create slack --agent ...` and `valet channels attach slack --agent ...` call.
+
 ### Browse the catalog
 
 ```
@@ -428,6 +430,8 @@ For Slack channels, `valet channels` shows the workspace name in the listing. De
 Secrets are credentials (API tokens, service keys, signing secrets) used by connectors and channels at runtime. The agent can invoke tools that depend on secrets but never sees the values — they flow through connectors and channels, not through the agent's environment. Reference a secret in connector or channel configuration with `{{NAME}}` syntax.
 
 **Default to `--org` when setting secrets.** Org-scoped secrets are available to every org-scoped connector and channel, so one `GITHUB_TOKEN` or `SLACK_BOT_TOKEN` serves every agent in the org that references it — and credential rotation is a single `valet secrets set` away. Use `--agent` only when an agent needs a different value for the same secret name (e.g., a distinct API key per agent); the agent-scoped secret overrides the org-scoped one.
+
+**When an existing connector works but one agent needs different credentials, override the secret at the agent level — do NOT create a new connector.** This is the canonical fix for any "the org-scoped token is wrong for this agent" situation: read-only org token vs. a read-write token for one agent, different tenant/account, narrower or broader scopes, separate rate-limit budget. Run `valet secrets set <SAME_NAME>=<value> --agent <agent>` and the existing org connector will pick up the agent-scoped value automatically. Spinning up a parallel connector is almost always the wrong answer — it duplicates configuration and forfeits the org-level catalog wiring.
 
 **NEVER ask the user for secret values within the LLM session.** Direct them to run `valet secrets set NAME=VALUE --org <org>` in their terminal and wait for confirmation before proceeding.
 
