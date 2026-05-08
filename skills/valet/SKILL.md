@@ -138,6 +138,8 @@ Sources for `--from`:
 
 Use `--attach-connector` and `--attach-channel` to wire org-scoped resources to the agent at creation time (repeatable flags).
 
+When using `--from <local-path>`, the CLI pushes your project source to code.storage without creating `.git` or `.gitignore` inside your directory. Agent directories nested in a monorepo can be staged and committed normally — no manual cleanup needed.
+
 ### Manifest inline channels (cron and heartbeat)
 
 When a `valet.yaml` manifest declares `cron` or `heartbeat` channels using `type:` instead of `catalog:`, `valet agents create --from` automatically creates those channels during the deploy flow — no separate `valet channels create` step needed:
@@ -174,6 +176,8 @@ valet agents deploy [-a <name>] [--org <org>] [--no-wait]
 
 The target follows the standard resolver (flags → project link → default org). Inside a linked directory, both agent and org come from the link; passing `--agent` or `--org` overrides the link entirely.
 
+The command reports progress through each step of the deploy pipeline. If the agent has pending connector installs or channel attachments that must be completed before deployment, the command exits with a clear error describing the required configuration.
+
 ### List agents
 
 ```
@@ -189,6 +193,23 @@ valet agents info <name> [--org <org>]
 ```
 
 Displays owner, current release, process state (including `idle`), channels, and connectors. Pass `--org` when the agent name is ambiguous across orgs you belong to; otherwise the server resolves the org from your memberships. Run `valet agents info --help` for all options.
+
+### Agent drafts
+
+Drafts are in-progress versions of an agent's code that haven't been promoted to the main branch yet. The `valet agents drafts` group provides full lifecycle management.
+
+```
+valet agents drafts [--agent <name>] [--org <name>]   # list open drafts
+valet agents drafts info <draft_id>                    # show draft detail
+valet agents drafts checkout <draft_id>                # print clone URL on stdout
+valet agents drafts push <draft_id> [--dir <path>] [-m <msg>]  # push local files to draft
+valet agents drafts publish <draft_id>                 # promote draft to main
+valet agents drafts discard <draft_id>                 # delete the draft
+```
+
+Use `drafts push` to ship local file edits to a draft branch without publishing. `--dir` defaults to the current working directory; `--message` (`-m`) sets the commit message (defaults to `"Update draft"`). If no files changed, the command exits 0 without creating a commit.
+
+Run `valet agents drafts --help` for all options.
 
 ### Destroy an agent
 
@@ -774,7 +795,7 @@ Be curious, confirmatory, and opinionated. Suggest improvements, anticipate edge
 The user's prompt may contain a description of what they want and/or URLs pointing to skills, tools, or MCP servers. Extract both.
 
 | URL type | Pattern | How to fetch |
-|----------|---------|--------------|
+|----------|---------|--------------| 
 | GitHub SKILL.md | `github.com/.../SKILL.md` | Convert to `raw.githubusercontent.com/...`. Explore parent dir for siblings. |
 | GitHub directory | `github.com/.../tree/...` | Fetch listing. Look for SKILL.md, README.md. |
 | skills.sh listing | `skills.sh/<name>` | Fetch page for description + source repo URL. Follow source link. |
@@ -1514,3 +1535,6 @@ All deployed files are **read-only** at runtime. The agent can write new files (
 - After deploying an agent with channels for the first time, run the interactive test loop.
 - If a command fails, read the error and troubleshoot. Common issues: not logged in, no `SOUL.md`, not linked, agent crashed. For Homebrew errors, **stop and let the user resolve manually**.
 
+## Setup
+
+[If the agent requires any configuration outside of Valet — third-party service setup, OAuth apps, cloud console steps, DNS records, etc. — describe each step here in plain English. Be specific enough that a person unfamiliar with the project can follow along.]
