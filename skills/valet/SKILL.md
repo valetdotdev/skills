@@ -63,7 +63,7 @@ valet topics                        # List help guides
 valet topics <name>                 # Read a specific guide
 ```
 
-Useful topic guides: `getting-started`, `agent-lifecycle`, `channels`, `connectors-overview` (covers both MCP server and command connectors).
+Useful topic guides: `getting-started`, `agent-lifecycle`, `channels`, `connectors-overview` (covers both MCP server and command connectors), `resolution` (how the CLI picks `--agent` and `--org`).
 
 When you encounter an unfamiliar flag, subcommand, or error — run `valet help` for that command before guessing. The CLI help is authoritative and up to date.
 
@@ -94,14 +94,27 @@ Flags:
 - **Shared resources**: Connectors, channels, and secrets can be scoped to an org and shared across agents. The pattern is: add from catalog (or create) at the org level, then attach to agents that need them. This maximizes reuse and simplifies credential rotation.
 - **Channel file**: A markdown file at `channels/<channel-name>.md` that tells the agent how to handle incoming messages.
 
+### Resolution
+
+Most commands target an agent, an org, or both. The CLI resolves the target from three sources in strict precedence: **flags → project link → default org**. No mixing — if any flag is passed, project link and default org are ignored. In a linked directory (one with `.valet/config.json`), both agent and org come from the link. Otherwise the default org is used and the agent is unspecified.
+
+Practical rules when writing valet commands:
+
+- Pass `--org` explicitly whenever you know the target org and the user may belong to multiple orgs. Never assume the default org is set.
+- When inside a linked project directory (e.g. after `valet agents create` or `valet agents link`), omit `--agent` / `--org` — the link provides both.
+- If the user belongs to multiple orgs and a command needs disambiguation, `--agent X` alone may error (`agent exists in multiple orgs...`) — add `--org Y`.
+- `valet agents link` requires `--org` for multi-org users and refuses to overwrite an existing link without `--force`.
+
+Run `valet topics resolution` for the full rules. `valet auth whoami` surfaces the user's default org and any linked project so you can see what a bare command will target.
+
 ## Resource Creation Principles
 
 These principles apply to all connectors, channels, and secrets. Follow this priority order every time:
 
 1. **Catalog first**: Check `valet connectors catalog` or `valet channels catalog` before creating from scratch. Catalog entries handle transport, commands, and secret slots automatically.
 2. **Reuse existing**: Check `valet connectors --org <org>` or `valet channels --org <org>` for resources that already provide what you need. Attach rather than duplicate.
-3. **Org-scoped by default**: Create resources at the org level (`--org`) so they can be shared across agents. Only use agent-scoped resources when a resource is truly single-agent.
-4. **Secrets at org level**: Default to `--org` for secrets so connectors and channels shared across agents can all access them. Agent-scoped secrets override org-scoped ones of the same name when needed.
+3. **Org-scoped by default**: Always create connectors, channels, and secrets at the org level (`--org`). Org-scoped resources can be attached to any agent in the org, so a single `GITHUB_TOKEN` secret, `github` MCP connector, or `github-webhook` channel is reusable across every agent — no duplication, one place to rotate credentials. **Only drop to `--agent` when you have a concrete reason the resource cannot be shared** (e.g., per-agent rate limits, distinct credentials for the same service, a one-off test agent). When in doubt, use `--org` and attach. (Slack is a special case — see the Channels section.)
+4. **Secrets at org level by default**: Setting a secret with `--org` makes it available to every org-scoped connector and channel. Any agent that later attaches those connectors/channels automatically inherits access — no secret duplication. Agent-scoped secrets override org-scoped ones of the same name when a specific agent needs a different value.
 5. **Verify before deploying**: Test every secret-backed command locally with `valet exec` before deploying (see "Pre-Deploy Verification").
 
 ## Agent Lifecycle
@@ -145,10 +158,13 @@ Use `type` (mutually exclusive with `catalog`) to declare inline channels. Suppo
 ### Link a directory
 
 ```
-valet agents link <name>
+valet agents link <name> [--org <org>] [--force]
 ```
 
-Creates `.valet/config.json` so subsequent commands auto-detect the agent. Not needed if you created the agent from this directory.
+Creates `.valet/config.json` pinning the current directory to the named agent in the given org. Subsequent commands auto-detect both agent and org from the link. Not needed if you created the agent from this directory.
+
+- `--org` is **required** when you belong to multiple orgs. Single-org users can omit it; the CLI uses the one org.
+- `--force` is required to replace an existing link in this directory. Without it, the command errors if `.valet/config.json` already exists.
 
 ### Deploy changes
 
@@ -158,7 +174,7 @@ After editing `SOUL.md`, channel files, or other project files:
 valet agents deploy [-a <name>] [--org <org>] [--no-wait]
 ```
 
-Use `--org` to specify the target organization when you belong to multiple orgs. When omitted, the default org from your config is used.
+The target follows the standard resolver (flags → project link → default org). Inside a linked directory, both agent and org come from the link; passing `--agent` or `--org` overrides the link entirely.
 
 The command reports progress through each step of the deploy pipeline. If the agent has pending connector installs or channel attachments that must be completed before deployment, the command exits with a clear error describing the required configuration.
 
@@ -176,7 +192,7 @@ Lists agents in the default org, or the org specified with `--org` / `-o`. Error
 valet agents info <name> [--org <org>]
 ```
 
-Displays owner, current release, process state (including `idle`), channels, and connectors. Use `--org` when looking up by name and you belong to multiple organizations. When `--agent` is a UUID, `--org` is not required. Run `valet agents info --help` for all options.
+Displays owner, current release, process state (including `idle`), channels, and connectors. Pass `--org` when the agent name is ambiguous across orgs you belong to; otherwise the server resolves the org from your memberships. Run `valet agents info --help` for all options.
 
 ### Agent drafts
 
@@ -205,7 +221,7 @@ Permanently removes the agent and all releases. Use `--org` to scope the lookup 
 
 ## Connectors
 
-Connectors give agents access to MCP tools and CLI commands. Follow the Resource Creation Principles above.
+Connectors give agents access to MCP tools and CLI commands. **Default to `--org` when creating connectors** — an org-scoped connector can be attached to any agent in the org, so one `github` or `slack-mcp` connector serves every agent that needs it. Only use `--agent` when the connector is genuinely single-use. Follow the Resource Creation Principles above.
 
 ### Browse the catalog
 
@@ -308,7 +324,13 @@ valet connectors destroy <name>
 
 ## Channels
 
-Channels are message entry points for agents. Follow the Resource Creation Principles above — the catalog encodes signing schemes and service-specific behaviors for webhook channels.
+Channels are message entry points for agents. **Default to `--org` when creating webhook channels** — one org-scoped webhook can be attached to multiple agents (each with its own `--events` filter), reusing the same webhook URL and signing secret. Use `--agent` when the channel truly belongs to one agent (cron and heartbeat schedules, Telegram bots).
+
+**Slack is a two-step special case.** The org-level Slack channel (`valet channels create slack --org <org>`) authorizes Valet to create apps in your Slack workspace — one per org, a one-time prerequisite, not a reusable channel. Each agent that needs to appear in Slack then gets its **own** per-agent Slack channel (`valet channels create slack --agent <name>` or `valet channels attach slack --agent <name>`), which provisions a dedicated Slack app with its own bot identity. See "Create a Slack channel" below for the full flow.
+
+Follow the Resource Creation Principles above — the catalog encodes signing schemes and service-specific behaviors for webhook channels.
+
+**Always pass an explicit name when creating a channel that has a user-visible identity** (Slack `--bot-name`, Telegram bot name, etc.). Auto-defaults from the agent name are not reliable across orgs and surfaces — supply the flag yourself rather than letting it resolve server-side. For Slack specifically, this means passing `--bot-name <display-name>` on every `valet channels create slack --agent ...` and `valet channels attach slack --agent ...` call.
 
 ### Browse the catalog
 
@@ -367,13 +389,25 @@ The command outputs the **webhook URL**, **signing secret**, and (if applicable)
 
 ### Create a Slack channel
 
+Slack is a two-step setup. Do both in order:
+
+**Step 1 — Once per org (prerequisite):** create the org-level Slack channel. This authorizes Valet to create Slack apps in your workspace.
+
 ```
-valet channels create slack [name] \
-  [--agent <agent-name>] [--org <org>] \
-  [--bot-name <display-name>]
+valet channels create slack --org <org>
 ```
 
-Creates a Slack channel that enables agents to participate in your Slack workspace. Before creating the channel, the CLI automatically checks whether the org has a connected Slack workspace. If not connected, it prompts you to connect via OAuth, opens a browser window for authorization, and polls until the connection is confirmed. The `--bot-name` flag sets the Slack bot display name (default: agent name, resolved server-side). The command outputs the bot name and workspace after setup. Run `valet channels create slack --help` for all flags.
+The CLI prompts for a config token and refresh token (generate them at https://api.slack.com/apps under "Your App Configuration Tokens"), stores them encrypted, and records the workspace. There is exactly one org-level Slack channel per org — skip this step if the org is already connected (`valet channels --org <org>` will show a `slack` entry with the workspace name).
+
+**Step 2 — Once per agent that needs to be in Slack:** create a per-agent Slack channel.
+
+```
+valet channels create slack [name] --agent <agent-name> [--bot-name <display-name>]
+```
+
+This provisions a dedicated Slack app for the agent, giving it a unique `@bot-name` in the workspace. If the org-level prerequisite is missing, the command errors and directs you to run Step 1 first. `--bot-name` sets the display name (defaults to agent name, resolved server-side). After creation the CLI opens a browser for the OAuth install flow, polls until install completes, and shows the bot name and workspace. Attaching an existing org's Slack to an agent (`valet channels attach slack --agent <name>`) is equivalent.
+
+Run `valet channels create slack --help` for all flags.
 
 ### Create a Telegram channel
 
@@ -416,6 +450,10 @@ For Slack channels, `valet channels` shows the workspace name in the listing. De
 
 Secrets are credentials (API tokens, service keys, signing secrets) used by connectors and channels at runtime. The agent can invoke tools that depend on secrets but never sees the values — they flow through connectors and channels, not through the agent's environment. Reference a secret in connector or channel configuration with `{{NAME}}` syntax.
 
+**Default to `--org` when setting secrets.** Org-scoped secrets are available to every org-scoped connector and channel, so one `GITHUB_TOKEN` or `SLACK_BOT_TOKEN` serves every agent in the org that references it — and credential rotation is a single `valet secrets set` away. Use `--agent` only when an agent needs a different value for the same secret name (e.g., a distinct API key per agent); the agent-scoped secret overrides the org-scoped one.
+
+**When an existing connector works but one agent needs different credentials, override the secret at the agent level — do NOT create a new connector.** This is the canonical fix for any "the org-scoped token is wrong for this agent" situation: read-only org token vs. a read-write token for one agent, different tenant/account, narrower or broader scopes, separate rate-limit budget. Run `valet secrets set <SAME_NAME>=<value> --agent <agent>` and the existing org connector will pick up the agent-scoped value automatically. Spinning up a parallel connector is almost always the wrong answer — it duplicates configuration and forfeits the org-level catalog wiring.
+
 **NEVER ask the user for secret values within the LLM session.** Direct them to run `valet secrets set NAME=VALUE --org <org>` in their terminal and wait for confirmation before proceeding.
 
 ### Set secrets
@@ -424,7 +462,7 @@ Secrets are credentials (API tokens, service keys, signing secrets) used by conn
 valet secrets set <NAME=VALUE>... [--org <org>] [--agent <agent>] [--no-wait]
 ```
 
-Must specify exactly one scope: `--org` or `--agent` (or run from a linked agent directory). Agent-scoped secrets trigger a redeploy; org-scoped do not.
+Scope follows the resolver: `--agent` / `--org` flags, then project link, then default org (org-scoped). Passing `--agent` makes the secret agent-scoped; passing only `--org` (or resolving through the default) makes it org-scoped. Agent-scoped secrets trigger a redeploy; org-scoped do not.
 
 ### {{NAME}} template syntax
 
@@ -463,7 +501,7 @@ valet orgs revoke <name> <email>   # Cancel an invitation
 valet orgs set-default <name>      # Switch the default org
 ```
 
-**Org tips**: The default org is set automatically when you create or join an org — you don't need `--org` on every command. Use `valet orgs set-default <name>` to switch the default after joining multiple orgs. Run `valet orgs set-default --help` for details.
+**Org tips**: The default org is set automatically when you create or join an org — you don't need `--org` on every command when targeting the default. Inside a linked project directory, the link's org takes precedence over the default (see `valet topics resolution`). Use `valet orgs set-default <name>` to switch the default after joining multiple orgs. Run `valet orgs set-default --help` for details.
 
 ## Other Commands
 
@@ -680,12 +718,12 @@ Follow Resource Creation Principles — set up org-scoped resources first, then 
 
 ### One-off agent setup (agent-scoped)
 
-For standalone agents that don't need to share resources:
+Use this flow **only** when you have a concrete reason an agent cannot share resources — e.g., distinct credentials for the same service, a throwaway test agent, or per-agent rate limits. For everything else, prefer the org-first flow above. Standalone setup:
 
-1. Create the agent:
+1. Create the agent (pass `--org` if the user belongs to multiple orgs; omit for single-org users):
    ```
    cd my-agent-project
-   valet agents create my-agent
+   valet agents create my-agent --org acme
    ```
 
 2. Set agent-scoped secrets and create agent-scoped connectors:
@@ -1205,6 +1243,261 @@ This folder contains the source for a Skilled Agent originally built for the Val
 - Include external setup steps (OAuth apps, cloud consoles, webhook registrations, etc.)
 - Omit sections that don't apply. Write this file last.
 
+## Authoring the agent story (valet.yaml)
+
+Agents published to the Valet catalog ship with a `valet.yaml`
+manifest. The Valet dashboard reads it to render the friendly
+`agents/new` configuration wizard. Standalone agents (deployed only
+via `valet agents create` without catalog publication) do not need
+one.
+
+When authoring `valet.yaml`, fill in four things:
+
+1. **Top-level metadata** — `name`, `display_name`, `description`, `category`.
+2. **`story` block** — slot-driven narrative copy.
+3. **`connectors[]` and `channels[]`** — dependencies with per-agent UI
+   overrides.
+4. **Catalog references (`catalog:`) must match existing Valet catalog
+   entries** — otherwise the wizard can't resolve icons or brand copy.
+
+### The `story` block
+
+The story is a 3-step narrative that answers: *what's the trigger*,
+*what does the agent do*, *what is the outcome*. Every field has a
+hard length cap enforced by `valet manifest validate`. Do not exceed
+it.
+
+```yaml
+story:
+  hero: "Let's get AskADev answering questions for your team."
+  subheadline: "Watches one Slack channel. Searches GitHub. Replies in-thread."
+  steps:
+    - role: trigger
+      title: "Your team asks a question in Slack."
+      body: "Someone posts 'where do we handle the Stripe webhook retry logic?'"
+      catalog: slack-webhook
+    - role: action
+      title: "AskADev reads your code."
+      body: "Searches the repo. Finds the handler and surrounding comments."
+      catalog: github
+    - role: outcome
+      title: "And answers — with sources."
+      body: "Replies in-thread, linking to the exact file, line, and commit."
+      catalog: slack-mcp
+```
+
+**Role contract:** exactly three steps in order: `trigger`, `action`,
+`outcome`. Nothing else.
+
+**`catalog:` on a step:** optional. When set, it must match a
+`catalog:` declared on one of this manifest's `connectors` or
+`channels`. The wizard renders that service's icon as the step glyph.
+Leave empty to render the agent monogram (useful for the middle
+"the agent thinks" step that has no external service).
+
+### Drafting copy from SOUL.md
+
+Do not invent copy from scratch — derive it from the agent's
+SOUL.md. The Purpose and Workflow sections already describe the
+agent's trigger, action, and outcome in prose; your job is to
+distill that prose into the slot-driven format.
+
+Work in this order (top-down matches what the user reads in the
+wizard):
+
+1. **Extract the three beats.** Open SOUL.md. The `Purpose` sentence
+   names the trigger, the action, and the outcome — usually in that
+   order. If Purpose is vague, fall back to the Workflow phases:
+   Phase 1 → trigger, Phase 2 → action, Phase 3 → outcome.
+2. **Find the hook.** What makes this agent specific? A concrete
+   time (*"8am hits"*), a concrete place (*"posts to #ai-news"*), or
+   a concrete constraint (*"only after you approve"*). Write the hook
+   down — it anchors the hero and subheadline and often becomes the
+   outcome body.
+3. **Draft the trigger, action, and outcome steps first.** Concrete
+   details are easier to write than the hero. Use the tone rules
+   below. Aim for the sweet-spot lengths in the next table.
+4. **Write the outcome `done_note`s next.** These are short — one
+   line each. They fall out of step 3.
+5. **Write the subheadline.** One concrete sentence that names the
+   services and the reward. The subheadline is the "elevator pitch"
+   beneath the hero.
+6. **Write the hero last.** The hero is the most compressed, most
+   brand-defining line. Writing it after the steps gives you
+   material to compress from.
+7. **Run `valet manifest validate`.** Non-negotiable. The dashboard
+   rejects invalid manifests at render time.
+8. **Read it aloud.** Every line should sound like something a human
+   could read out loud without flinching. If it sounds like a
+   marketing page, rewrite.
+
+### Length targets (what looks good, not just what validates)
+
+The caps are hard limits enforced by `valet manifest validate`. The
+sweet-spot ranges are what actually renders well in the wizard — use
+them as targets, not the caps.
+
+| Field | Sweet spot | Hard cap | Too short | Too long |
+|-------|-----------|----------|-----------|----------|
+| `hero` | 45–75 chars | 80 | Hollow, generic | Wraps awkwardly on narrow viewports |
+| `subheadline` | 110–170 chars | 200 | Reads like a slogan, not an explainer | Crammed, unreadable at a glance |
+| step `title` | 25–50 chars | 60 | Lacks grip | Runs onto two lines, breaks the rhythm |
+| step `body` | 80–130 chars | 140 | Feels like filler | Looks dense under the title |
+| ui `headline` | 30–55 chars | — | Generic ("Connect GitHub") | Repeats the step title |
+| ui `blurb` | 80–140 chars | — | No agent-specific angle | Reads like the catalog description |
+| ui `done_note` | 20–45 chars | — | No concrete "it works" signal | Belongs in a status page |
+
+Length cap > sweet spot: use the sweet spot. Only push toward the
+cap when the extra characters carry real information (a
+channel name, a specific time, a named artifact). Never pad.
+
+### Voice and style
+
+**Always:**
+
+- Write in present tense, active voice. *"Posts the briefing"*, not
+  *"Will post the briefing"* or *"The briefing is posted"*.
+- Name the agent at least once in the hero. The user is meeting it
+  for the first time.
+- Name concrete things: services (*Slack*, *GitHub*), artifacts
+  (*#ai-news*, *pull request*), times (*8am*, *every Friday*). Never
+  *"messaging platforms"* or *"on a schedule"*.
+- Use em dashes (*—*) for rhythm when a thought has two beats. The
+  wizard font renders them well.
+- Address the reader as *you*. *"Your team asks"*, *"You paste a
+  message"*. Never *"the user"*.
+
+**Never:**
+
+- Use buzzwords: *seamless*, *leverages*, *empowers*, *intelligent*,
+  *cutting-edge*, *streamlines*, *unlocks*, *powerful*, *robust*.
+- Use passive voice for the action step. *"AskADev reads your
+  code"* — not *"Your code is read by AskADev"*.
+- Describe mechanism when a result would do. *"Authenticates via
+  OAuth"* is mechanism; *"Uses OAuth — no API token needed"* is a
+  result. *"Parses the payload"* is mechanism; *"Reads the PR"* is
+  a result.
+- Write copy that could belong to a different agent. If you can
+  swap *AskADev* for *Code Reviewer* without the sentence breaking,
+  the copy is generic — add the hook.
+- Use emoji unless the agent's personality demands it and you've
+  stress-tested it across viewports.
+
+### Tone rules (per field)
+
+These override any other guidance. They're optimized for the way
+the wizard renders each field.
+
+- **Hero** is imperative or present-indicative, names the agent.
+  Write *"Let's get AskADev answering questions for your team."* —
+  not *"AskADev is an AI agent that answers questions"*.
+- **Subheadline** is one concrete sentence naming the services and
+  the reward. No lists, no semicolons.
+- **Trigger title** starts with the user or the channel event:
+  *"Your team asks…"*, *"A PR is opened."*, *"8am hits."*
+- **Action title** uses active voice, names the agent:
+  *"AskADev reads your code."*
+- **Outcome title** names the concrete artifact the user sees:
+  *"Replies in-thread, linking to the file."*
+
+### Good vs. bad examples
+
+| Field | ❌ Bad | ✅ Good | Why |
+|-------|-------|--------|-----|
+| hero | *"AskADev is an AI-powered Slack assistant that answers code questions."* | *"A Slack bot that reads your code before it answers."* | Bad leads with category + buzzword. Good leads with behavior and names the hook ("before it answers"). |
+| subheadline | *"Uses GitHub MCP and Slack MCP to provide intelligent responses to developer questions."* | *"Ask a question about a GitHub repo in Slack. AskADev researches the actual code and commit history, then replies in-thread."* | Bad names the plumbing. Good names the action and the reward. |
+| trigger title | *"Webhook event received"* | *"A PR is opened."* | Bad names the mechanism. Good names what happened in the user's world. |
+| action title | *"Diff analysis"* | *"Code Reviewer reads the diff."* | Bad is a noun phrase. Good is a sentence with a subject and verb. |
+| outcome title | *"Review submitted"* | *"Inline comments — or an approve."* | Bad is passive mechanism. Good names the two concrete outputs. |
+| step body | *"The agent processes the incoming webhook payload and performs configured actions."* | *"Checks correctness, security, maintainability, and test coverage. Reads full files when context matters."* | Bad is generic. Good enumerates specifics. |
+| ui blurb | *"Connect your GitHub account to give the agent access to your repositories."* | *"AskADev reads your code when it answers — like a new hire would."* | Bad could belong to any GitHub connector. Good is about *this* agent's use of GitHub. |
+| ui done_note | *"Successfully connected"* | *"Listening in #engineering"* | Bad is a status. Good is the concrete outcome the user wanted. |
+
+### Per-service `ui:` block
+
+Each `connectors[]` and `channels[]` entry can carry a `ui:` block
+that overrides generic catalog copy with agent-specific copy:
+
+```yaml
+connectors:
+  - catalog: github
+    description: "GitHub MCP server for browsing repos and reading files"
+    ui:
+      headline: "Point AskADev at your repo."
+      blurb: "AskADev reads your code when it answers — like a new hire would."
+      done_note: "Connected to your repo"
+
+channels:
+  - catalog: slack-webhook
+    description: "Receives Slack messages and app mentions"
+    ui:
+      headline: "Let AskADev hear your team in Slack."
+      blurb: "We'll add AskADev as a normal Slack app. You pick the channel."
+      done_note: "Listening in the channel you invite it to"
+```
+
+- `headline` replaces the step's default headline. Write it as a
+  verb + service imperative: *"Let AskADev hear your team in Slack."*
+- `blurb` is a one-paragraph summary of *this specific agent's* use
+  of the service. Not a generic Slack/GitHub explainer — that's what
+  the catalog `description` is for.
+- `done_note` is the one-line summary shown on the deploy screen
+  once the service is connected. Write what the user will see after
+  deploy: *"Listening in #engineering"*, *"Connected to valetdotdev/ark"*.
+
+**What NOT to put in `ui:`:** permissions, restrictions, safety
+chips, "why", verb, minutes. Those are catalog-owned fields filled
+in by the Valet team — do not duplicate them per-agent.
+
+### Keep `valet.yaml` and `README.md` in sync
+
+The agent's `README.md` tagline (the one-liner under the project
+title) and the `valet.yaml` `subheadline` are the same piece of
+marketing copy, surfaced on two different surfaces — GitHub and the
+dashboard wizard. Keep them **word-for-word identical**. When you
+update one, update the other in the same commit.
+
+Do the same for the `README.md` project title and the
+`display_name`: they should match exactly. Users who click through
+from GitHub to the wizard should see the same name and the same
+pitch in both places — drift is the surest way to make an agent
+look unmaintained.
+
+```markdown
+<!-- README.md -->
+# Deep Researcher
+
+Every morning, Deep Researcher scans the AI news landscape,
+summarizes the 5 most important stories, and posts the briefing
+to #ai-news.
+```
+
+```yaml
+# valet.yaml
+display_name: Deep Researcher
+story:
+  subheadline: "Every morning, Deep Researcher scans the AI news landscape, summarizes the 5 most important stories, and posts the briefing to #ai-news."
+```
+
+### Validating
+
+After writing or editing a `valet.yaml`, always validate:
+
+```bash
+valet manifest validate
+```
+
+Or with an explicit path:
+
+```bash
+valet manifest validate path/to/valet.yaml
+```
+
+`valet manifest validate` enforces length caps, the 3-step contract,
+and the step-catalog reference rule. If it fails, fix the reported
+errors before deploying — the dashboard wizard will reject invalid
+manifests.
+
 ## Agent Project Structure
 
 ```
@@ -1212,6 +1505,7 @@ my-agent/
   valet.yaml           # Manifest for 1-click dashboard setup (required)
   AGENTS.md            # Setup guide for future developers (required)
   SOUL.md              # Agent identity and behavior (required)
+  valet.yaml           # Manifest — required for catalog-published agents
   channels/            # Channel files (for webhook/trigger-driven agents)
     <channel-name>.md
   skills/              # Agent-scoped skill documentation (optional)
@@ -1235,6 +1529,7 @@ All deployed files are **read-only** at runtime. The agent can write new files (
 - When the user asks to create an agent from scratch, follow "Designing a New Agent".
 - When the user asks to capture the current session as an agent, follow "Learning from the Current Session".
 - When writing SOUL.md, follow the template and synthesis rules. Never leave Purpose or Workflow empty.
+- When authoring a `valet.yaml` for a catalog-published agent, follow "Authoring the agent story". Run `valet manifest validate` after every edit — length caps and the 3-step role order are non-negotiable.
 - For destructive commands (`destroy`, `remove`, `revoke`), always confirm with the user first.
 - When creating webhook channels, report the webhook URL and signing secret. When writing channel files, include the payload location instruction.
 - After deploying an agent with channels for the first time, run the interactive test loop.
