@@ -1264,7 +1264,7 @@ When authoring `valet.yaml`, fill in four things:
 
 The story is a 3-step narrative that answers: *what's the trigger*,
 *what does the agent do*, *what is the outcome*. Every field has a
-hard length cap enforced by `valet manifest validate`. Do not exceed
+hard length cap enforced by `valet manifests validate`. Do not exceed
 it.
 
 ```yaml
@@ -1325,7 +1325,7 @@ wizard):
 6. **Write the hero last.** The hero is the most compressed, most
    brand-defining line. Writing it after the steps gives you
    material to compress from.
-7. **Run `valet manifest validate`.** Non-negotiable. The dashboard
+7. **Run `valet manifests validate`.** Non-negotiable. The dashboard
    rejects invalid manifests at render time.
 8. **Read it aloud.** Every line should sound like something a human
    could read out loud without flinching. If it sounds like a
@@ -1333,7 +1333,7 @@ wizard):
 
 ### Length targets (what looks good, not just what validates)
 
-The caps are hard limits enforced by `valet manifest validate`. The
+The caps are hard limits enforced by `valet manifests validate`. The
 sweet-spot ranges are what actually renders well in the wizard — use
 them as targets, not the caps.
 
@@ -1484,16 +1484,16 @@ story:
 After writing or editing a `valet.yaml`, always validate:
 
 ```bash
-valet manifest validate
+valet manifests validate
 ```
 
 Or with an explicit path:
 
 ```bash
-valet manifest validate path/to/valet.yaml
+valet manifests validate path/to/valet.yaml
 ```
 
-`valet manifest validate` enforces length caps, the 3-step contract,
+`valet manifests validate` enforces length caps, the 3-step contract,
 and the step-catalog reference rule. If it fails, fix the reported
 errors before deploying — the dashboard wizard will reject invalid
 manifests.
@@ -1529,7 +1529,7 @@ All deployed files are **read-only** at runtime. The agent can write new files (
 - When the user asks to create an agent from scratch, follow "Designing a New Agent".
 - When the user asks to capture the current session as an agent, follow "Learning from the Current Session".
 - When writing SOUL.md, follow the template and synthesis rules. Never leave Purpose or Workflow empty.
-- When authoring a `valet.yaml` for a catalog-published agent, follow "Authoring the agent story". Run `valet manifest validate` after every edit — length caps and the 3-step role order are non-negotiable.
+- When authoring a `valet.yaml` for a catalog-published agent, follow "Authoring the agent story". Run `valet manifests validate` after every edit — length caps and the 3-step role order are non-negotiable.
 - For destructive commands (`destroy`, `remove`, `revoke`), always confirm with the user first.
 - When creating webhook channels, report the webhook URL and signing secret. When writing channel files, include the payload location instruction.
 - After deploying an agent with channels for the first time, run the interactive test loop.
