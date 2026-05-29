@@ -2,6 +2,8 @@
 
 The [Valet](https://valet.dev) skill for Claude Code and other coding agents. Build, deploy, and run skilled AI agents from your terminal.
 
+> **This repository is a generated mirror.** The source of truth lives in Valet's `ark` monorepo under `valet-skills/`, and changes are synced here automatically on merge. Please don't open PRs against this repo — reach us at [support@valet.dev](mailto:support@valet.dev).
+
 ## Install
 
 ```
