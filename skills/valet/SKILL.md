@@ -171,7 +171,7 @@ Creates `.valet/config.json` pinning the current directory to the named agent in
 After editing `SOUL.md`, channel files, or other project files:
 
 ```
-valet agents deploy [-a <name>] [--org <org>] [--no-wait]
+valet deploy [-a <name>] [--org <org>] [--no-wait]
 ```
 
 The target follows the standard resolver (flags → project link → default org). Inside a linked directory, both agent and org come from the link; passing `--agent` or `--org` overrides the link entirely.
@@ -196,23 +196,23 @@ Displays owner, current release, process state (including `idle`), channels, and
 
 ### Agent drafts
 
-Drafts are in-progress versions of an agent's code that haven't been promoted to the main branch yet. The `valet agents drafts` group provides full lifecycle management.
+Drafts are in-progress versions of an agent's code that haven't been promoted to the main branch yet. The `valet drafts` group provides full lifecycle management.
 
 ```
-valet agents drafts [--agent <name>] [--org <name>]   # list open drafts
-valet agents drafts create [--agent <name>] [--force]  # open a new draft, print its id
-valet agents drafts info <draft_id>                    # show draft detail
-valet agents drafts checkout <draft_id>                # print clone URL on stdout
-valet agents drafts push <draft_id> [--dir <path>] [-m <msg>]  # push local files to draft
-valet agents drafts publish <draft_id>                 # promote draft to main
-valet agents drafts discard <draft_id>                 # delete the draft
+valet drafts [--agent <name>] [--org <name>]                  # list open drafts
+valet drafts create [--agent <name>] [--force]                # open a new draft, print its id
+valet drafts info <draft_id>                                  # show draft detail
+valet drafts checkout <draft_id>                              # print clone URL on stdout
+valet drafts push <draft_id> [--dir <path>] [-m <msg>]        # push local files to draft
+valet drafts publish <draft_id>                               # promote draft to main
+valet drafts discard <draft_id>                               # delete the draft
 ```
 
-Use `drafts create` to open a standing draft you edit and review before publishing — it prints the new draft id on stdout, which feeds `checkout`, `push`, and `publish`. The agent is taken from `--agent` or the linked directory; an agent may have only one open draft, so `--force` discards an existing one first. (`valet agents deploy` is the one-shot alternative that creates, pushes, publishes, and deploys in a single step.)
+Use `drafts create` to open a standing draft you edit and review before publishing — it prints the new draft id on stdout, which feeds `checkout`, `push`, and `publish`. The agent is taken from `--agent` or the linked directory; an agent may have only one open draft, so `--force` discards an existing one first. (`valet deploy` is the one-shot alternative that creates, pushes, publishes, and deploys in a single step.)
 
 Use `drafts push` to ship local file edits to a draft branch without publishing. `--dir` defaults to the current working directory; `--message` (`-m`) sets the commit message (defaults to `"Update draft"`). If no files changed, the command exits 0 without creating a commit.
 
-Run `valet agents drafts --help` for all options.
+Run `valet drafts --help` for all options.
 
 ### Destroy an agent
 
@@ -648,7 +648,7 @@ valet exec -a my-agent WEBHOOK_SECRET -- \
 
 ### Verification checklist
 
-Before running `valet agents deploy`, confirm:
+Before running `valet deploy`, confirm:
 
 1. All secrets are set: `valet secrets --agent <name>` and `valet secrets --org <org>` list every name referenced by connectors
 2. Each connector's command succeeds locally via `valet exec`
@@ -714,7 +714,7 @@ Follow Resource Creation Principles — set up org-scoped resources first, then 
 
 8. Deploy to pick up the channel file:
    ```
-   valet agents deploy
+   valet deploy
    ```
 
 9. Validate end-to-end with an interactive test loop (see below).
@@ -931,7 +931,7 @@ Want to proceed with this plan, or would you like to adjust anything?
     valet exec -a <agent-name> SECRET_NAME -- <cmd> <args>
     ```
     Fix any failures before proceeding.
-11. Deploy to pick up channel files: `valet agents deploy`
+11. Deploy to pick up channel files: `valet deploy`
 12. If the agent has channels, run the interactive test loop (see "Interactive test loop" under Common Workflows).
 13. **Last step**: Write `AGENTS.md` in the project root (see "Writing AGENTS.md"). This summarizes the full setup for future developers.
 
