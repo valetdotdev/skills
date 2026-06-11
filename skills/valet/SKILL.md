@@ -1,6 +1,6 @@
 ---
 name: valet
-description: Use when the user wants to manage Valet agents, channels, connectors, organizations, or secrets via the valet CLI. Handles creation, deployment, linking, teardown, and all multi-step workflows. Also use when asked to "create an agent", "deploy an agent", "design an agent", "build me an agent that...", "create a connector", "set up a webhook", or anything involving the Valet platform or any request to create and deploy AI agents. Also use when asked to "learn from this session", "capture this workflow", "save this as an agent", "make this repeatable", or when writing SOUL.md files.
+description: Use when the user wants to manage Valet agents, channels, connectors, organizations, or environment variables (secrets and plain config) via the valet CLI. Handles creation, deployment, linking, teardown, and all multi-step workflows. Also use when asked to "create an agent", "deploy an agent", "design an agent", "build me an agent that...", "create a connector", "set up a webhook", or anything involving the Valet platform or any request to create and deploy AI agents. Also use when asked to "learn from this session", "capture this workflow", "save this as an agent", "make this repeatable", or when writing SOUL.md files.
 ---
 
 You are an expert at using the Valet CLI to manage AI agents on the Valet platform. You execute `valet` commands via the Bash tool to accomplish tasks. Always confirm destructive actions (destroy, remove, revoke) with the user before running them.
@@ -86,12 +86,12 @@ Flags:
 ## Core Concepts
 
 - **Agent**: An AI agent defined by a `SOUL.md` file in a project directory. Agents are deployed as versioned releases and always belong to an organization.
-- **Organization**: A team workspace that owns agents, connectors, channels, and secrets. All agents belong to an org — the default org is used when `--org` is omitted.
+- **Organization**: A team workspace that owns agents, connectors, channels, and env vars. All agents belong to an org — the default org is used when `--org` is omitted.
 - **Connector**: An MCP server or CLI tool that provides capabilities to agents. Types: `mcp-server` (MCP tools via client) and `command` (CLI with secret injection). Transports: `stdio`, `sse`, `streamable-http`.
 - **Channel**: A message entry point for agents. Types: `webhook`, `slack`, `telegram`, `heartbeat`, `cron`. Each channel has a session strategy and a prompt path.
-- **Secret**: An encrypted credential scoped to an org or agent. Referenced with `{{NAME}}` template syntax in connector and channel configurations. Agent-scoped secrets override org-scoped secrets of the same name.
+- **Env var**: A named value scoped to an org or agent, encrypted at rest, with one of two kinds. **Secret** (the default) is a credential the agent can use through connectors and channels but never sees. **Plain** is agent-visible configuration delivered to the agent's environment, readable as `$NAME`. Either kind is referenced with `{{NAME}}` template syntax in connector and channel configurations. Agent-scoped env vars override org-scoped env vars of the same name.
 - **Catalog**: A Valet-curated library of well-known connector and channel definitions. Browse with `valet connectors catalog` or `valet channels catalog`. Add from the catalog instead of configuring from scratch.
-- **Shared resources**: Connectors, channels, and secrets can be scoped to an org and shared across agents. The pattern is: add from catalog (or create) at the org level, then attach to agents that need them. This maximizes reuse and simplifies credential rotation.
+- **Shared resources**: Connectors, channels, and env vars can be scoped to an org and shared across agents. The pattern is: add from catalog (or create) at the org level, then attach to agents that need them. This maximizes reuse and simplifies credential rotation.
 - **Channel file**: A markdown file at `channels/<channel-name>.md` that tells the agent how to handle incoming messages.
 
 ### Resolution
@@ -109,12 +109,12 @@ Run `valet topics resolution` for the full rules. `valet auth whoami` surfaces t
 
 ## Resource Creation Principles
 
-These principles apply to all connectors, channels, and secrets. Follow this priority order every time:
+These principles apply to all connectors, channels, and env vars. Follow this priority order every time:
 
 1. **Catalog first**: Check `valet connectors catalog` or `valet channels catalog` before creating from scratch. Catalog entries handle transport, commands, and secret slots automatically.
 2. **Reuse existing**: Check `valet connectors --org <org>` or `valet channels --org <org>` for resources that already provide what you need. Attach rather than duplicate.
-3. **Org-scoped by default**: Always create connectors, channels, and secrets at the org level (`--org`). Org-scoped resources can be attached to any agent in the org, so a single `GITHUB_TOKEN` secret, `github` MCP connector, or `github-webhook` channel is reusable across every agent — no duplication, one place to rotate credentials. **Only drop to `--agent` when you have a concrete reason the resource cannot be shared** (e.g., per-agent rate limits, distinct credentials for the same service, a one-off test agent). When in doubt, use `--org` and attach. (Slack is a special case — see the Channels section.)
-4. **Secrets at org level by default**: Setting a secret with `--org` makes it available to every org-scoped connector and channel. Any agent that later attaches those connectors/channels automatically inherits access — no secret duplication. Agent-scoped secrets override org-scoped ones of the same name when a specific agent needs a different value.
+3. **Org-scoped by default**: Always create connectors, channels, and env vars at the org level (`--org`). Org-scoped resources can be attached to any agent in the org, so a single `GITHUB_TOKEN` secret, `github` MCP connector, or `github-webhook` channel is reusable across every agent — no duplication, one place to rotate credentials. **Only drop to `--agent` when you have a concrete reason the resource cannot be shared** (e.g., per-agent rate limits, distinct credentials for the same service, a one-off test agent). When in doubt, use `--org` and attach. (Slack is a special case — see the Channels section.)
+4. **Env vars at org level by default**: Setting an env var with `--org` makes it available to every org-scoped connector and channel, and org-scoped plain vars reach every agent in the org. Any agent that later attaches those connectors/channels automatically inherits access — no duplication. Agent-scoped env vars override org-scoped ones of the same name when a specific agent needs a different value.
 5. **Verify before deploying**: Test every secret-backed command locally with `valet exec` before deploying (see "Pre-Deploy Verification").
 
 ## Agent Lifecycle
@@ -245,7 +245,7 @@ Creates a connector from the catalog. Use `--as` to rename the instance (useful 
 
 Example:
 ```
-valet secrets set GITHUB_TOKEN=ghp_abc123 --org acme
+valet env set GITHUB_TOKEN=ghp_abc123 --org acme
 valet connectors create github --org acme
 ```
 
@@ -266,7 +266,7 @@ valet connectors create command <name> \
   [--org <org>] [--agent <agent>]
 ```
 
-**Important**: `--args` takes comma-separated values. Use `{{NAME}}` to reference secrets in `--env` and `--header` values.
+**Important**: `--args` takes comma-separated values. Use `{{NAME}}` to reference env vars (either kind) in `--env` and `--header` values.
 
 ```
 # MCP server — stdio transport
@@ -350,11 +350,11 @@ The catalog contains Valet-curated channel definitions for well-known services (
 valet channels create <entry> [--org <org>] [--agent <agent>] [--as <name>]
 ```
 
-Creates a channel from the catalog. Use `--as` to rename the instance. If the catalog entry defines secret slots (e.g. `WEBHOOK_SECRET`), managed secrets are auto-generated and stored in `valet secrets`. The `managed` field in the output is the secret name — use `valet secrets set` to rotate it.
+Creates a channel from the catalog. Use `--as` to rename the instance. If the catalog entry defines secret slots (e.g. `WEBHOOK_SECRET`), managed secrets are auto-generated and stored as secret-kind env vars. The `managed` field in the output is the secret name — use `valet env set` to rotate it.
 
 Example:
 ```
-valet secrets set GITHUB_WEBHOOK_SECRET=whsec_abc123 --org acme
+valet env set GITHUB_WEBHOOK_SECRET=whsec_abc123 --org acme
 valet channels create github-webhook --org acme
 ```
 
@@ -386,7 +386,7 @@ valet channels create webhook [name] \
   [--verify <scheme>]
 ```
 
-Verification schemes: `hmac-sha256` (default), `slack`, `stripe`, `svix`, `static-token`, `none`. Key flags: `--secret-name` (name of an existing secret from `valet secrets` to use instead of auto-generating; required for `slack`, `stripe`, and `svix`), `--signature-header` (not used with `slack` or `svix`), `--delivery-key-header`, `--delivery-key-path`, `--prompt`. For `hmac-sha256` and `static-token`, a managed secret is auto-generated if `--secret-name` is omitted. The `slack` scheme implements Slack's Events API signing protocol and handles `url_verification` challenges automatically. Run `valet channels create webhook --help` for full details.
+Verification schemes: `hmac-sha256` (default), `slack`, `stripe`, `svix`, `static-token`, `none`. Key flags: `--secret-name` (name of an existing secret from `valet env` to use instead of auto-generating; required for `slack`, `stripe`, and `svix`), `--signature-header` (not used with `slack` or `svix`), `--delivery-key-header`, `--delivery-key-path`, `--prompt`. For `hmac-sha256` and `static-token`, a managed secret is auto-generated if `--secret-name` is omitted. The `slack` scheme implements Slack's Events API signing protocol and handles `url_verification` challenges automatically. Run `valet channels create webhook --help` for full details.
 
 The command outputs the **webhook URL**, **signing secret**, and (if applicable) **managed secret name** — always save and report these to the user.
 
@@ -449,27 +449,40 @@ valet channels destroy <name>
 
 For Slack channels, `valet channels` shows the workspace name in the listing. Destroying an org-level Slack channel cascades — all per-agent Slack bots are destroyed first, then the org Slack connection is removed.
 
-## Secrets
+## Environment Variables
 
-Secrets are credentials (API tokens, service keys, signing secrets) used by connectors and channels at runtime. The agent can invoke tools that depend on secrets but never sees the values — they flow through connectors and channels, not through the agent's environment. Reference a secret in connector or channel configuration with `{{NAME}}` syntax.
+Env vars are named values scoped to an org or agent, managed with the `valet env` command family. Every env var has one of two kinds:
 
-**Default to `--org` when setting secrets.** Org-scoped secrets are available to every org-scoped connector and channel, so one `GITHUB_TOKEN` or `SLACK_BOT_TOKEN` serves every agent in the org that references it — and credential rotation is a single `valet secrets set` away. Use `--agent` only when an agent needs a different value for the same secret name (e.g., a distinct API key per agent); the agent-scoped secret overrides the org-scoped one.
+- **Secret** (the default): credentials (API tokens, service keys, signing secrets) used by connectors and channels at runtime. The agent can invoke tools that depend on secrets but never sees the values — they flow through connectors and channels, not through the agent's environment, and list output masks them.
+- **Plain** (`--plain`): configuration the agent should read directly — a region, a base URL, a customer identifier. Plain values are delivered to the agent's unix environment, readable as `$NAME` from bash and from code the agent writes, listed by name in the agent's system prompt, and displayed in list output.
 
-**When an existing connector works but one agent needs different credentials, override the secret at the agent level — do NOT create a new connector.** This is the canonical fix for any "the org-scoped token is wrong for this agent" situation: read-only org token vs. a read-write token for one agent, different tenant/account, narrower or broader scopes, separate rate-limit budget. Run `valet secrets set <SAME_NAME>=<value> --agent <agent>` and the existing org connector will pick up the agent-scoped value automatically. Spinning up a parallel connector is almost always the wrong answer — it duplicates configuration and forfeits the org-level catalog wiring.
+Reference an env var of either kind in connector or channel configuration with `{{NAME}}` syntax. Names are unique per scope across both kinds, and a var's kind cannot be changed in place — unset it and set it again with the new kind.
 
-**NEVER ask the user for secret values within the LLM session.** Direct them to run `valet secrets set NAME=VALUE --org <org>` in their terminal and wait for confirmation before proceeding.
+**Default to `--org` when setting env vars.** Org-scoped env vars are available to every org-scoped connector and channel — and org-scoped plain vars reach every agent in the org — so one `GITHUB_TOKEN` or `REGION` serves every agent that needs it, and rotation is a single `valet env set` away. Use `--agent` only when an agent needs a different value for the same name (e.g., a distinct API key per agent); the agent-scoped var overrides the org-scoped one.
 
-### Set secrets
+**When an existing connector works but one agent needs different credentials, override the secret at the agent level — do NOT create a new connector.** This is the canonical fix for any "the org-scoped token is wrong for this agent" situation: read-only org token vs. a read-write token for one agent, different tenant/account, narrower or broader scopes, separate rate-limit budget. Run `valet env set <SAME_NAME>=<value> --agent <agent>` and the existing org connector will pick up the agent-scoped value automatically. Spinning up a parallel connector is almost always the wrong answer — it duplicates configuration and forfeits the org-level catalog wiring.
+
+**NEVER ask the user for secret values within the LLM session.** Direct them to run `valet env set NAME=VALUE --org <org>` in their terminal and wait for confirmation before proceeding. Plain values are not credentials — you may set those directly yourself.
+
+### Set env vars
 
 ```
-valet secrets set <NAME=VALUE>... [--org <org>] [--agent <agent>] [--no-wait]
+valet env set <NAME=VALUE>... [--plain] [--org <org>] [--agent <agent>] [--no-wait]
 ```
 
-Scope follows the resolver: `--agent` / `--org` flags, then project link, then default org (org-scoped). Passing `--agent` makes the secret agent-scoped; passing only `--org` (or resolving through the default) makes it org-scoped. Agent-scoped secrets trigger a redeploy; org-scoped do not.
+Kind defaults to secret; pass `--plain` for values the agent should read from its environment. All vars in one invocation share a kind, and the command echoes the kind it applied (`Set REGION (plain)`). Scope follows the resolver: `--agent` / `--org` flags, then project link, then default org (org-scoped). Setting an env var triggers a redeploy so the change takes effect — agent-scoped changes redeploy that agent (the CLI waits for readiness; use `--no-wait` to skip), org-scoped changes redeploy the affected agents in the org. Reserved names (`VALET_*`, `LD_*`, `PATH`, `HOME`, and other runtime-owned names) are rejected for plain vars.
+
+Give an agent configuration with a plain var:
+
+```
+valet env set REGION=us-east-1 --plain --agent my-agent
+```
+
+After the redeploy the agent reads `$REGION` in bash and in any code it writes, and the name appears in its system prompt.
 
 ### {{NAME}} template syntax
 
-Use `{{NAME}}` in connector `--env`, `--header`, or `--url` values to reference a secret. Templates are resolved at deploy time and can appear anywhere in a value:
+Use `{{NAME}}` in connector `--env`, `--header`, or `--url` values to reference an env var of either kind. Templates are resolved at deploy time and can appear anywhere in a value:
 
 ```
 --url https://{{DB_HOST}}/api
@@ -479,16 +492,20 @@ Use `{{NAME}}` in connector `--env`, `--header`, or `--url` values to reference 
 
 When directing the user to set secrets, **always tell them what format the value should be in**, including any prefix the service expects.
 
-### List and remove
+### List and unset
 
 ```
-valet secrets [--agent <name> | --org <name>]
-valet secrets unset <NAME> [--agent <name> | --org <name>] [--force]
+valet env [--agent <name> | --org <name>]
+valet env unset <NAME> [--agent <name> | --org <name>] [--force]
 ```
+
+`valet env` lists the effective environment — each var's kind and scope, plain values inline, secret values masked, and an `overrides org` annotation when an agent-scoped var shadows an org-scoped one. Unsetting a var that a connector or channel references fails with an error naming the dependents; pass `--force` to override.
+
+`valet secrets set/list/unset` still works as a temporary alias for secret-kind env vars — prefer `valet env` everywhere.
 
 ## Organizations
 
-Organizations own agents, connectors, channels, and secrets. All agents belong to an org.
+Organizations own agents, connectors, channels, and env vars. All agents belong to an org.
 
 ```
 valet orgs create <name>           # Create a new org
@@ -539,7 +556,7 @@ Removes a session and its transcript. Destructive — confirm before running. Ru
 
 ## Pre-Deploy Verification with valet exec
 
-`valet exec` is the **only way** to run local commands with Valet-managed secrets injected. Secrets are stored in the control plane — they are **not** available as shell environment variables. Always test secret-backed commands before deploying.
+`valet exec` is the **only way** to run local commands with Valet-managed env vars injected — it fetches both kinds. Values are stored in the control plane — they are **not** available as environment variables in your local shell. Always test secret-backed commands before deploying.
 
 There are two modes:
 
@@ -650,7 +667,7 @@ valet exec -a my-agent WEBHOOK_SECRET -- \
 
 Before running `valet deploy`, confirm:
 
-1. All secrets are set: `valet secrets --agent <name>` and `valet secrets --org <org>` list every name referenced by connectors
+1. All env vars are set: `valet env --agent <name>` and `valet env --org <org>` list every name referenced by connectors
 2. Each connector's command succeeds locally via `valet exec`
 3. Any secret-backed URLs resolve and authenticate correctly
 
@@ -667,7 +684,7 @@ Follow Resource Creation Principles — set up org-scoped resources first, then 
 3. Add channels (catalog first for webhooks) at the org level
 4. Create the agent and attach org resources:
    ```
-   valet secrets set GITHUB_TOKEN=<their-token> --org acme
+   valet env set GITHUB_TOKEN=<their-token> --org acme
    ```
 
 2. Add connectors from the catalog at the org level:
@@ -731,7 +748,7 @@ Use this flow **only** when you have a concrete reason an agent cannot share res
 
 2. Set agent-scoped secrets and create agent-scoped connectors:
    ```
-   valet secrets set API_KEY=<value> --agent my-agent
+   valet env set API_KEY=<value> --agent my-agent
    valet connectors create mcp-server my-tool --agent my-agent \
      --transport stdio --command npx \
      --args -y,@example/server \
@@ -896,7 +913,11 @@ Want to proceed with this plan, or would you like to adjust anything?
    - [ ] AGENTS.md written as the last step (see "Writing AGENTS.md")
 6. Direct the user to set secrets at the org level (preferred) or agent level:
    ```
-   valet secrets set SECRET_NAME=<value> --org <org-name>
+   valet env set SECRET_NAME=<value> --org <org-name>
+   ```
+   For non-sensitive configuration the agent should read directly (a region, a base URL, a team name), set a plain var — the agent reads it as `$NAME` after deploy:
+   ```
+   valet env set NAME=<value> --plain --org <org-name>
    ```
 7. Set up connectors — **check the catalog first**:
    ```
@@ -944,7 +965,7 @@ Want to proceed with this plan, or would you like to adjust anything?
 | Mix of URLs and description | Fetch URLs first, then interview with imported context. |
 | URL unreachable | Report error. Ask for alternative URL or direct paste. |
 | Name collision | Run `valet agents` to check. Ask to choose a different name. |
-| MCP server needs API keys | Document in SOUL.md Environment Requirements. Direct user to `valet secrets set`. Never ask for actual values. |
+| MCP server needs API keys | Document in SOUL.md Environment Requirements. Direct user to `valet env set`. Never ask for actual values. |
 
 ## Learning from the Current Session
 
@@ -1527,7 +1548,7 @@ All deployed files are **read-only** at runtime. The agent can write new files (
 - **Installation guardrails**: Follow the Installation section strictly. If the CLI is not installed, explain why it's needed and attempt installation via Homebrew. If Homebrew fails, **stop immediately** — do not retry, work around, or troubleshoot brew issues. Let the user resolve it manually.
 - **Authentication first**: Always verify the user is logged in (`valet auth whoami`) before running any non-auth valet commands. If not logged in, explain that authentication is required and run `valet auth login`. Do not proceed until authentication succeeds.
 - **Use `valet help` proactively**: When you encounter a command, flag, or feature you're unsure about, run `valet help <command>` before guessing. The CLI help is the authoritative source.
-- **Never ask for secret values inside the LLM session.** Direct the user to run `valet secrets set NAME=VALUE` in their own terminal and wait for confirmation.
+- **Never ask for secret values inside the LLM session.** Direct the user to run `valet env set NAME=VALUE` in their own terminal and wait for confirmation. Plain env vars (`valet env set NAME=VALUE --plain`) are not credentials and may be set directly.
 - **Always verify privileged commands with `valet exec` before deploying.** After the user sets secrets and you create connectors, test the underlying command locally using `valet exec <names> -- <command>`. This is the only way to run commands with Valet-managed secrets locally. Do not deploy until the command succeeds. Use `{{SECRET_NAME}}` template syntax to embed secrets in URLs, headers, or env values.
 - When the user asks to create an agent from scratch, follow "Designing a New Agent".
 - When the user asks to capture the current session as an agent, follow "Learning from the Current Session".
