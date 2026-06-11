@@ -501,8 +501,6 @@ valet env unset <NAME> [--agent <name> | --org <name>] [--force]
 
 `valet env` lists the effective environment — each var's kind and scope, plain values inline, secret values masked, and an `overrides org` annotation when an agent-scoped var shadows an org-scoped one. Unsetting a var that a connector or channel references fails with an error naming the dependents; pass `--force` to override.
 
-`valet secrets set/list/unset` still works as a temporary alias for secret-kind env vars — prefer `valet env` everywhere.
-
 ## Organizations
 
 Organizations own agents, connectors, channels, and env vars. All agents belong to an org.
