@@ -88,7 +88,7 @@ Flags:
 - **Agent**: An AI agent defined by a `SOUL.md` file in a project directory. Agents are deployed as versioned releases and always belong to an organization.
 - **Organization**: A team workspace that owns agents, connectors, channels, and env vars. All agents belong to an org — the default org is used when `--org` is omitted.
 - **Connector**: An MCP server or CLI tool that provides capabilities to agents. Types: `mcp-server` (MCP tools via client) and `command` (CLI with secret injection). Transports: `stdio`, `sse`, `streamable-http`.
-- **Channel**: A message entry point for agents. Types: `webhook`, `slack`, `telegram`, `heartbeat`, `cron`. Each channel has a session strategy and a prompt path.
+- **Channel**: A message entry point for agents. Types: `webhook`, `slack`, `telegram`, `heartbeat`, `cron`, `console`, `mcp`. Each channel has a session strategy and a prompt path.
 - **Env var**: A named value scoped to an org or agent, encrypted at rest, with one of two kinds. **Secret** (the default) is a credential the agent can use through connectors and channels but never sees. **Plain** is agent-visible configuration delivered to the agent's environment, readable as `$NAME`. Either kind is referenced with `{{NAME}}` template syntax in connector and channel configurations. Agent-scoped env vars override org-scoped env vars of the same name.
 - **Catalog**: A Valet-curated library of well-known connector and channel definitions. Browse with `valet connectors catalog` or `valet channels catalog`. Add from the catalog instead of configuring from scratch.
 - **Shared resources**: Connectors, channels, and env vars can be scoped to an org and shared across agents. The pattern is: add from catalog (or create) at the org level, then attach to agents that need them. This maximizes reuse and simplifies credential rotation.
@@ -140,9 +140,9 @@ Use `--attach-connector` and `--attach-channel` to wire org-scoped resources to 
 
 When using `--from <local-path>`, the CLI pushes your project source to code.storage without creating `.git` or `.gitignore` inside your directory. Agent directories nested in a monorepo can be staged and committed normally — no manual cleanup needed.
 
-### Manifest inline channels (cron and heartbeat)
+### Manifest inline channels (cron, heartbeat, and mcp)
 
-When a `valet.yaml` manifest declares `cron` or `heartbeat` channels using `type:` instead of `catalog:`, `valet agents create --from` automatically creates those channels during the deploy flow — no separate `valet channels create` step needed:
+When a `valet.yaml` manifest declares `cron`, `heartbeat`, or `mcp` channels using `type:` instead of `catalog:`, `valet agents create --from` automatically creates those channels during the deploy flow — no separate `valet channels create` step needed:
 
 ```yaml
 channels:
@@ -151,9 +151,11 @@ channels:
     timezone: America/New_York
   - type: heartbeat
     every: 5m
+  - type: mcp
+    description: exposes the agent as an MCP server
 ```
 
-Use `type` (mutually exclusive with `catalog`) to declare inline channels. Supported fields: `schedule` (human-readable), `cron` (raw crontab expression), `every` (heartbeat interval), `timezone` (IANA timezone, default UTC). Run `valet agents create --help` for all options.
+Use `type` (mutually exclusive with `catalog`) to declare inline channels. Supported fields: `schedule` (human-readable), `cron` (raw crontab expression), `every` (heartbeat interval), `timezone` (IANA timezone, default UTC). The `mcp` type takes none of these — it stands the agent up as an MCP server, materialized at deploy; mint a bearer token afterward with `valet channels token mint <channel> <name>` to connect a client. Run `valet agents create --help` for all options.
 
 ### Link a directory
 
