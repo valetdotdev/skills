@@ -4,10 +4,26 @@ The [Valet](https://valet.dev) skill for Claude Code and other coding agents. Bu
 
 > **This repository is a generated mirror.** The source of truth lives in Valet's `ark` monorepo under `valet-skills/`, and changes are synced here automatically on merge. Please don't open PRs against this repo — reach us at [support@valet.dev](mailto:support@valet.dev).
 
+## Skills
+
+| Skill | What it does |
+|-------|--------------|
+| `valet` | Build, deploy, and run skilled AI agents from your terminal. |
+| `valet-publish` | Publish files and folders to a live URL — no account, no CLI. |
+
 ## Install
+
+Both skills:
 
 ```
 npx skills add valetdotdev/skills
+```
+
+Or one of them:
+
+```
+npx skills add valetdotdev/skills --skill valet -g
+npx skills add valetdotdev/skills --skill valet-publish -g
 ```
 
 ## Usage
