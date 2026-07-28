@@ -42,7 +42,7 @@ The Valet skill helps you create this structure, iterate on it, and deploy it â€
 You can also install the Valet CLI directly:
 
 ```
-brew install valetdotdev/tap/valet-cli
+brew install valetdotdev/tap/valet
 valet auth login
 ```
 
