@@ -60,6 +60,13 @@ is_denied() {
 
 FILES=(); SKIPPED=()
 if [ -n "$SINGLE_FILE" ]; then
+  # The deny list applies here too. `publish this .env` and `publish
+  # this .git/config` are things a user asks for in as many words, and
+  # naming a file directly must not be a way past the one guard that
+  # stands between a working tree and a public URL.
+  if is_denied "$SINGLE_FILE"; then
+    die "$SINGLE_FILE is excluded from publishing (.git, .valet, .env*, node_modules, .DS_Store, and .gitignore'd paths). Re-run with --include-all if you really mean to publish it to a public URL."
+  fi
   FILES=("$SINGLE_FILE")
 else
   # -type f, never -type l: a symlink pointing outside the published
@@ -76,13 +83,28 @@ fi
 # The generated page is an ordinary file in the site — visible in
 # `valet sites download`, editable, and replaced the moment the author
 # adds their own index.html.
+#
+# Filenames are attacker-controlled — a repository takes them from
+# whoever contributed the file — and this page is an ordinary uploaded
+# object, so it carries none of the gateway viewer's script-free
+# Content-Security-Policy. Every interpolation is therefore escaped:
+# @html for text, @uri for the href, both via jq, which the script
+# already requires.
 GENERATED_INDEX=""
 if ! printf '%s\n' "${FILES[@]}" | grep -qx "index.html"; then
   GENERATED_INDEX="$(mktemp)"
+  cleanup() { [ -n "$GENERATED_INDEX" ] && rm -f "$GENERATED_INDEX"; }
+  # Armed the moment the file exists: every `die` between here and the
+  # end of the script would otherwise leak it.
+  trap cleanup EXIT
+  html_escape() { jq -rn --arg s "$1" '$s|@html'; }
+  # Per segment, so the path separators survive: @uri over the whole
+  # string would encode every `/` and flatten the href.
+  uri_escape() { jq -rn --arg s "$1" '$s|split("/")|map(@uri)|join("/")'; }
   {
     printf '<!doctype html><meta charset="utf-8">'
     printf '<meta name="viewport" content="width=device-width,initial-scale=1">'
-    printf '<title>%s</title>' "$(basename "$ROOT")"
+    printf '<title>%s</title>' "$(html_escape "$(basename "$ROOT")")"
     printf '<style>body{font:16px/1.6 ui-sans-serif,system-ui,sans-serif;'
     printf 'max-width:52rem;margin:3rem auto;padding:0 1.5rem;color:#1C1410;'
     printf 'background:#F4EDE4}h1{font:600 1.4rem/1.2 Georgia,serif}'
@@ -90,8 +112,11 @@ if ! printf '%s\n' "${FILES[@]}" | grep -qx "index.html"; then
     printf 'border-bottom:1px solid rgba(28,20,16,.08)}'
     printf 'a{color:#4878A0;text-decoration:none}a:hover{text-decoration:underline}'
     printf 'code{font-family:ui-monospace,monospace;font-size:.9em}</style>'
-    printf '<h1>%s</h1><ul>' "$(basename "$ROOT")"
-    for f in "${FILES[@]}"; do printf '<li><a href="/%s"><code>%s</code></a></li>' "$f" "$f"; done
+    printf '<h1>%s</h1><ul>' "$(html_escape "$(basename "$ROOT")")"
+    for f in "${FILES[@]}"; do
+      printf '<li><a href="/%s"><code>%s</code></a></li>' \
+        "$(uri_escape "$f")" "$(html_escape "$f")"
+    done
     printf '</ul>'
   } > "$GENERATED_INDEX"
   FILES+=("index.html")
@@ -141,12 +166,28 @@ for i in $(seq 0 $((N_UP - 1))); do
   up="$(printf '%s' "$RESP" | jq ".uploads[$i]")"
   up_url="$(printf '%s' "$up" | jq -r '.url')"
   up_path="$(printf '%s' "$up" | jq -r '.path')"
+  # The response names which paths to upload, and it decides which
+  # local file is read. Only a path this client declared is honoured:
+  # otherwise a hostile or misconfigured VALET_API_URL asks for
+  # `/../../etc/passwd` and gets it. The Go client applies the same
+  # guard for the same reason (valet-cli/internal/trial/publish.go).
+  declared=0
+  for f in "${FILES[@]}"; do
+    [ "/$f" = "$up_path" ] && { declared=1; break; }
+  done
+  [ "$declared" = "1" ] || die "server requested an upload for undeclared path $up_path"
   disk="$(path_on_disk "${up_path#/}")"
   args=()
-  while IFS=$'\t' read -r k v; do args+=(-F "$k=$v"); done < <(
+  # --form-string, never -F: curl reads a leading `@` in an -F value as
+  # "upload this local file" and `<` as "inline its contents", so a
+  # policy field the server controls would otherwise exfiltrate a file.
+  while IFS=$'\t' read -r k v; do args+=(--form-string "$k=$v"); done < <(
     printf '%s' "$up" | jq -r '.fields // {} | to_entries[] | [.key,.value] | @tsv')
+  # The quoted-filename form, because curl splits an unquoted @path on
+  # commas and reads `;` as the start of a type/filename modifier — so
+  # a file named `a,b.txt` or `a;b.txt` otherwise fails the upload.
   code="$(curl -sS -o /dev/null -w '%{http_code}' -X POST "${args[@]}" \
-    -F "file=@$disk" "$up_url")" || die "upload failed for $up_path"
+    -F "file=@\"${disk//\"/\\\"}\"" "$up_url")" || die "upload failed for $up_path"
   case "$code" in 2*) ;; *) die "upload failed for $up_path (HTTP $code)" ;; esac
 done
 
@@ -166,10 +207,11 @@ else
   save_trial "$SITE_NAME" "$TOKEN" "$URL" "$CLAIM_URL" "$EXPIRES" "$ROOT"
 fi
 
-cleanup() { [ -n "$GENERATED_INDEX" ] && rm -f "$GENERATED_INDEX"; }
-trap cleanup EXIT
-
 echo "$URL"
+# `if`, not `test && echo`: a trailing AND-list whose test fails
+# returns 1, and as the script's last statement that made every
+# successful publish exit non-zero — reported to the calling agent as a
+# failed publish, on the one path that always succeeds.
 {
   echo "publish_result.site_url=$URL"
   echo "publish_result.site_name=$SITE_NAME"
@@ -178,6 +220,10 @@ echo "$URL"
   echo "publish_result.edge_status=$EDGE"
   echo "publish_result.claim_url=$CLAIM_URL"
   echo "publish_result.generated_index=$([ -n "$GENERATED_INDEX" ] && echo true || echo false)"
-  [ ${#SKIPPED[@]} -gt 0 ] && echo "publish_result.skipped=${SKIPPED[*]}"
-  [ "$EDGE" != "ready" ] && echo "publish_result.note=edge still provisioning; the URL may not resolve for a few minutes"
+  if [ ${#SKIPPED[@]} -gt 0 ]; then
+    echo "publish_result.skipped=${SKIPPED[*]}"
+  fi
+  if [ "$EDGE" != "ready" ]; then
+    echo "publish_result.note=edge still provisioning; the URL may not resolve for a few minutes"
+  fi
 } >&2
