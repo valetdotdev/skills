@@ -36,10 +36,12 @@ objects, finalize. The site is not live until finalize succeeds.
 
 **File structure.** Publish the directory whose contents should be the
 site root — publish `my-site/`, not a parent containing it. An
-`index.html` at the root is served as the site. Without one the URL
-shows a file listing with the README rendered underneath, so a folder
-of charts or a single PDF is worth opening as-is — mention that when
-there is no `index.html`, and that adding one replaces the listing.
+`index.html` at the root is served as the site. Without one the script
+generates a page listing every file and uploads it as `index.html`, so
+a folder of charts or a single PDF is worth publishing as-is — say so
+when there was no `index.html`, and that adding one replaces the
+generated page. That page is an ordinary file in the site: it shows up
+in `valet sites download`, and it can be edited and republished.
 
 **What is never uploaded.** The published URL is public, so the script
 skips, without being asked: `.git/` (history contains every credential
@@ -51,9 +53,20 @@ points at. The script prints what it skipped so the omission is never
 silent, and `--include-all` overrides it for someone who genuinely
 means to publish a dotfile.
 
+Publishing a directory git ignores wholesale — `dist/`, `build/`,
+`_site/` — turns the `.gitignore` half off inside it and says so,
+because every file there is ignored and the alternative is publishing
+nothing. The rest of the list still applies.
+
 Tell the user what was skipped when it is non-obvious. Publishing a
 git working tree and silently shipping `.git` to a public URL is the
 single worst thing this skill could do.
+
+**A directory that already belongs to a Valet project is refused.**
+When `.valet/config.json` names an agent or an org that is not a
+trial, publishing here is turned down rather than repointing the
+directory at a throwaway site — `valet deploy` is what ships that
+project. `./scripts/publish.sh --relink` replaces the link on purpose.
 
 ## Update
 
@@ -113,7 +126,9 @@ valet deploy
   commit, read by the Valet CLI.
 - `$VALET_CONFIG_DIR/trials.json` (default `~/.config/valet/`, mode
   0600) — claim tokens keyed by site name, plus URL, claim URL,
-  expiry, and source directory.
+  expiry, and source directory. Writes take a `trials.json.lock`
+  directory next to it so two publishes at once cannot lose a token;
+  one left behind by a killed script is broken after a minute.
 
 Never print the token store path as a URL, and never read expiry or
 claim state from it — the API response is authoritative. Use
@@ -134,7 +149,6 @@ claim state from it — the API response is authoritative. Use
 | Max total size | 250 MB |
 | Max files | 1000 |
 | Expiry | 36 hours (permanent once claimed) |
-| Rate limit | 5 publishes / hour / IP |
 
 ## API
 
@@ -151,8 +165,11 @@ POST /valet.api.v1.APIService/PublishTrialSite
      "skippedCount"}
 
 # One multipart POST per missing object. Every field from
-# uploads[].fields must be sent before the file part:
-curl -F key=… -F policy=… -F x-amz-signature=… \
+# uploads[].fields must be sent before the file part, and as
+# --form-string: curl reads a leading `@` in an -F value as "upload
+# this local file", and these values come from the server.
+curl --form-string key=… --form-string policy=… \
+     --form-string x-amz-signature=… \
      -F file=@local/path  <uploads[].url>
 
 POST /valet.api.v1.APIService/FinalizeTrialSite

@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 #
-# publish.sh [dir-or-file] [--include-all] [--client NAME]
+# publish.sh [dir-or-file] [--include-all] [--relink] [--client NAME]
 #
 # Publishes a directory to a live URL with no account. Three steps:
 # declare the manifest, upload the objects the server is missing,
@@ -11,11 +11,13 @@ source "$(dirname "$0")/common.sh"
 
 TARGET="."
 INCLUDE_ALL=0
+RELINK=0
 while [ $# -gt 0 ]; do
   case "$1" in
     --include-all) INCLUDE_ALL=1; shift ;;
+    --relink) RELINK=1; shift ;;
     --client) VALET_CLIENT="$2"; export VALET_CLIENT; shift 2 ;;
-    -h|--help) sed -n '3,10p' "$0"; exit 0 ;;
+    -h|--help) sed -n '3,8p' "$0"; exit 0 ;;
     -*) die "unknown flag: $1" ;;
     *) TARGET="$1"; shift ;;
   esac
@@ -31,8 +33,35 @@ if [ -f "$TARGET" ]; then
   SINGLE_FILE="$(basename "$TARGET")"
   TARGET="$(dirname "$TARGET")"
 fi
-cd "$TARGET"
+cd "$TARGET" || die "cannot enter $TARGET"
 ROOT="$(pwd)"
+
+# Everything that can refuse the publish is decided before any file is
+# read or any RPC is made. A refusal after PublishTrialSite has minted
+# a trial leaves a live public site nobody asked for.
+require_store_readable
+
+NAME="$(read_link_name)"; ORG="$(read_link_org)"
+TOKEN=""
+if [ "$ORG" = "try" ] && [ -n "$NAME" ]; then
+  TOKEN="$(read_token "$NAME")"
+  [ -n "$TOKEN" ] || die "this directory is a trial site ($NAME) but its claim token is not in $TRIALS_FILE. Without it the trial cannot be updated, deleted, or claimed. Publish a fresh one with --include-all in a new directory, or claim the original from the link you were given."
+elif [ -n "$NAME" ] || [ -n "$ORG" ]; then
+  # This directory already belongs to a Valet project, and publishing
+  # a trial from it rewrites .valet/config.json to point at the trial
+  # instead — after which `valet deploy` here deploys the throwaway
+  # rather than the project, and nothing on disk remembers what the
+  # link used to say.
+  #
+  # The CLI warns and carries on when it cannot *write* a link
+  # (valet-cli/cli/deploy/trial.go, healTrialLink), and that is the
+  # right call there: nothing was destroyed, and blocking a deploy
+  # over a file that only affects the next run is disproportionate.
+  # This is the other case. The loss is real and one-way, the refusal
+  # costs a flag, and the warning would land in an agent's transcript
+  # rather than in front of the person whose project link it is.
+  [ "$RELINK" = "1" ] || die "this directory is already linked to a Valet project (agent \"$NAME\", org \"$ORG\") in .valet/config.json. Publishing an anonymous trial here would replace that link. Run \`valet deploy\` to deploy the linked project, publish from a copy outside it, or re-run with --relink to replace the link."
+fi
 
 # The published URL is public, so the deny list is a correctness
 # requirement rather than tidiness. deploysite skips .git/ and .valet/
@@ -49,12 +78,64 @@ is_denied() {
     .env|.env.*|*/.env|*/.env.*) return 0 ;;
     .DS_Store|*/.DS_Store) return 0 ;;
   esac
-  # Respect .gitignore when git is available and this is a repo. A file
-  # the author already told git to ignore is not one they meant to
-  # publish to the open internet.
-  if [ -d .git ] && command -v git >/dev/null 2>&1; then
-    git check-ignore -q -- "$p" 2>/dev/null && return 0
+  return 1
+}
+
+# Respect .gitignore. A file the author already told git to ignore is
+# not one they meant to publish to the open internet.
+#
+# Whether this is a repository is a question for git, not for the
+# filesystem: `[ -d .git ]` is true only at a repository *root*, so
+# publishing any subdirectory of a repo silently stopped consulting
+# .gitignore — precisely the tree where the guard earns its keep.
+# git check-ignore itself works from anywhere inside a work tree.
+IN_WORKTREE=0
+if [ "$INCLUDE_ALL" != "1" ] && command -v git >/dev/null 2>&1 &&
+   [ "$(git rev-parse --is-inside-work-tree 2>/dev/null || true)" = "true" ]; then
+  IN_WORKTREE=1
+  # Unless git ignores the publish root itself. `dist/`, `build/`, and
+  # `_site/` are conventionally in .gitignore and are exactly what
+  # someone means when they say publish this — applying the rule inside
+  # one would skip every file and leave nothing to publish. The guard
+  # exists to catch a secret swept up by a walk, not to refuse a tree
+  # the author pointed at by name. The cost is that an ignored file
+  # inside an ignored root is published too, so this is said out loud
+  # rather than decided quietly; the static deny list still applies.
+  if git check-ignore -q . 2>/dev/null; then
+    IN_WORKTREE=0
+    echo "note: git ignores $ROOT, so .gitignore was not applied inside it" >&2
   fi
+fi
+
+# collect_gitignored <path>... fills IGNORED with the subset git
+# excludes. One invocation for the whole tree: a fork per file is
+# seconds of overhead on a thousand-file publish, and the file cap is
+# a thousand.
+IGNORED=()
+collect_gitignored() {
+  [ "$IN_WORKTREE" = "1" ] || return 0
+  [ "$#" -gt 0 ] || return 0
+  local out status=0 p
+  mktemp_tracked; out="$LAST_TMPFILE"
+  # -z on both sides: a filename holding a newline is still a filename,
+  # and the line-oriented form would split it into two paths that match
+  # nothing.
+  printf '%s\0' "$@" | git check-ignore -z --stdin > "$out" 2>/dev/null || status=$?
+  case "$status" in
+    0) while IFS= read -r -d '' p; do IGNORED+=("$p"); done < "$out" ;;
+    1) ;;  # git ran and nothing matched
+    *) echo "warning: git check-ignore exited $status; .gitignore was not consulted" >&2 ;;
+  esac
+}
+
+# denied_by_git <path> — membership in that set. A linear scan rather
+# than a hash: macOS ships bash 3.2, which has no associative arrays.
+denied_by_git() {
+  local p="$1" g
+  [ ${#IGNORED[@]} -gt 0 ] || return 1
+  for g in "${IGNORED[@]}"; do
+    if [ "$g" = "$p" ]; then return 0; fi
+  done
   return 1
 }
 
@@ -64,17 +145,25 @@ if [ -n "$SINGLE_FILE" ]; then
   # this .git/config` are things a user asks for in as many words, and
   # naming a file directly must not be a way past the one guard that
   # stands between a working tree and a public URL.
-  if is_denied "$SINGLE_FILE"; then
+  collect_gitignored "$SINGLE_FILE"
+  if is_denied "$SINGLE_FILE" || denied_by_git "$SINGLE_FILE"; then
     die "$SINGLE_FILE is excluded from publishing (.git, .valet, .env*, node_modules, .DS_Store, and .gitignore'd paths). Re-run with --include-all if you really mean to publish it to a public URL."
   fi
   FILES=("$SINGLE_FILE")
 else
   # -type f, never -type l: a symlink pointing outside the published
   # directory would otherwise exfiltrate whatever it points at.
+  CANDIDATES=()
   while IFS= read -r -d '' f; do
     rel="${f#./}"
-    if is_denied "$rel"; then SKIPPED+=("$rel"); else FILES+=("$rel"); fi
+    if is_denied "$rel"; then SKIPPED+=("$rel"); else CANDIDATES+=("$rel"); fi
   done < <(find . -type f -print0 | sort -z)
+  if [ ${#CANDIDATES[@]} -gt 0 ]; then
+    collect_gitignored "${CANDIDATES[@]}"
+    for rel in "${CANDIDATES[@]}"; do
+      if denied_by_git "$rel"; then SKIPPED+=("$rel"); else FILES+=("$rel"); fi
+    done
+  fi
 fi
 [ ${#FILES[@]} -gt 0 ] || die "nothing to publish in $ROOT"
 
@@ -92,11 +181,10 @@ fi
 # already requires.
 GENERATED_INDEX=""
 if ! printf '%s\n' "${FILES[@]}" | grep -qx "index.html"; then
-  GENERATED_INDEX="$(mktemp)"
-  cleanup() { [ -n "$GENERATED_INDEX" ] && rm -f "$GENERATED_INDEX"; }
-  # Armed the moment the file exists: every `die` between here and the
-  # end of the script would otherwise leak it.
-  trap cleanup EXIT
+  # Tracked in common.sh's cleanup list rather than under a trap of
+  # this script's own: bash keeps one EXIT trap, and installing a
+  # second here would drop the token store's lock release.
+  mktemp_tracked; GENERATED_INDEX="$LAST_TMPFILE"
   html_escape() { jq -rn --arg s "$1" '$s|@html'; }
   # Per segment, so the path separators survive: @uri over the whole
   # string would encode every `/` and flatten the href.
@@ -138,16 +226,13 @@ MANIFEST="$(
   done | jq -s .
 )"
 
-NAME="$(read_link_name)"; ORG="$(read_link_org)"
-TOKEN=""
-if [ "$ORG" = "try" ] && [ -n "$NAME" ]; then
-  TOKEN="$(read_token "$NAME")"
-  [ -n "$TOKEN" ] || die "this directory is a trial site ($NAME) but its claim token is not in $TRIALS_FILE. Without it the trial cannot be updated, deleted, or claimed. Publish a fresh one with --include-all in a new directory, or claim the original from the link you were given."
-fi
-
-RESP="$(rpc PublishTrialSite "$(jq -n \
-  --argjson f "$MANIFEST" --arg c "${VALET_CLIENT:-valet-publish}" --arg t "$TOKEN" \
-  '{files:$f, client:$c, claimToken:$t}')")"
+# The claim token travels through the environment, never through `jq
+# --arg`: a process argument is readable from the process list by any
+# other user on the machine, and this one authorizes republishing,
+# deleting, and claiming the site.
+RESP="$(rpc PublishTrialSite "$(VALET_CLAIM_TOKEN="$TOKEN" jq -n \
+  --argjson f "$MANIFEST" --arg c "${VALET_CLIENT:-valet-publish}" \
+  '{files:$f, client:$c, claimToken:env.VALET_CLAIM_TOKEN}')")"
 
 SITE_NAME="$(printf '%s' "$RESP" | jq -r '.siteName')"
 URL="$(printf '%s' "$RESP" | jq -r '.url')"
@@ -181,6 +266,12 @@ for i in $(seq 0 $((N_UP - 1))); do
   # --form-string, never -F: curl reads a leading `@` in an -F value as
   # "upload this local file" and `<` as "inline its contents", so a
   # policy field the server controls would otherwise exfiltrate a file.
+  #
+  # The signed URL and its policy fields do stay in argv, unlike the
+  # claim token. Keeping them out means handing curl a config file on
+  # stdin, whose own quoting rules are a hazard worth more than what
+  # it buys: these are minutes-long capabilities to write one pinned
+  # object key, not a bearer credential for the site.
   while IFS=$'\t' read -r k v; do args+=(--form-string "$k=$v"); done < <(
     printf '%s' "$up" | jq -r '.fields // {} | to_entries[] | [.key,.value] | @tsv')
   # The quoted-filename form, because curl splits an unquoted @path on
@@ -191,27 +282,35 @@ for i in $(seq 0 $((N_UP - 1))); do
   case "$code" in 2*) ;; *) die "upload failed for $up_path (HTTP $code)" ;; esac
 done
 
+# The first publish learns its token from the response; a republish
+# already had one. Either way finalize is authorized by it.
+FRESH=0
+if [ -z "$TOKEN" ]; then
+  FRESH=1
+  TOKEN="$(printf '%s' "$RESP" | jq -r '.claimToken // empty')"
+  [ -n "$TOKEN" ] || die "PublishTrialSite returned no claim token, so this trial could never be updated, deleted, or claimed. Nothing was finalized and no site is serving."
+fi
+
 # Step 3 — finalize. Nothing serves until this succeeds.
-FIN="$(rpc FinalizeTrialSite "$(jq -n --arg t "${TOKEN:-$(printf '%s' "$RESP" | jq -r '.claimToken')}" \
-  --arg u "$UPLOAD_ID" '{claimToken:$t, uploadId:$u}')")"
+FIN="$(rpc FinalizeTrialSite "$(VALET_CLAIM_TOKEN="$TOKEN" jq -n --arg u "$UPLOAD_ID" \
+  '{claimToken:env.VALET_CLAIM_TOKEN, uploadId:$u}')")"
 VERSION="$(printf '%s' "$FIN" | jq -r '.version // 1')"
 EXPIRES="$(printf '%s' "$FIN" | jq -r '.expiresAt // empty')"
 
-if [ -z "$TOKEN" ]; then
-  TOKEN="$(printf '%s' "$RESP" | jq -r '.claimToken')"
+if [ "$FRESH" = "1" ]; then
   CLAIM_URL="$(printf '%s' "$RESP" | jq -r '.claimUrl')"
   write_link "$SITE_NAME" "try"
-  save_trial "$SITE_NAME" "$TOKEN" "$URL" "$CLAIM_URL" "$EXPIRES" "$ROOT"
 else
   CLAIM_URL="$(jq -r --arg n "$SITE_NAME" '.[$n].claimUrl // empty' "$TRIALS_FILE" 2>/dev/null || true)"
-  save_trial "$SITE_NAME" "$TOKEN" "$URL" "$CLAIM_URL" "$EXPIRES" "$ROOT"
 fi
-
-echo "$URL"
-# `if`, not `test && echo`: a trailing AND-list whose test fails
-# returns 1, and as the script's last statement that made every
-# successful publish exit non-zero — reported to the calling agent as a
-# failed publish, on the one path that always succeeds.
+# Reported before the token is stored, not after: the site is already
+# live and the claim URL is the only way back to it, so a store this
+# machine cannot write must not also swallow the one thing that
+# survives the failure. `if`, not `test && echo`: a trailing AND-list
+# whose test fails returns 1, and as the script's last statement that
+# made every successful publish exit non-zero — reported to the
+# calling agent as a failed publish, on the one path that always
+# succeeds.
 {
   echo "publish_result.site_url=$URL"
   echo "publish_result.site_name=$SITE_NAME"
@@ -227,3 +326,7 @@ echo "$URL"
     echo "publish_result.note=edge still provisioning; the URL may not resolve for a few minutes"
   fi
 } >&2
+
+save_trial "$SITE_NAME" "$TOKEN" "$URL" "$CLAIM_URL" "$EXPIRES" "$ROOT"
+
+echo "$URL"

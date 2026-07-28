@@ -21,7 +21,10 @@ require_tools
 
 report() {
   local name="$1" token="$2" resp state
-  resp="$(rpc GetTrialClaim "$(jq -n --arg t "$token" '{claimToken:$t}')" 2>/dev/null || true)"
+  # Through the environment, never `jq --arg`: a process argument is
+  # readable from the process list by any other user on the machine.
+  resp="$(rpc GetTrialClaim "$(VALET_CLAIM_TOKEN="$token" jq -n \
+    '{claimToken:env.VALET_CLAIM_TOKEN}')" 2>/dev/null || true)"
   if [ -z "$resp" ]; then
     printf '%-28s %s\n' "$name" "unknown (token rejected)"
     return

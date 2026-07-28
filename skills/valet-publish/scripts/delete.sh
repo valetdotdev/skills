@@ -23,6 +23,10 @@ require_tools
 TOKEN="$(read_token "$SLUG")"
 [ -n "$TOKEN" ] || die "no claim token for $SLUG in $TRIALS_FILE; it cannot be deleted from this machine"
 
-rpc DeleteTrialSite "$(jq -n --arg t "$TOKEN" '{claimToken:$t}')" >/dev/null
+# Through the environment, never `jq --arg`: a process argument is
+# readable from the process list by any other user on the machine, and
+# this token is what authorizes taking the site down.
+rpc DeleteTrialSite "$(VALET_CLAIM_TOKEN="$TOKEN" jq -n \
+  '{claimToken:env.VALET_CLAIM_TOKEN}')" >/dev/null
 forget_trial "$SLUG"
 echo "deleted $SLUG" >&2
