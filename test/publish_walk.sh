@@ -8,7 +8,7 @@
 # — so it is testable without the platform. The mock stands in for
 # valet-api and the object store, records the manifest each publish
 # declares, and lets the assertions be about paths rather than about
-# what a live trial ended up serving.
+# what a live anonymous site ended up serving.
 #
 #   valet-skills/test/publish_walk.sh
 #
@@ -48,7 +48,7 @@ check() { # check <description> <expected> <actual>
 }
 
 cat > "$WORK/mock.py" <<'PY'
-"""A stand-in for valet-api's three trial RPCs and the object store.
+"""A stand-in for valet-api's three anonymous RPCs and the object store.
 
 Every request is appended to requests.jsonl as {"method","body"} so
 the shell can assert on the manifest a publish declared. Uploads are
@@ -174,7 +174,7 @@ set -e
 check "exits 0" 0 "$RC"
 check "sends the stored claim token" "mock-claim-token" \
   "$(jq -rs '[.[] | select(.method=="PublishTrialSite")] | .[1].body.claimToken' "$REQUESTS")"
-check "keeps the trial link" "mock-site try" \
+check "keeps the anonymous link" "mock-site try" \
   "$(jq -r '[.agent, .org] | join(" ")' "$REPO/site/.valet/config.json")"
 
 echo "=== naming an ignored file directly"

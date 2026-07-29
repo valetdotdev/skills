@@ -63,9 +63,9 @@ git working tree and silently shipping `.git` to a public URL is the
 single worst thing this skill could do.
 
 **A directory that already belongs to a Valet project is refused.**
-When `.valet/config.json` names an agent or an org that is not a
-trial, publishing here is turned down rather than repointing the
-directory at a throwaway site — `valet deploy` is what ships that
+When `.valet/config.json` names an agent or an org that is not an
+anonymous site, publishing here is turned down rather than repointing
+the directory at a throwaway site — `valet deploy` is what ships that
 project. `./scripts/publish.sh --relink` replaces the link on purpose.
 
 ## Update
@@ -74,9 +74,9 @@ project. `./scripts/publish.sh --relink` replaces the link on purpose.
 ./scripts/publish.sh {file-or-dir}
 ```
 
-From a directory that already has `.valet/config.json` with
-`"org": "try"`, this republishes the same trial at the same URL. Only
-changed files upload.
+From a directory that already has `.valet/config.json` with `"org":
+"try"`, this republishes the same anonymous site at the same URL.
+Only changed files upload.
 
 ## Delete
 
@@ -86,8 +86,8 @@ changed files upload.
 
 Takes the site down immediately. Reads the claim token for the current
 directory's site, calls `DeleteTrialSite`, and drops the entry from the
-token store. With `--slug` it deletes any trial in the store, so a user
-can clean up something published from elsewhere.
+token store. With `--slug` it deletes any anonymous site in the store,
+so a user can clean up something published from elsewhere.
 
 Use this without hesitation if the user says they published something
 by mistake — do not wait for expiry.
@@ -109,7 +109,7 @@ entries the API reports as expired, deleted, or reaped.
 The publish output includes a claim URL. Opening it signs the user in
 and moves the site into an organization, making it permanent. Claim
 tokens are returned once and cannot be recovered — if the token is
-gone, the trial cannot be updated, deleted, or claimed.
+gone, the anonymous site cannot be updated, deleted, or claimed.
 
 After a claim, the directory relinks itself on the next publish or
 `valet deploy`, and the user is in the ordinary Valet product:

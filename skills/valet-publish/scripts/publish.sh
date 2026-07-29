@@ -38,29 +38,30 @@ ROOT="$(pwd)"
 
 # Everything that can refuse the publish is decided before any file is
 # read or any RPC is made. A refusal after PublishTrialSite has minted
-# a trial leaves a live public site nobody asked for.
+# an anonymous site leaves a live public site nobody asked for.
 require_store_readable
 
 NAME="$(read_link_name)"; ORG="$(read_link_org)"
 TOKEN=""
 if [ "$ORG" = "try" ] && [ -n "$NAME" ]; then
   TOKEN="$(read_token "$NAME")"
-  [ -n "$TOKEN" ] || die "this directory is a trial site ($NAME) but its claim token is not in $TRIALS_FILE. Without it the trial cannot be updated, deleted, or claimed. Publish a fresh one with --include-all in a new directory, or claim the original from the link you were given."
+  [ -n "$TOKEN" ] || die "this directory is an anonymous site ($NAME) but its claim token is not in $TRIALS_FILE. Without it the anonymous site cannot be updated, deleted, or claimed. Publish a fresh one with --include-all in a new directory, or claim the original from the link you were given."
 elif [ -n "$NAME" ] || [ -n "$ORG" ]; then
   # This directory already belongs to a Valet project, and publishing
-  # a trial from it rewrites .valet/config.json to point at the trial
-  # instead — after which `valet deploy` here deploys the throwaway
-  # rather than the project, and nothing on disk remembers what the
-  # link used to say.
+  # an anonymous site from it rewrites .valet/config.json to point at
+  # the anonymous site instead — after which `valet deploy` here
+  # deploys the throwaway rather than the project, and nothing on
+  # disk remembers what the link used to say.
   #
   # The CLI warns and carries on when it cannot *write* a link
-  # (valet-cli/cli/deploy/trial.go, healTrialLink), and that is the
-  # right call there: nothing was destroyed, and blocking a deploy
-  # over a file that only affects the next run is disproportionate.
-  # This is the other case. The loss is real and one-way, the refusal
-  # costs a flag, and the warning would land in an agent's transcript
-  # rather than in front of the person whose project link it is.
-  [ "$RELINK" = "1" ] || die "this directory is already linked to a Valet project (agent \"$NAME\", org \"$ORG\") in .valet/config.json. Publishing an anonymous trial here would replace that link. Run \`valet deploy\` to deploy the linked project, publish from a copy outside it, or re-run with --relink to replace the link."
+  # (valet-cli/cli/deploy/anonymous.go, healAnonymousLink), and
+  # that is the right call there: nothing was destroyed, and blocking
+  # a deploy over a file that only affects the next run is
+  # disproportionate. This is the other case. The loss is real and
+  # one-way, the refusal costs a flag, and the warning would land in
+  # an agent's transcript rather than in front of the person whose
+  # project link it is.
+  [ "$RELINK" = "1" ] || die "this directory is already linked to a Valet project (agent \"$NAME\", org \"$ORG\") in .valet/config.json. Publishing an anonymous site here would replace that link. Run \`valet deploy\` to deploy the linked project, publish from a copy outside it, or re-run with --relink to replace the link."
 fi
 
 # The published URL is public, so the deny list is a correctness
@@ -255,7 +256,7 @@ for i in $(seq 0 $((N_UP - 1))); do
   # local file is read. Only a path this client declared is honoured:
   # otherwise a hostile or misconfigured VALET_API_URL asks for
   # `/../../etc/passwd` and gets it. The Go client applies the same
-  # guard for the same reason (valet-cli/internal/trial/publish.go).
+  # guard for the same reason (valet-cli/internal/anon/publish.go).
   declared=0
   for f in "${FILES[@]}"; do
     [ "/$f" = "$up_path" ] && { declared=1; break; }
@@ -288,7 +289,7 @@ FRESH=0
 if [ -z "$TOKEN" ]; then
   FRESH=1
   TOKEN="$(printf '%s' "$RESP" | jq -r '.claimToken // empty')"
-  [ -n "$TOKEN" ] || die "PublishTrialSite returned no claim token, so this trial could never be updated, deleted, or claimed. Nothing was finalized and no site is serving."
+  [ -n "$TOKEN" ] || die "PublishTrialSite returned no claim token, so this anonymous site could never be updated, deleted, or claimed. Nothing was finalized and no site is serving."
 fi
 
 # Step 3 — finalize. Nothing serves until this succeeds.
@@ -327,6 +328,6 @@ fi
   fi
 } >&2
 
-save_trial "$SITE_NAME" "$TOKEN" "$URL" "$CLAIM_URL" "$EXPIRES" "$ROOT"
+save_anon "$SITE_NAME" "$TOKEN" "$URL" "$CLAIM_URL" "$EXPIRES" "$ROOT"
 
 echo "$URL"

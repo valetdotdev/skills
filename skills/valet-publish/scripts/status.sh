@@ -2,9 +2,10 @@
 #
 # status.sh [--slug NAME] [--all]
 #
-# Asks the API for a trial's live state. This is the only correct way
-# to answer "is it still up" or "when does it expire" — the local token
-# store is a cache, and the API response is the source of truth.
+# Asks the API for an anonymous site's live state. This is the only
+# correct way to answer "is it still up" or "when does it expire" — the
+# local token store is a cache, and the API response is the source of
+# truth.
 
 source "$(dirname "$0")/common.sh"
 
@@ -34,11 +35,11 @@ report() {
     "$(printf '%s' "$resp" | jq -r 'if .claimedUrl != "" and .claimedUrl != null then .claimedUrl else (.url + "  expires " + (.expiresAt // "?")) end')"
   # Prune what the server says is gone; keeping it would make the
   # store lie about what exists.
-  case "$state" in expired|reaped|deleted) forget_trial "$name" ;; esac
+  case "$state" in expired|reaped|deleted) forget_anon "$name" ;; esac
 }
 
 if [ "$ALL" = "1" ]; then
-  [ -f "$TRIALS_FILE" ] || { echo "no trials published from this machine" >&2; exit 0; }
+  [ -f "$TRIALS_FILE" ] || { echo "no anonymous sites published from this machine" >&2; exit 0; }
   while IFS=$'\t' read -r n t; do report "$n" "$t"; done < <(
     jq -r 'to_entries[] | [.key, .value.claimToken] | @tsv' "$TRIALS_FILE")
   exit 0

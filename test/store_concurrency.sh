@@ -45,7 +45,7 @@ save_one() { # save_one <n>
   bash -c '
     set -euo pipefail
     source "$1"
-    save_trial "site-$2" "token-$2" "https://site-$2.try.valet.run" \
+    save_anon "site-$2" "token-$2" "https://site-$2.try.valet.run" \
       "https://valet.dev/claim/token-$2" "2026-07-30T00:00:00Z" "/tmp/site-$2"
   ' _ "$COMMON" "$1"
 }
@@ -54,11 +54,11 @@ forget_one() { # forget_one <n>
   bash -c '
     set -euo pipefail
     source "$1"
-    forget_trial "site-$2"
+    forget_anon "site-$2"
   ' _ "$COMMON" "$1"
 }
 
-echo "=== $WRITERS concurrent save_trial"
+echo "=== $WRITERS concurrent save_anon"
 PIDS=()
 for i in $(seq 1 "$WRITERS"); do
   save_one "$i" &
@@ -79,7 +79,7 @@ check "store is mode 0600" 600 "$(mode_of "$STORE")"
 check "no lock left behind" 0 "$(find "$VALET_CONFIG_DIR" -maxdepth 1 -name 'trials.json.lock' | wc -l | tr -d ' ')"
 check "no staging files left behind" 0 "$(find "$VALET_CONFIG_DIR" -maxdepth 1 -name 'trials.json.??????' | wc -l | tr -d ' ')"
 
-echo "=== concurrent forget_trial over the same store"
+echo "=== concurrent forget_anon over the same store"
 PIDS=()
 for i in $(seq 1 "$WRITERS"); do
   if [ $((i % 2)) -eq 0 ]; then forget_one "$i" & else save_one "$i" & fi
@@ -105,7 +105,7 @@ set +e
 save_one 99 >/dev/null 2>&1
 SAVE_RC=$?
 set -e
-check "save_trial refuses" 1 "$SAVE_RC"
+check "save_anon refuses" 1 "$SAVE_RC"
 check "the damaged store is untouched" "$BEFORE" "$(cat "$STORE")"
 
 set +e
@@ -120,7 +120,7 @@ set +e
 save_one 98 >/dev/null 2>&1
 SAVE_RC=$?
 set -e
-check "save_trial writes the entry" 0 "$SAVE_RC"
+check "save_anon writes the entry" 0 "$SAVE_RC"
 check "the entry is there" "token-98" "$(jq -r '."site-98".claimToken' "$STORE")"
 
 if [ "$FAILED" -eq 0 ]; then

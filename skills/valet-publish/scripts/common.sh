@@ -17,7 +17,7 @@
 #                               committed.
 #
 # The store is written by two programs: these scripts and
-# valet-cli/internal/trial/store.go. Read that file before changing
+# valet-cli/internal/anon/store.go. Read that file before changing
 # anything here — the on-disk shape is a contract between them, and
 # every safety property this half has is one the Go half already
 # states, comments, and tests.
@@ -162,12 +162,13 @@ sha256_of() {
   fi
 }
 
-# rpc <Method> <json-body> — every trial procedure is a public unary
-# ConnectRPC call, so this needs no authorization header. The claim
-# token in the body is the only credential, which is why the body goes
-# in over stdin rather than as `-d <body>`: a process argument is
-# readable from the process list by every other user on the machine,
-# and the token is a bearer credential for a live public site.
+# rpc <Method> <json-body> — every anonymous procedure is a public
+# unary ConnectRPC call, so this needs no authorization header. The
+# claim token in the body is the only credential, which is why the
+# body goes in over stdin rather than as `-d <body>`: a process
+# argument is readable from the process list by every other user on
+# the machine, and the token is a bearer credential for a live public
+# site.
 rpc() {
   local method="$1" body="$2" out code
   out="$(printf '%s' "$body" | curl -sS -X POST "$RPC/$method" \
@@ -210,30 +211,32 @@ read_token() {
 # minted a claim token the server returns exactly once — and there is
 # nowhere to put that token if the merge cannot happen. So the check
 # runs first. It never repairs or replaces the file: it holds every
-# other trial's token, and a wrong guess here is unrecoverable.
+# other anonymous site's token, and a wrong guess here is
+# unrecoverable.
 require_store_readable() {
   [ -f "$TRIALS_FILE" ] || return 0
   jq -e 'type == "object"' "$TRIALS_FILE" >/dev/null 2>&1 && return 0
-  die "$TRIALS_FILE is not a readable JSON object. It holds the claim token for every trial published from this machine — repair it by hand rather than deleting it, because a trial whose token is gone can never be updated, deleted, or claimed."
+  die "$TRIALS_FILE is not a readable JSON object. It holds the claim token for every anonymous site published from this machine — repair it by hand rather than deleting it, because an anonymous site whose token is gone can never be updated, deleted, or claimed."
 }
 
-# save_trial records one trial, replacing the store atomically.
+# save_anon records one anonymous site, replacing the store
+# atomically.
 #
 # The token arrives through the environment rather than through `jq
 # --arg` for the same reason rpc() uses stdin: process arguments are
 # world-readable, and /proc/<pid>/environ is not.
-save_trial() {
+save_anon() {
   local name="$1" token="$2" url="$3" claim_url="$4" expires="$5" dir="$6"
   local existing tmp
   lock_store
   # A store that exists and cannot be read is not the same fact as no
   # store at all, and merging into `{}` on a failed read would drop
-  # every other trial's token. Only an absent or empty file starts
-  # from nothing.
+  # every other anonymous site's token. Only an absent or empty file
+  # starts from nothing.
   existing='{}'
   if [ -f "$TRIALS_FILE" ]; then
     existing="$(cat "$TRIALS_FILE" 2>/dev/null)" ||
-      die "could not read $TRIALS_FILE. It holds the claim token for every trial published from this machine; the claim token for $name was not saved."
+      die "could not read $TRIALS_FILE. It holds the claim token for every anonymous site published from this machine; the claim token for $name was not saved."
     [ -n "$existing" ] || existing='{}'
   fi
   # A unique name, in the config directory: two concurrent publishes
@@ -256,10 +259,11 @@ save_trial() {
   install_store "$tmp"
 }
 
-# forget_trial drops one trial's entry. Same read-modify-write, same
-# lock: a status --all pruning three expired trials while a publish
-# saves a fourth is the ordinary case, not a corner one.
-forget_trial() {
+# forget_anon drops one anonymous site's entry. Same
+# read-modify-write, same lock: a status --all pruning three expired
+# anonymous sites while a publish saves a fourth is the ordinary
+# case, not a corner one.
+forget_anon() {
   local name="$1" tmp
   [ -f "$TRIALS_FILE" ] || return 0
   lock_store
@@ -284,11 +288,11 @@ install_store() {
   chmod 600 "$tmp" 2>/dev/null || true
   # Flushed before the rename where the platform has a per-file sync,
   # as the Go twin's File.Sync does: a crash that makes the rename
-  # durable and the contents not takes every other trial's claim token
-  # with it. A bare sync(1) would flush the whole filesystem, which is
-  # too blunt to spend on one small file, so on macOS and busybox —
-  # where `sync <file>` does not exist — this is a no-op and that
-  # window stands.
+  # durable and the contents not takes every other anonymous site's
+  # claim token with it. A bare sync(1) would flush the whole
+  # filesystem, which is too blunt to spend on one small file, so on
+  # macOS and busybox — where `sync <file>` does not exist — this is a
+  # no-op and that window stands.
   sync "$tmp" 2>/dev/null || true
   mv "$tmp" "$TRIALS_FILE"
   unlock_store

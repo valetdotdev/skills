@@ -2,9 +2,9 @@
 #
 # delete.sh [--slug NAME]
 #
-# Takes a trial site down immediately. Use this without hesitation when
-# someone says they published something by mistake — do not wait for
-# the 36-hour expiry.
+# Takes an anonymous site down immediately. Use this without hesitation
+# when someone says they published something by mistake — do not wait
+# for the 36-hour expiry.
 
 source "$(dirname "$0")/common.sh"
 
@@ -28,5 +28,5 @@ TOKEN="$(read_token "$SLUG")"
 # this token is what authorizes taking the site down.
 rpc DeleteTrialSite "$(VALET_CLAIM_TOKEN="$TOKEN" jq -n \
   '{claimToken:env.VALET_CLAIM_TOKEN}')" >/dev/null
-forget_trial "$SLUG"
+forget_anon "$SLUG"
 echo "deleted $SLUG" >&2
