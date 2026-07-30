@@ -13,133 +13,287 @@ description: >
 
 # valet-publish
 
-Create a live URL from any file or folder. Static hosting only.
+Create a live URL from any file or folder. Static hosting only, and no
+Valet account needed. You do it by running the `valet` CLI through the
+Bash tool.
 
-Install or update: `npx skills add valetdotdev/skills --skill valet-publish -g`
+Install or update this skill:
+`npx skills add valetdotdev/skills --skill valet-publish -g`
 
-## Requirements
+**Communication style**: say what you are about to run and why before
+you run it. Report the URL, the removal window, and the claim URL as
+soon as you have them — the claim URL is printed once and cannot be
+recovered. Confirm with the user before taking a site down.
 
-- `curl`, `jq`, and `sha256sum` or `shasum`
-- No account, no API key, no CLI
+## Supported platforms
+
+**macOS with Homebrew** is the supported path, and the installation
+below assumes it. A Linux machine that *already* has Homebrew works
+too — the tap's formula carries Linux builds.
+
+**Linux without Homebrew, and Windows, are not supported yet.** There
+is no other installer. When the user is on one of those, say so before
+you try anything:
+
+> Publishing needs the Valet CLI, and Homebrew is the only way to
+> install it right now — so macOS, or a Linux machine that already has
+> Homebrew. Windows and Homebrew-less Linux aren't supported yet.
+
+Then stop. Do not improvise a download, a package manager, or a build
+from source.
+
+## Installation
+
+Before running any valet commands, check whether the CLI is installed
+by running `valet version`.
+
+If `valet` is not installed, **explain to the user why it is needed
+before attempting installation**:
+
+> The Valet CLI is what publishes files to a live URL. I'll install it
+> for you now via Homebrew.
+
+Then check whether Homebrew is available by running `brew --version`.
+
+**If Homebrew is not installed**, ask the user whether they'd like to
+install Homebrew first. If they agree, install it with the official
+installer:
+
+```
+/bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+```
+
+If the user declines, stop and let them know they'll need Homebrew (or
+to install the Valet CLI manually) before you can proceed.
+
+**If Homebrew is installed**, install the Valet CLI:
+
+```
+brew install valetdotdev/tap/valet
+```
+
+**IMPORTANT — Homebrew failures**: If `brew install
+valetdotdev/tap/valet` fails for any reason — tap errors, permission
+issues, network problems, formula conflicts, or anything else — **do
+not attempt to troubleshoot, retry, or work around the issue**.
+Instead, inform the user:
+
+> It looks like the Homebrew installation didn't succeed. Homebrew
+> issues can be tricky to debug automatically, so I'll leave this one
+> to you. Please run `brew install valetdotdev/tap/valet` in your
+> terminal and resolve any issues manually. Once the CLI is installed,
+> come back and we'll pick up where we left off.
+
+Then **stop the current workflow**. Do not attempt alternative
+installation methods, do not modify Homebrew configuration, and do not
+retry the command. Wait for the user to confirm the CLI is installed
+before continuing.
+
+**An already-installed CLI can be too old.** `valet version` prints
+`valet/<version> <os>-<arch> <go>`; anonymous publishing needs
+**v0.1.75 or later**. If the version is older, or a command below
+fails with `unknown flag: --anonymous`, upgrade it:
+
+```
+brew upgrade valetdotdev/tap/valet
+```
+
+If that fails, hand back to the user exactly as above rather than
+working around it.
+
+No `valet auth login` is needed for anything in this file. Publishing
+anonymously never touches an account.
 
 ## Publish
 
+Two commands, run in the directory that should become the site root:
+
 ```bash
-./scripts/publish.sh {file-or-dir}
+cd path/to/site
+valet sites create --anonymous
+valet deploy
 ```
 
-Prints the live URL. Without a claim token this creates an **anonymous
-site that expires in 36 hours**; claiming it makes it permanent.
+`valet sites create --anonymous` mints the site and prints the live
+URL, the removal window, and the claim URL. `valet deploy` uploads the
+directory. The URL serves 404 until that finishes.
 
-Three steps under the hood: declare the manifest, upload missing
-objects, finalize. The site is not live until finalize succeeds.
+**Before the deploy, list the directory and read what is in it.**
+Everything there becomes public except `.git/`, `.valet/`, and
+symlinks — that is the whole list, and it is shorter than people
+expect (see "What is not uploaded" below). Move anything
+credential-shaped out first, and say what you found.
 
-**File structure.** Publish the directory whose contents should be the
-site root — publish `my-site/`, not a parent containing it. An
-`index.html` at the root is served as the site. Without one the script
-generates a page listing every file and uploads it as `index.html`, so
-a folder of charts or a single PDF is worth publishing as-is — say so
-when there was no `index.html`, and that adding one replaces the
-generated page. That page is an ordinary file in the site: it shows up
-in `valet sites download`, and it can be edited and republished.
+**Publish the directory whose contents should be the site root** —
+publish `my-site/`, not a parent containing it. There is no way to
+publish a single file directly: put it in a directory of its own and
+publish that.
 
-**What is never uploaded.** The published URL is public, so the script
-skips, without being asked: `.git/` (history contains every credential
-ever committed and later removed), `.valet/`, `.env` and `.env.*`,
-`node_modules/`, `.DS_Store`, and anything the directory's
-`.gitignore` excludes. Symlinks are not followed — a link pointing
-outside the published directory would otherwise exfiltrate whatever it
-points at. The script prints what it skipped so the omission is never
-silent, and `--include-all` overrides it for someone who genuinely
-means to publish a dotfile.
+```bash
+mkdir -p report && cp ~/Downloads/q3.pdf report/
+cd report
+valet sites create --anonymous
+valet deploy
+```
 
-Publishing a directory git ignores wholesale — `dist/`, `build/`,
-`_site/` — turns the `.gitignore` half off inside it and says so,
-because every file there is ignored and the alternative is publishing
-nothing. The rest of the list still applies.
+An `index.html` at the root is served as the site. Without one,
+visitors get a browsable listing of the files, so a folder of charts
+or a single PDF is worth publishing as-is. Say so when there was no
+`index.html`, and that adding one replaces the listing.
 
-Tell the user what was skipped when it is non-obvious. Publishing a
-git working tree and silently shipping `.git` to a public URL is the
-single worst thing this skill could do.
+`valet sites create --anonymous` takes no site name — the server
+generates one — and cannot be combined with `--org`.
 
-**A directory that already belongs to a Valet project is refused.**
-When `.valet/config.json` names an agent or an org that is not an
-anonymous site, publishing here is turned down rather than repointing
-the directory at a throwaway site — `valet deploy` is what ships that
-project. `./scripts/publish.sh --relink` replaces the link on purpose.
+### The three refusals
+
+Each one is the right answer rather than an obstacle. Read the
+message, do what it names, and do not reach for a flag to get past it.
+
+- **You are signed in.** An anonymous site is public and lives in a
+  shared incubator org, which is not where a signed-in user's content
+  belongs. The permanent path is `valet sites create <name>` followed
+  by `valet sites access <name> public` — their own org, and public
+  only because they said so.
+- **This directory already publishes an anonymous site.** Run `valet
+  deploy` to update it. `--relink` starts a *new* site and overwrites
+  the existing claim token, which is the only credential the current
+  site has; only pass it when the user means to abandon that site.
+- **This directory, or one above it, is already a Valet project.**
+  Publish from a copy outside it, or run `valet deploy` to deploy the
+  project that is there. `--relink` replaces a link in *this*
+  directory only — it deliberately cannot reach one in a parent.
 
 ## Update
 
 ```bash
-./scripts/publish.sh {file-or-dir}
+valet deploy
 ```
 
-From a directory that already has `.valet/config.json` with `"org":
-"try"`, this republishes the same anonymous site at the same URL.
-Only changed files upload.
+From the same directory. Only changed files upload, and the URL does
+not change. Neither does the removal deadline: the 36 hours run from
+when the site was created, not from the last deploy.
 
-## Delete
+`valet deploy` asks the server where the site stands before it uploads
+anything, which is how it copes with everything that can happen to a
+site while nobody is looking:
 
-```bash
-./scripts/delete.sh [--slug {slug}]
-```
-
-Takes the site down immediately. Reads the claim token for the current
-directory's site, calls `DeleteTrialSite`, and drops the entry from the
-token store. With `--slug` it deletes any anonymous site in the store,
-so a user can clean up something published from elsewhere.
-
-Use this without hesitation if the user says they published something
-by mistake — do not wait for expiry.
+- **Still unclaimed** — it publishes, and that is the ordinary case.
+- **Claimed in a browser** — it says where the site went, rewrites the
+  link to the new org and name, drops the spent claim token, and
+  carries on to the permanent site. From that point the site is an
+  ordinary Valet site: deploying to it needs `valet auth login` and
+  membership in that org, and the `valet` skill covers the rest.
+- **Expired, deleted, or reaped** — it says which, names the stale
+  link file to remove when there is nothing left to authorize, and
+  offers a fresh publish. Do not try to revive it; publishing to an
+  expired anonymous site is refused server-side.
 
 ## Status
 
 ```bash
-./scripts/status.sh [--slug {slug}]     # one site
-./scripts/status.sh --all               # everything in the token store
+valet sites info
 ```
 
-Calls `GetTrialClaim` and prints the live state, URL, and expiry. This
-is the only correct way to answer "is it still up" or "when does it
-expire" — never read those from the token store. `--all` prunes
-entries the API reports as expired, deleted, or reaped.
+From the directory the site was published from, with no site name.
+Prints the URL, the state (`unclaimed`, `claimed`, `expired`,
+`deleted`, or `reaped`), and either the removal window or — once
+claimed — where the site went.
+
+This is the only correct way to answer "is it still up" or "when does
+it go away". Never infer either from the link file on disk; it cannot
+know what happened in a browser.
+
+## Take it down
+
+```bash
+valet sites destroy
+```
+
+From the same directory, with no site name. The server is asked first,
+and `.valet/config.json` is removed only after the site is confirmed
+gone.
+
+Use this without hesitation if the user says they published something
+by mistake — do not wait for the removal window. A site that has
+already been claimed is refused here: it belongs to an org now, and
+taking it down is `valet sites destroy <name>` with an account.
 
 ## Claim
 
-The publish output includes a claim URL. Opening it signs the user in
-and moves the site into an organization, making it permanent. Claim
-tokens are returned once and cannot be recovered — if the token is
-gone, the anonymous site cannot be updated, deleted, or claimed.
+An anonymous site may be removed 36 hours after it is created, unless
+it is claimed. Claiming moves it into an organization and makes it
+permanent; the anonymous URL keeps working and redirects to the new
+one.
 
-After a claim, the directory relinks itself on the next publish or
-`valet deploy`, and the user is in the ordinary Valet product:
+**The claim URL printed at creation is the route for someone with no
+account.** Opening it signs them in — or signs them up — and can
+create the org at the same time.
 
+**When they already have an account and belong to an org**, claiming
+works from the publishing directory:
+
+```bash
+valet sites claim --org <org>
 ```
-brew install valetdotdev/tap/valet
-valet auth login
-valet deploy
-```
+
+`--name <name>` renames the site on the way in. `--org` is required
+and must name an org that already exists: this command never creates
+one, because an org name is reserved permanently. Run `valet orgs
+create <org>` first, or use the claim URL, which does both at once.
+
+A claimed site **stays public** — anyone with the link can still view
+it, which is the point of the link the publisher already shared.
+`valet sites access <name> private` changes that.
+
+The claim token is returned once, at creation, and after that it lives
+only in `.valet/config.json`. If both it and the claim URL are gone,
+the site cannot be updated, taken down, or claimed by anyone, and it
+will be removed when its window closes.
 
 ## State
 
-- `.valet/config.json` in the published directory — the link, safe to
-  commit, read by the Valet CLI.
-- `$VALET_CONFIG_DIR/trials.json` (default `~/.config/valet/`, mode
-  0600) — claim tokens keyed by site name, plus URL, claim URL,
-  expiry, and source directory. Writes take a `trials.json.lock`
-  directory next to it so two publishes at once cannot lose a token;
-  one left behind by a killed script is broken after a minute.
+One file: `.valet/config.json` in the published directory, mode 0600.
+It holds the link — the site's name and the `try` org — and the claim
+token.
 
-Never print the token store path as a URL, and never read expiry or
-claim state from it — the API response is authoritative. Use
-`./scripts/status.sh` to ask.
+**Tell the user it should not be committed.** The claim token is a
+bearer credential: whoever holds it can update, take down, or claim
+the site. The file otherwise looks like ordinary project
+configuration, which is exactly what `git add .` sweeps up.
 
-## What to tell the user
+You never need to read the token yourself — every command above finds
+it. Do not print the file, and do not copy the token into a message, a
+commit, or an issue.
 
-- Always: the live URL, that it expires in 36 hours, and the claim URL.
-- If an index was generated: say so, and how to replace it.
-- On claim: the new permanent URL, and that the old one redirects.
-- Never present local file paths as URLs.
+Nothing else on the machine knows about the site: no token store, no
+lock file, and nothing written into the Valet config directory, which
+anonymous publishing never touches. So an anonymous site can only be
+managed from the directory it was published from — from anywhere else,
+the claim URL is the only handle.
+
+## What is not uploaded
+
+`.git/`, `.valet/`, and symlinks. That is the whole list, and it is
+the same list before and after a claim, so nothing about what the site
+serves changes when its ownership does.
+
+The two directories are not on the list because of what they tend to
+contain. `.git` is *history* rather than directory contents —
+publishing it serves every version of every file the working tree no
+longer shows. `.valet` carries the claim token, and a site must not
+serve the one credential that controls it.
+
+**Everything else in the directory is published**, including dotfiles,
+`.env` files, `node_modules/`, and anything the project's `.gitignore`
+ignores. Publish a directory and you publish that directory — there is
+no second, invisible rule about what counts as its contents.
+
+So look at what is in the directory before you run `valet deploy`, and
+move anything that should not be on a public URL somewhere else first.
+`valet deploy` prints a skipped count when it passes over an
+individual entry, such as a symlink — but a whole `.git/` or `.valet/`
+directory is skipped without one, so silence is not evidence there was
+nothing to skip. Your own listing is.
 
 ## Limits
 
@@ -148,40 +302,46 @@ claim state from it — the API response is authoritative. Use
 | Max file size | 250 MB |
 | Max total size | 250 MB |
 | Max files | 1000 |
-| Expiry | 36 hours (permanent once claimed) |
+| Removal | 36 hours after creation, unless claimed |
 
-## API
+## What to tell the user
 
-Base URL `https://api.valet.dev`. Every call is a plain JSON POST and
-needs no authorization header; the claim token authorizes the three
-operations that take one.
+- Always: the live URL, the removal window, and the claim URL.
+- That `.valet/config.json` now holds the site's only credential and
+  should not be committed.
+- If the root had no `index.html`: that visitors see a file listing,
+  and that adding an `index.html` replaces it.
+- On claim: the new permanent URL, that the anonymous URL redirects to
+  it, and that the site stays public.
+- Never present a local file path as a URL.
+
+**Say the removal window the way the CLI says it, and never say
+"expires".** An anonymous site does not stop at its deadline — it
+stops when a sweeper collects it, minutes later — so the deadline is
+the earliest moment it *may be removed*, and the remedy belongs in the
+same breath:
+
+- Quoting a timestamp the CLI printed:
+  `May be removed after <timestamp>. Claim it to keep it.`
+- Speaking generally, before there is a timestamp: it may be removed
+  36 hours after it is created, unless it is claimed. Claim it to keep
+  it.
+
+## When something goes wrong
+
+The CLI's own output is authoritative, and every refusal it prints
+names the command that resolves it. Run that command rather than
+guessing, and use the built-in help for anything this file does not
+cover:
 
 ```
-POST /valet.api.v1.APIService/PublishTrialSite
-  {"files":[{"path":"/index.html","sha256":"…","size":1234}],
-   "client":"claude-code","claimToken":""}
-  → {"siteName","url","edgeStatus","claimToken","claimUrl","expiresAt",
-     "uploadId","uploads":[{"path","sha256","url","fields"}],
-     "skippedCount"}
-
-# One multipart POST per missing object. Every field from
-# uploads[].fields must be sent before the file part, and as
-# --form-string: curl reads a leading `@` in an -F value as "upload
-# this local file", and these values come from the server.
-curl --form-string key=… --form-string policy=… \
-     --form-string x-amz-signature=… \
-     -F file=@local/path  <uploads[].url>
-
-POST /valet.api.v1.APIService/FinalizeTrialSite
-  {"claimToken":"…","uploadId":"…"}      → {"url","version","expiresAt"}
-
-POST /valet.api.v1.APIService/GetTrialClaim
-  {"claimToken":"…"}                     → {"url","state","expiresAt",…}
-
-POST /valet.api.v1.APIService/DeleteTrialSite
-  {"claimToken":"…"}                     → {}
+valet sites create --help
+valet sites info --help
+valet sites destroy --help
+valet sites claim --help
 ```
 
-Re-calling `PublishTrialSite` with the same manifest returns fresh
-upload URLs for whatever is still missing — that is how to resume an
-interrupted upload or refresh expired URLs.
+Do not retry a failed publish with different flags hoping one works.
+
+For a permanent site in the user's own org, an account, or an AI
+agent, use the `valet` skill instead.

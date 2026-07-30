@@ -9,7 +9,7 @@ The [Valet](https://valet.dev) skill for Claude Code and other coding agents. Bu
 | Skill | What it does |
 |-------|--------------|
 | `valet` | Build, deploy, and run skilled AI agents from your terminal. |
-| `valet-publish` | Publish files and folders to a live URL — no account, no CLI. |
+| `valet-publish` | Publish files and folders to a live URL — no account needed. |
 
 ## Install
 
