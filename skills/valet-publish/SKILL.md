@@ -290,10 +290,10 @@ no second, invisible rule about what counts as its contents.
 
 So look at what is in the directory before you run `valet deploy`, and
 move anything that should not be on a public URL somewhere else first.
-`valet deploy` prints a skipped count when it passes over an
-individual entry, such as a symlink — but a whole `.git/` or `.valet/`
-directory is skipped without one, so silence is not evidence there was
-nothing to skip. Your own listing is.
+`valet deploy` prints a skipped count for every path it passes over,
+counting a whole `.git/` or `.valet/` as one path rather than as the
+files inside it — so the line tells you *that* something was skipped,
+never how much.
 
 ## Limits
 
