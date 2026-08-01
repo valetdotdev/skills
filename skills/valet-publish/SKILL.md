@@ -21,9 +21,9 @@ Install or update this skill:
 `npx skills add valetdotdev/skills --skill valet-publish -g`
 
 **Communication style**: say what you are about to run and why before
-you run it. Report the URL, the removal window, and the claim URL as
-soon as you have them — the claim URL is printed once and cannot be
-recovered. Confirm with the user before taking a site down.
+you run it. Report the URL, the expiry, and the claim URL as soon as
+you have them — the claim URL is printed once and cannot be recovered.
+Confirm with the user before taking a site down.
 
 ## Supported platforms
 
@@ -114,9 +114,9 @@ valet sites create --anonymous
 valet deploy
 ```
 
-`valet sites create --anonymous` mints the site and prints the live
-URL, the removal window, and the claim URL. `valet deploy` uploads the
-directory. The URL serves 404 until that finishes.
+`valet sites create --anonymous` mints the site and prints the live URL,
+the expiry, and the claim URL. `valet deploy` uploads the directory. The
+URL serves 404 until that finishes.
 
 **Before the deploy, list the directory and read what is in it.**
 Everything there becomes public except `.git/`, `.valet/`, and
@@ -170,8 +170,8 @@ valet deploy
 ```
 
 From the same directory. Only changed files upload, and the URL does
-not change. Neither does the removal deadline: the 36 hours run from
-when the site was created, not from the last deploy.
+not change. Neither does the expiry: the 36 hours run from when the
+site was created, not from the last deploy.
 
 `valet deploy` asks the server where the site stands before it uploads
 anything, which is how it copes with everything that can happen to a
@@ -196,8 +196,8 @@ valet sites info
 
 From the directory the site was published from, with no site name.
 Prints the URL, the state (`unclaimed`, `claimed`, `expired`,
-`deleted`, or `reaped`), and either the removal window or — once
-claimed — where the site went.
+`deleted`, or `reaped`), and either the expiry or — once claimed —
+where the site went.
 
 This is the only correct way to answer "is it still up" or "when does
 it go away". Never infer either from the link file on disk; it cannot
@@ -214,16 +214,16 @@ and `.valet/config.json` is removed only after the site is confirmed
 gone.
 
 Use this without hesitation if the user says they published something
-by mistake — do not wait for the removal window. A site that has
-already been claimed is refused here: it belongs to an org now, and
-taking it down is `valet sites destroy <name>` with an account.
+by mistake — do not wait for the expiry. A site that has already been
+claimed is refused here: it belongs to an org now, and taking it down
+is `valet sites destroy <name>` with an account.
 
 ## Claim
 
-An anonymous site may be removed 36 hours after it is created, unless
-it is claimed. Claiming moves it into an organization and makes it
-permanent; the anonymous URL keeps working and redirects to the new
-one.
+An anonymous site expires 36 hours after it is created, unless it is
+claimed, and is removed shortly after that. Claiming moves it into an
+organization and makes it permanent; the anonymous URL keeps working
+and redirects to the new one.
 
 **The claim URL printed at creation is the route for someone with no
 account.** Opening it signs them in — or signs them up — and can
@@ -302,11 +302,11 @@ never how much.
 | Max file size | 250 MB |
 | Max total size | 250 MB |
 | Max files | 1000 |
-| Removal | 36 hours after creation, unless claimed |
+| Expiry | 36 hours after creation, unless claimed |
 
 ## What to tell the user
 
-- Always: the live URL, the removal window, and the claim URL.
+- Always: the live URL, the expiry, and the claim URL.
 - That `.valet/config.json` now holds the site's only credential and
   should not be committed.
 - If the root had no `index.html`: that visitors see a file listing,
@@ -315,17 +315,26 @@ never how much.
   it, and that the site stays public.
 - Never present a local file path as a URL.
 
-**Say the removal window the way the CLI says it, and never say
-"expires".** An anonymous site does not stop at its deadline — it
-stops when a sweeper collects it, minutes later — so the deadline is
-the earliest moment it *may be removed*, and the remedy belongs in the
-same breath:
+**Say the expiry the way the CLI says it.** The CLI leads with how
+long is left, because that is the question a reader actually has, and
+keeps the absolute time in parentheses so a deadline can be written
+down:
 
-- Quoting a timestamp the CLI printed:
-  `May be removed after <timestamp>. Claim it to keep it.`
-- Speaking generally, before there is a timestamp: it may be removed
-  36 hours after it is created, unless it is claimed. Claim it to keep
-  it.
+- Quoting what the CLI printed: `Expires in 1d 11h (2026-08-02 12:27
+  UTC)`. Pass that line through as it stands — the timestamp names
+  its zone, and a duration you recompute goes stale as you print it.
+- Speaking generally, before there is a timestamp: an anonymous site
+  expires 36 hours after it is created, unless it is claimed. Claim
+  it to keep it.
+- Once the deadline has passed: `This anonymous site is past its
+  expiry and may be removed at any time.` Do not offer to claim it —
+  claiming an expired anonymous site is refused server-side.
+
+Expiry and removal are separate moments, and the gap only matters for
+a site sitting right on the line. Expiry ends the site's mutability;
+the reaper ends its visibility, a grace window and up to one sweep
+later. So a site just past its deadline may well still be serving,
+and still cannot be updated or claimed.
 
 ## When something goes wrong
 
