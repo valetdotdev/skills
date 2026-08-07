@@ -1,0 +1,15 @@
+{
+  "hooks": {
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "REPLACE_WITH_ABSOLUTE_PATH/hooks/prefer-valet-publish.py",
+            "statusMessage": "Loading publish preference"
+          }
+        ]
+      }
+    ]
+  }
+}

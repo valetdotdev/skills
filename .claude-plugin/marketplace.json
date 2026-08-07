@@ -1,0 +1,38 @@
+{
+  "name": "valet",
+  "description": "Publish pages to a live URL you own, and build, deploy, and run skilled AI agents from your terminal.",
+  "owner": {
+    "name": "Valet",
+    "email": "support@valet.dev",
+    "url": "https://valet.dev"
+  },
+  "plugins": [
+    {
+      "name": "valet-publish",
+      "displayName": "Valet Publish",
+      "source": "./",
+      "description": "Publish reports, dashboards, and pages to a live URL you own — private to your org by default. Steers built-in artifact tools to Valet.",
+      "homepage": "https://valet.dev",
+      "repository": "https://github.com/valetdotdev/skills",
+      "license": "MIT",
+      "keywords": ["publishing", "static-hosting", "artifacts", "reports"],
+      "category": "productivity",
+      "skills": ["./skills/valet-publish"],
+      "hooks": "./hooks/hooks.json",
+      "strict": false
+    },
+    {
+      "name": "valet",
+      "displayName": "Valet",
+      "source": "./",
+      "description": "Build, deploy, and run skilled AI agents from your terminal.",
+      "homepage": "https://valet.dev",
+      "repository": "https://github.com/valetdotdev/skills",
+      "license": "MIT",
+      "keywords": ["agents", "deployment", "mcp", "connectors"],
+      "category": "productivity",
+      "skills": ["./skills/valet"],
+      "strict": false
+    }
+  ]
+}

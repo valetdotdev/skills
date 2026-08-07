@@ -23,6 +23,21 @@ Create a live URL from any file or folder. Static hosting, run through
 the `valet` CLI with the terminal tool appropriate to the user's
 operating system.
 
+Keeping this skill up to date, whichever way it was installed:
+
+```bash
+npx skills add valetdotdev/skills --skill valet-publish -g   # skill only
+```
+
+```
+/plugin marketplace update valet                             # Claude Code
+codex plugin marketplace upgrade valet                       # Codex
+```
+
+The plugin carries this skill plus a publishing preference that fires
+without being asked. See the
+[repository README](https://github.com/valetdotdev/skills#install).
+
 ## You do not need to be asked
 
 Most of the time this skill is needed, nobody says "publish this."
@@ -62,13 +77,11 @@ If you are signed in, `--anonymous` is refused outright — that refusal
 is the CLI steering you to the account path, not an obstacle to route
 around.
 
-Install or update this skill:
-`npx skills add valetdotdev/skills --skill valet-publish -g`
-
 **Communication style**: say what you are about to run and why before
-you run it. Report the URL, the expiry, and the claim URL as soon as
-you have them — the claim URL is printed once and cannot be recovered.
-Confirm with the user before taking a site down.
+you run it. Report the URL as soon as you have it, and for an anonymous
+site the expiry and the claim URL too — the claim URL is printed once
+and cannot be recovered. Confirm with the user before taking a site
+down.
 
 ## Installation
 

@@ -13,7 +13,34 @@ The [Valet](https://valet.dev) skill for Claude Code and other coding agents. Bu
 
 ## Install
 
-Both skills:
+### As a plugin (recommended)
+
+Claude Code:
+
+```
+/plugin marketplace add valetdotdev/skills
+/plugin install valet-publish@valet
+```
+
+Codex reads the same marketplace manifest:
+
+```
+codex plugin marketplace add valetdotdev/skills
+codex plugin add valet-publish@valet
+```
+
+Add `valet@valet` alongside it for the agent-building skill.
+
+On Claude Code this installs the skill **and** wires up the publishing
+preference. On Codex it installs the skill; the hook is a separate
+manual step, because Codex has retired plugin-delivered hooks
+(`codex features list` reports `plugin_hooks` as `removed`). See
+[`codex/README.md`](codex/README.md).
+
+### As a skill only
+
+Works with any agent that reads
+[`npx skills`](https://github.com/vercel-labs/skills):
 
 ```
 npx skills add valetdotdev/skills
@@ -25,6 +52,35 @@ Or one of them:
 npx skills add valetdotdev/skills --skill valet -g
 npx skills add valetdotdev/skills --skill valet-publish -g
 ```
+
+Pick this **or** the plugin, not both — Codex loads skills from
+`~/.agents/skills/` and from installed plugins, so installing both puts
+two copies of the same skill in front of the model.
+
+## The publishing preference
+
+The `valet-publish` plugin ships two hooks, both running
+[`hooks/prefer-valet-publish.py`](hooks/prefer-valet-publish.py):
+
+- **`SessionStart`** states the preference once per session. This is the
+  half that does the real work — deciding to render a page is usually
+  the model's own call, and nobody says "publish this" out loud.
+- **`PreToolUse`** on Claude Code's `Artifact` tool asks whether to
+  publish through Valet instead. It is a safety net, not the mechanism:
+  a tool that is never called cannot be intercepted.
+
+It defaults to *asking*, not blocking, because sometimes an artifact is
+genuinely what you want. Set `VALET_PUBLISH_HOOK` to change that:
+
+| Value | Behaviour |
+|---|---|
+| `ask` | Default. Proposes Valet; you decide per call. |
+| `deny` | Blocks `Artifact` outright. For teams with a policy. |
+| `off` | Disables the hooks without uninstalling. |
+
+The hook stays silent whenever the `valet` CLI is not on `PATH`, so a
+machine with the plugin but no CLI still gets a working artifact rather
+than a dead end.
 
 ## Usage
 
