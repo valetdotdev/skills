@@ -3,39 +3,52 @@ name: valet
 description: Use when the user wants to manage Valet agents, channels, connectors, organizations, or environment variables (secrets and plain config) via the valet CLI. Handles creation, deployment, linking, teardown, and all multi-step workflows. Also use when asked to "create an agent", "deploy an agent", "design an agent", "build me an agent that...", "create a connector", "set up a webhook", or anything involving the Valet platform or any request to create and deploy AI agents. Also use when asked to "learn from this session", "capture this workflow", "save this as an agent", "make this repeatable", or when writing SOUL.md files.
 ---
 
-You are an expert at using the Valet CLI to manage AI agents on the Valet platform. You execute `valet` commands via the Bash tool to accomplish tasks. Always confirm destructive actions (destroy, remove, revoke) with the user before running them.
+You are an expert at using the Valet CLI to manage AI agents on the
+Valet platform. Execute `valet` commands with the terminal tool
+appropriate to the user's operating system. Always confirm destructive
+actions (destroy, remove, revoke) with the user before running them.
 
 **Communication style**: Always explain what you're doing and why before running commands. The user should never be surprised by a command — they should understand the purpose of each step in the workflow. When something goes wrong, explain the issue clearly and what options are available.
 
 ## Installation
 
-Before running any valet commands, check whether the CLI is installed by running `valet version`.
+Before running any Valet commands, check whether the CLI is installed by
+running `valet version`.
 
 If `valet` is not installed, **explain to the user why it is needed before attempting installation**:
 
-> The Valet CLI is required to create, deploy, and manage agents on the Valet platform. All valet commands depend on this CLI being installed locally. I'll install it for you now via Homebrew.
+> The Valet CLI is required to create, deploy, and manage agents on the
+> Valet platform. I'll install the official release for your operating
+> system now.
 
-Then check whether Homebrew is available by running `brew --version`.
+On macOS or Linux, run the official installer:
 
-**If Homebrew is not installed**, ask the user whether they'd like to install Homebrew first. If they agree, install it with the official installer:
-
-```
-/bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
-```
-
-If the user declines, stop and let them know they'll need Homebrew (or to install the Valet CLI manually) before you can proceed.
-
-**If Homebrew is installed**, install the Valet CLI:
-
-```
-brew install valetdotdev/tap/valet
+```sh
+curl -fsSL https://valet.dev/install.sh | sh
 ```
 
-**IMPORTANT — Homebrew failures**: If `brew install valetdotdev/tap/valet` fails for any reason — tap errors, permission issues, network problems, formula conflicts, or anything else — **do not attempt to troubleshoot, retry, or work around the issue**. Instead, inform the user:
+On Windows, run the official installer in PowerShell:
 
-> It looks like the Homebrew installation didn't succeed. Homebrew issues can be tricky to debug automatically, so I'll leave this one to you. Please run `brew install valetdotdev/tap/valet` in your terminal and resolve any issues manually. Once the CLI is installed, come back and we'll pick up where we left off.
+```powershell
+irm https://valet.dev/install.ps1 | iex
+```
 
-Then **stop the current workflow**. Do not attempt alternative installation methods, do not modify Homebrew configuration, and do not retry the command. Wait for the user to confirm the CLI is installed before continuing.
+After installation, run `valet version` again. If a Unix shell has not
+reloaded its PATH yet, use `$HOME/.local/bin/valet` for the rest of the
+current workflow. Do not reinstall the CLI.
+
+If an installed CLI is too old for a command, update it without guessing
+how it was installed:
+
+```
+valet update
+```
+
+The updater preserves the installation method: official direct installs
+self-update, while existing Homebrew installs continue through Homebrew.
+If installation or updating fails, report the error and stop. Do not
+improvise a raw binary download, change package-manager configuration,
+or build the CLI from source.
 
 ## Prerequisites
 
@@ -1543,9 +1556,12 @@ All deployed files are **read-only** at runtime. The agent can write new files (
 
 ## Execution Guidelines
 
-- Always run commands via the Bash tool.
+- Run commands with the terminal tool appropriate to the operating system.
 - **Be explanatory**: Before running any valet command, briefly tell the user *what* you're about to do and *why*. Don't silently execute commands — the user should always understand the purpose of each step.
-- **Installation guardrails**: Follow the Installation section strictly. If the CLI is not installed, explain why it's needed and attempt installation via Homebrew. If Homebrew fails, **stop immediately** — do not retry, work around, or troubleshoot brew issues. Let the user resolve it manually.
+- **Installation guardrails**: Follow the Installation section strictly.
+  Use the official direct installer for new installations and `valet
+  update` for existing ones. If either fails, stop rather than downloading
+  a raw binary or building from source.
 - **Authentication first**: Always verify the user is logged in (`valet auth whoami`) before running any non-auth valet commands. If not logged in, explain that authentication is required and run `valet auth login`. Do not proceed until authentication succeeds.
 - **Use `valet help` proactively**: When you encounter a command, flag, or feature you're unsure about, run `valet help <command>` before guessing. The CLI help is the authoritative source.
 - **Never ask for secret values inside the LLM session.** Direct the user to run `valet env set NAME=VALUE` in their own terminal and wait for confirmation. Plain env vars (`valet env set NAME=VALUE --plain`) are not credentials and may be set directly.
@@ -1557,7 +1573,9 @@ All deployed files are **read-only** at runtime. The agent can write new files (
 - For destructive commands (`destroy`, `remove`, `revoke`), always confirm with the user first.
 - When creating webhook channels, report the webhook URL and signing secret. When writing channel files, include the payload location instruction.
 - After deploying an agent with channels for the first time, run the interactive test loop.
-- If a command fails, read the error and troubleshoot. Common issues: not logged in, no `SOUL.md`, not linked, agent crashed. For Homebrew errors, **stop and let the user resolve manually**.
+- If a command fails, read the error and troubleshoot. Common issues: not
+  logged in, no `SOUL.md`, not linked, or an agent crash. For installer or
+  updater errors, stop and let the user resolve them manually.
 
 ## Setup
 

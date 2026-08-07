@@ -57,10 +57,29 @@ The Valet skill helps you create this structure, iterate on it, and deploy it â€
 
 You can also install the Valet CLI directly:
 
+macOS or Linux:
+
+```
+curl -fsSL https://valet.dev/install.sh | sh
+valet auth login
+```
+
+Windows PowerShell:
+
+```
+irm https://valet.dev/install.ps1 | iex
+valet auth login
+```
+
+Existing Homebrew installations remain supported:
+
 ```
 brew install valetdotdev/tap/valet
 valet auth login
 ```
+
+To migrate from Homebrew later, uninstall the formula and run the direct
+installer for the platform. The CLI will then use direct self-updates.
 
 ## Docs
 

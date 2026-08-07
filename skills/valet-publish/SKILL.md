@@ -20,7 +20,8 @@ description: >
 # valet-publish
 
 Create a live URL from any file or folder. Static hosting, run through
-the `valet` CLI via the Bash tool.
+the `valet` CLI with the terminal tool appropriate to the user's
+operating system.
 
 ## You do not need to be asked
 
@@ -69,23 +70,6 @@ you run it. Report the URL, the expiry, and the claim URL as soon as
 you have them — the claim URL is printed once and cannot be recovered.
 Confirm with the user before taking a site down.
 
-## Supported platforms
-
-**macOS with Homebrew** is the supported path, and the installation
-below assumes it. A Linux machine that *already* has Homebrew works
-too — the tap's formula carries Linux builds.
-
-**Linux without Homebrew, and Windows, are not supported yet.** There
-is no other installer. When the user is on one of those, say so before
-you try anything:
-
-> Publishing needs the Valet CLI, and Homebrew is the only way to
-> install it right now — so macOS, or a Linux machine that already has
-> Homebrew. Windows and Homebrew-less Linux aren't supported yet.
-
-Then stop. Do not improvise a download, a package manager, or a build
-from source.
-
 ## Installation
 
 Before running any valet commands, check whether the CLI is installed
@@ -94,44 +78,24 @@ by running `valet version`.
 If `valet` is not installed, **explain to the user why it is needed
 before attempting installation**:
 
-> The Valet CLI is what publishes files to a live URL. I'll install it
-> for you now via Homebrew.
+> The Valet CLI is what publishes files to a live URL. I'll install the
+> official release for your operating system now.
 
-Then check whether Homebrew is available by running `brew --version`.
+On macOS or Linux:
 
-**If Homebrew is not installed**, ask the user whether they'd like to
-install Homebrew first. If they agree, install it with the official
-installer:
-
-```
-/bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+```sh
+curl -fsSL https://valet.dev/install.sh | sh
 ```
 
-If the user declines, stop and let them know they'll need Homebrew (or
-to install the Valet CLI manually) before you can proceed.
+On Windows, in PowerShell:
 
-**If Homebrew is installed**, install the Valet CLI:
-
-```
-brew install valetdotdev/tap/valet
+```powershell
+irm https://valet.dev/install.ps1 | iex
 ```
 
-**IMPORTANT — Homebrew failures**: If `brew install
-valetdotdev/tap/valet` fails for any reason — tap errors, permission
-issues, network problems, formula conflicts, or anything else — **do
-not attempt to troubleshoot, retry, or work around the issue**.
-Instead, inform the user:
-
-> It looks like the Homebrew installation didn't succeed. Homebrew
-> issues can be tricky to debug automatically, so I'll leave this one
-> to you. Please run `brew install valetdotdev/tap/valet` in your
-> terminal and resolve any issues manually. Once the CLI is installed,
-> come back and we'll pick up where we left off.
-
-Then **stop the current workflow**. Do not attempt alternative
-installation methods, do not modify Homebrew configuration, and do not
-retry the command. Wait for the user to confirm the CLI is installed
-before continuing.
+After installation, run `valet version` again. If a Unix shell has not
+reloaded its PATH yet, use `$HOME/.local/bin/valet` for the rest of the
+current workflow. Do not reinstall the CLI.
 
 **An already-installed CLI can be too old.** `valet version` prints
 `valet/<version> <os>-<arch> <go>`; anonymous publishing needs
@@ -139,14 +103,17 @@ before continuing.
 fails with `unknown flag: --anonymous`, upgrade it:
 
 ```
-brew upgrade valetdotdev/tap/valet
+valet update
 ```
 
-If that fails, hand back to the user exactly as above rather than
-working around it.
+The updater preserves the installation method: official direct installs
+self-update, while existing Homebrew installs continue through Homebrew.
+If installation or updating fails, report the error and stop. Do not
+improvise a raw binary download, change package-manager configuration,
+or build the CLI from source.
 
-No `valet auth login` is needed for anything in this file. Publishing
-anonymously never touches an account.
+Account publishing requires `valet auth login`. Publishing anonymously
+never touches an account.
 
 ## Build a clean directory first
 
