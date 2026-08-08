@@ -62,7 +62,7 @@ anything.
 | Visibility | **Private** — org members only | **Public** to anyone with the link |
 | Lifetime | Permanent | 36 hours unless claimed |
 | Needs | `valet auth login`, an org | Nothing |
-| Update later | From any directory, via `valet sites link` | Only from the original directory |
+| Update later | From any directory, via `valet sites download` | Only from the original directory |
 
 **Default to the account path** for anything you generated as work
 product — internal analysis, an infrastructure report, anything naming
@@ -204,19 +204,40 @@ before running it.
 
 ### Updating it later, from anywhere
 
-The link lives in `.valet/config.json` in the publishing directory. If
-that directory is gone — a temp dir, another machine, a later session
-— relink and deploy:
+The link lives in `.valet/config.json` in the publishing directory.
+
+**If you still have that directory**, edit and deploy:
 
 ```bash
 cd ~/reports/migration-audit
-valet sites link migration-audit
 valet deploy
 ```
 
-The URL does not change. This is why the account path is the right
-default for anything you may need to revise: an anonymous site can
-only ever be updated from the directory it was first published from.
+**If it is gone** — a temp directory cleaned up, another machine,
+another person, a later session — download the site:
+
+```bash
+valet sites download migration-audit
+cd migration-audit
+valet deploy
+```
+
+`valet sites download <name> [dir]` fetches the currently-deployed
+files *and* links the directory, in one step. A static site has no
+build step, so its deployed release is the source of truth: what comes
+back is exactly what the site was serving, ready to edit.
+
+**Do not reach for `valet sites link` to recover a lost directory.**
+`link` writes the link and nothing else. Linking an empty directory and
+deploying replaces the site with an empty release — every file gone
+from the URL, and there is no CLI rollback, because `valet releases`
+only reads the release that is currently deployed. Use `link` only when
+you already have the files and need the link back.
+
+The URL does not change either way. This is why the account path is the
+right default for anything you may need to revise: an anonymous site
+can only ever be updated from the directory it was first published
+from.
 
 ## Publish anonymously
 
