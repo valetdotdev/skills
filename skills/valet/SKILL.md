@@ -545,7 +545,38 @@ valet orgs set-default <name>      # Switch the default org
 | `valet exec` | Run a command with secrets injected into its environment | `valet help exec` |
 | `valet logs [-n <num>]` | Stream live logs; shows 100 historical lines by default (`-n 0` for live only); supports `--org` | `valet help logs` |
 | `valet ps` | List agent processes (can show `idle` state); supports `--org` | `valet help ps` |
+| `valet ps scale` | Change an agent's model or process count (see [Scaling](#scaling)) | `valet help ps scale` |
 | `valet drains` | Configure log drains (OTLP HTTP) | `valet help drains` |
+
+## Scaling
+
+`valet ps scale` is how an agent's **model** is changed. There is no
+separate model command, and the manifest does not carry one — if the
+user asks to switch an agent to a different model, this is the answer.
+
+```
+valet ps scale agent=glm-5.2                 # Change model, keep the count
+valet ps scale agent=0                       # Stop the agent, keep the model
+valet ps scale agent=1                       # Start it again
+valet ps scale agent=claude-sonnet-5:1       # Set both at once
+```
+
+Pass a single `agent=<value>` pair. The right side is a model ID, a
+process count, or `model:count`. Changing one preserves the other, so
+`agent=glm-5.2` does not stop a running agent and `agent=0` does not
+reset its model.
+
+**An agent's count is 0 or 1 today.** There is no horizontal scaling of
+agents, so `agent=2` is not a way to add capacity.
+
+Run `valet help ps scale` for the current model list rather than
+quoting one from memory — the set changes, and a stale model ID fails
+the command.
+
+Scaling bounces the affected containers so the new setting takes effect
+on restart. It is not a redeploy: the release is untouched.
+
+**Sites have no processes and cannot be scaled at all.**
 
 ## Sessions
 
@@ -815,6 +846,8 @@ valet logs --agent my-agent                  # Stream live logs (last 100 lines,
 valet logs --agent my-agent -n 0             # Live logs only, skip history
 valet ps restart -a my-agent                 # Restart without redeploying
 valet ps restart -a my-agent --org my-org    # Restart with explicit org
+valet ps scale agent=0                       # Stop the agent (model preserved)
+valet ps scale agent=1                       # Start it again
 ```
 
 ## Designing a New Agent
