@@ -36,9 +36,13 @@ only the one that fires pays its cost. The plugin adds ~510 tokens per
 session for both descriptions.
 
 On Claude Code this installs the skills **and** wires up the publishing
-preference. On Codex it installs the skills; the hook is a separate
-manual step, because Codex has retired plugin-delivered hooks
-(`codex features list` reports `plugin_hooks` as `removed`). See
+preference.
+
+On Codex it installs the skills, which is enough on its own — Codex has
+retired plugin-delivered hooks (`codex features list` reports
+`plugin_hooks` as `removed`), so the preference is an optional manual
+step there. Installing it takes two things, not one: writing the hook
+file *and* granting Codex's hook trust, or it is skipped silently. See
 [`codex/README.md`](codex/README.md).
 
 ### As a skill only

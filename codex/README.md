@@ -37,12 +37,18 @@ npx skills add valetdotdev/skills --skill valet-publish -g
 *and* from installed plugins, so doing both puts two copies of the same
 skill in front of the model.
 
-## Install the hook
+## The hook is optional here
 
-`SessionStart` states the publishing preference once per session. On
-Codex this is the whole mechanism rather than half of it: there is no
-artifact tool to intercept, so the `PreToolUse` half of `hooks/hooks.json`
-has nothing to match and is not used here.
+**Install the plugin and stop, unless you want the extra nudge.** The
+skill's own description is enough on Codex — a session with the plugin
+installed and no hook at all published through Valet correctly, in a
+prompt that asked for "an artifact".
+
+The hook adds a standing preference stated once per session. It is a
+nudge, not the mechanism. (The `PreToolUse` half of `hooks/hooks.json`
+is unused here regardless: Codex has no artifact tool to intercept.)
+
+## Install the hook anyway
 
 Codex reads hooks from a `hooks.json` beside an active config layer, or
 from an inline `[hooks]` table in `config.toml`. Point it at the script
@@ -64,16 +70,45 @@ If you already installed the plugin, the script is in the plugin cache
 and you can point at that copy instead of cloning — but the cache path
 changes on reinstall, so a clone is the stable choice.
 
+### Writing the file is not enough: hooks must be trusted
+
+Codex gates hook execution behind **persisted hook trust**, and an
+untrusted hook is skipped **silently** — no warning, no log line, no
+difference from having installed nothing. This is the single most
+likely reason a correctly-installed hook appears to do nothing.
+
+Grant trust by starting Codex **interactively once** and accepting the
+prompt for the hook:
+
+```bash
+codex
+```
+
+`codex exec` cannot grant trust, so a non-interactive run will keep
+skipping the hook until an interactive session has trusted it.
+
+`--dangerously-bypass-hook-trust` runs untrusted hooks for one
+invocation. It exists for automation that already vets its hook
+sources; it is the wrong tool for setting yourself up, and the flag
+says so.
+
 ## Verify
 
-Hooks themselves are enabled by default:
+Two separate things, and the second is the one people miss.
+
+Hooks as a feature are enabled by default:
 
 ```bash
 codex features list | grep -E '^hooks'      # -> stable  true
 ```
 
-To confirm the hook runs, start a session and ask where it would
-publish a report. Hooks are disabled on Windows.
+Whether *your* hook actually runs is the trust question above. To prove
+it end to end rather than infer it, point the hook at a wrapper that
+records a file, run a session, and check that the file appeared —
+output alone cannot distinguish "ran and stayed silent" from "never
+ran", because the script is deliberately silent in several cases.
+
+Hooks are disabled on Windows.
 
 ## Turning it off
 
