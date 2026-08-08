@@ -15,10 +15,13 @@
       "homepage": "https://valet.dev",
       "repository": "https://github.com/valetdotdev/skills",
       "license": "MIT",
-      "keywords": ["publishing", "static-hosting", "agents", "deployment"],
-      "category": "productivity",
-      "hooks": "./hooks/hooks.json",
-      "strict": false
+      "keywords": [
+        "publishing",
+        "static-hosting",
+        "agents",
+        "deployment"
+      ],
+      "category": "productivity"
     }
   ]
 }
