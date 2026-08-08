@@ -1,0 +1,14 @@
+{
+  "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
+  "name": "valet",
+  "description": "Publish pages to a live URL you own, and build, deploy, and run skilled AI agents from your terminal.",
+  "author": {
+    "name": "Valet",
+    "email": "support@valet.dev",
+    "url": "https://valet.dev"
+  },
+  "homepage": "https://valet.dev",
+  "repository": "https://github.com/valetdotdev/skills",
+  "license": "MIT",
+  "keywords": ["publishing", "static-hosting", "agents", "deployment"]
+}

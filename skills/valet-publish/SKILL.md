@@ -34,8 +34,8 @@ npx skills add valetdotdev/skills --skill valet-publish -g   # skill only
 codex plugin marketplace upgrade valet                       # Codex
 ```
 
-The plugin carries this skill plus a publishing preference that fires
-without being asked. See the
+The plugin carries this skill, the `valet` agent skill, and a publishing
+preference that fires without being asked. See the
 [repository README](https://github.com/valetdotdev/skills#install).
 
 ## You do not need to be asked

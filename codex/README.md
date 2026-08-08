@@ -2,31 +2,32 @@
 
 Codex reads this repository's `.claude-plugin/marketplace.json`
 **unchanged**. Installing is the same two steps as Claude Code, and the
-skill arrives the same way.
+skills arrive the same way.
 
 The hook is the part that differs, and it differs for a concrete
 reason: Codex has retired plugin-delivered hooks. `codex features list`
 reports `plugin_hooks` as `removed`, and a session started with this
-plugin installed never receives the hook's context. So the skill comes
+plugin installed never receives the hook's context. So the skills come
 from the plugin, and the hook is installed by hand.
 
 ## Install the plugin
 
 ```bash
 codex plugin marketplace add valetdotdev/skills
-codex plugin add valet-publish@valet
-```
-
-Codex translates the marketplace entry into its own manifest under
-`~/.codex/plugins/cache/`, and it honours the entry's `skills` scoping —
-`valet-publish` installs the publishing skill only, not the
-agent-building one. Add that separately if you want it:
-
-```bash
 codex plugin add valet@valet
 ```
 
-Skip the plugin and install the skill directly if you prefer:
+Codex translates the marketplace entry into its own manifest under
+`~/.codex/plugins/cache/`, and installs both skills — `valet` and
+`valet-publish` — as separate skills inside the one plugin.
+
+Codex also enforces that the root `plugin.json` name matches the
+marketplace plugin name, which is why this is one plugin rather than
+two: a single root manifest can only carry one name, and a second entry
+would fail to install with `plugin.json name does not match marketplace
+plugin name`.
+
+To install only one of the skills, skip the plugin:
 
 ```bash
 npx skills add valetdotdev/skills --skill valet-publish -g

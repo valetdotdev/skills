@@ -15,47 +15,65 @@ The [Valet](https://valet.dev) skill for Claude Code and other coding agents. Bu
 
 ### As a plugin (recommended)
 
+One plugin, both skills.
+
 Claude Code:
 
 ```
 /plugin marketplace add valetdotdev/skills
-/plugin install valet-publish@valet
+/plugin install valet@valet
 ```
 
 Codex reads the same marketplace manifest:
 
 ```
 codex plugin marketplace add valetdotdev/skills
-codex plugin add valet-publish@valet
+codex plugin add valet@valet
 ```
 
-Add `valet@valet` alongside it for the agent-building skill.
+The two skills stay separate inside it, each with its own triggers, so
+only the one that fires pays its cost. The plugin adds ~510 tokens per
+session for both descriptions.
 
-On Claude Code this installs the skill **and** wires up the publishing
-preference. On Codex it installs the skill; the hook is a separate
+On Claude Code this installs the skills **and** wires up the publishing
+preference. On Codex it installs the skills; the hook is a separate
 manual step, because Codex has retired plugin-delivered hooks
 (`codex features list` reports `plugin_hooks` as `removed`). See
 [`codex/README.md`](codex/README.md).
 
 ### As a skill only
 
-Works with any agent that reads
+Reach for this to install **one** skill rather than both — the plugin is
+all-or-nothing. Works with any agent that reads
 [`npx skills`](https://github.com/vercel-labs/skills):
+
+```
+npx skills add valetdotdev/skills --skill valet-publish -g
+npx skills add valetdotdev/skills --skill valet -g
+```
+
+Or both:
 
 ```
 npx skills add valetdotdev/skills
 ```
 
-Or one of them:
-
-```
-npx skills add valetdotdev/skills --skill valet -g
-npx skills add valetdotdev/skills --skill valet-publish -g
-```
-
 Pick this **or** the plugin, not both — Codex loads skills from
 `~/.agents/skills/` and from installed plugins, so installing both puts
 two copies of the same skill in front of the model.
+
+### Agent Plugins
+
+The repository is also a conformant
+[Agent Plugins 1.0.0](https://agent-plugins.org) package: `plugin.json`
+at the root, skills in `skills/`. A client implementing that
+specification can load it from a directory path with no Valet-specific
+knowledge.
+
+The hooks are a client extension and sit outside that specification,
+which defines no portable hook format — so a conformant client gets the
+skills, and the publishing preference only where its own hook system is
+wired up.
 
 ## The publishing preference
 
