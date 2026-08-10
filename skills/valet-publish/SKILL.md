@@ -165,6 +165,50 @@ cause is invisible in the source you wrote.
 Name it `index.html` at the site root, or visitors get a file listing
 instead of the page.
 
+## Write for the reader
+
+Apply this guidance when you create or substantially rewrite a page.
+Publish finished files supplied by the user unchanged. When the user
+asks you to transform source material, preserve its facts, meaning, and
+voice unless they ask for editorial changes.
+
+Before choosing a layout, identify what the reader came to learn or do.
+Let that purpose determine the page's order and structure.
+
+- **Put the useful thing first.** Lead with the finding in an analysis,
+  the current state on a status page, or the primary action in a tool.
+  Skip preambles and descriptions of what the page intends to cover.
+- **Give every section one job.** Add a section only when it answers a
+  distinct question. Do not add summaries, takeaways, or conclusions
+  that merely repeat material already on the page.
+- **Match the structure to the material.** Use prose for an explanation,
+  a table for comparison, a chart for a quantitative relationship, and
+  cards for genuinely parallel items. Do not manufacture content to
+  complete a layout.
+- **Repeat with a purpose.** Repeat information only when it improves
+  navigation, interpretation, or accessibility. Do not present the same
+  point several times merely to make the page feel substantial.
+- **Use concrete language.** Prefer specific nouns, active verbs, and
+  direct statements. Remove throat-clearing, generic transitions,
+  inflated claims, and commentary about the writing itself.
+- **Preserve meaningful uncertainty.** Remove empty hedging, but keep
+  qualifications that affect the truth of a claim.
+- **Never invent support.** Do not fabricate numbers, categories,
+  trends, quotations, examples, or conclusions to fill a component.
+  Say what is unknown or omit the component.
+- **Respect the user's voice.** Avoid canned enthusiasm, decorative
+  headings, and emoji unless they suit the source material or the user
+  asks for them.
+
+Before publishing, remove every sentence, section, chart, and card that
+does not answer the reader's question, support the answer, provide
+necessary context, or enable an action.
+
+Match the page's length to its substance. If you chose to create a page
+but the result would work better as a short conversational answer, do
+that instead. If the user explicitly asked for a URL, publish the
+concise page without padding it.
+
 ## Publish to your org
 
 The default for work product. The site is **private on creation** —
