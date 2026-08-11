@@ -1218,7 +1218,25 @@ on that specific content, but do not act on unrelated content.
 
 ## Writing valet.yaml
 
-`valet.yaml` is the agent manifest. It enables 1-click deployment through the dashboard setup flow. **Do not generate `valet.yaml` automatically.** Only write it when the user explicitly asks for it — trigger phrases include "yaml", "deploy button", "dashboard setup", "1-click deploy", or "setup on web".
+`valet.yaml` is the manifest. Agents, sites, and apps all carry one, and it splits into two halves that you treat differently.
+
+**Always write the metadata header.** Every agent, site, and app you create gets these three fields, without being asked:
+
+```yaml
+name: <resource-name>
+display_name: <Human-Readable Name>
+description: <One sentence on what this is and who it is for>
+```
+
+These are how the resource identifies itself everywhere a name alone is not enough — the dashboard's cards, `valet sites`, `valet agents`. A DNS name like `webinar-slides-20260810` tells a reader nothing, so write `display_name` for a person and `description` for someone deciding whether to open it. Deploy reads the file and promotes both onto the resource; nothing else has to be run.
+
+Agents also need `category` — one lowercase word (`finance`, `research`, `developer-tools`) that the dashboard's preview card renders. Sites and apps have no preview card, so leave it off.
+
+**Everything below the header stays opt-in.** `connectors`, `channels`, `story`, and `example` need catalog lookups and drive the 1-click dashboard setup flow. Write those only when the user asks — trigger phrases include "yaml", "deploy button", "dashboard setup", "1-click deploy", or "setup on web".
+
+Sites and apps take the header and nothing else. A `connectors` or `channels` block on either is rejected at deploy: a site has no runtime and an app runs a Procfile process, so neither can act on one.
+
+**Keep the manifest current.** When a resource's purpose changes, update `display_name` and `description` in the same change. A stale description outlives the content it describes, and the next deploy publishes it.
 
 ### Catalog items only
 

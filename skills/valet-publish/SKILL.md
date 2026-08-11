@@ -131,8 +131,9 @@ never touches an account.
 ## Build a clean directory first
 
 **Never publish a directory you have been working in.** `valet deploy`
-uploads everything except `.git/`, `.valet/`, and symlinks — that is
-the entire exclusion list, and it does not read `.gitignore`. A
+uploads everything except `.git/`, `.valet/`, the root `valet.yaml`,
+and symlinks — that is the entire exclusion list, and it does not read
+`.gitignore`. A
 scratch directory typically holds build logs, compiled probe binaries,
 downloaded tool output, and `.env` files, and all of it becomes part
 of the site.
@@ -164,6 +165,40 @@ cause is invisible in the source you wrote.
 
 Name it `index.html` at the site root, or visitors get a file listing
 instead of the page.
+
+## Name the site for a human
+
+A site's name is a hostname — `webinar-slides-20260810`,
+`q3-migration-audit`. It has to be DNS-safe, so it is nobody's idea of a
+title, and on its own it tells a reader nothing about what you
+published. Write a `valet.yaml` beside `index.html` saying what the site
+is:
+
+```yaml
+name: q3-migration-audit
+display_name: Q3 Migration Audit
+description: Findings and rollback plan from the Q3 datastore migration.
+```
+
+All three fields are required, and a fourth is not: `category` belongs
+to agents. Keep `display_name` and the page's own `<title>` saying the
+same thing — they are the same claim in two places, and a reader who
+sees them disagree cannot tell which is current.
+
+`valet deploy` reads the file and labels the site with it in the
+dashboard and in `valet sites`. **The file itself is never published**:
+it is skipped on upload, so it does not appear at
+`https://<site>/valet.yaml` and does not show up in a file listing. The
+exclusion is the site root only — a `valet.yaml` in a subdirectory is
+ordinary content and publishes like anything else, so a page documenting
+the manifest format can still show an example.
+
+Write it for a folder of PDFs or images too. That is the case where it
+earns the most: there is no `index.html` to carry a `<title>`, so
+without a manifest the card has nothing but the hostname.
+
+**Update it when the page changes.** A description outlives the content
+it describes, and the next deploy republishes it either way.
 
 ## Write for the reader
 
@@ -454,15 +489,20 @@ the claim URL is the only handle.
 
 ## What is not uploaded
 
-`.git/`, `.valet/`, and symlinks. That is the whole list, and it is
-the same list before and after a claim, so nothing about what the site
-serves changes when its ownership does.
+`.git/`, `.valet/`, the site root's `valet.yaml`, and symlinks. That is
+the whole list, and it is the same list before and after a claim, so
+nothing about what the site serves changes when its ownership does.
 
-The two directories are not on the list because of what they tend to
-contain. `.git` is *history* rather than directory contents —
-publishing it serves every version of every file the working tree no
-longer shows. `.valet` carries the claim token, and a site must not
-serve the one credential that controls it.
+None of the three is on the list because of what it contains. `.git` is
+*history* rather than directory contents — publishing it serves every
+version of every file the working tree no longer shows. `.valet` carries
+the claim token, and a site must not serve the one credential that
+controls it. The root `valet.yaml` describes the site to the platform
+rather than to a visitor.
+
+`valet.yaml` is matched at the site root only, unlike the two
+directories, which are skipped at any depth. `examples/valet.yaml`
+publishes normally.
 
 **Everything else in the directory is published**, including dotfiles,
 `.env` files, `node_modules/`, and anything the project's `.gitignore`
