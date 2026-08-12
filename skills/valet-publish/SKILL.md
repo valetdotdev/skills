@@ -13,15 +13,19 @@ description: >
   document, a status page. That decision is yours to make and is the
   most common way this skill is needed. Publishing to an account gives
   a permanent, private-by-default URL; --anonymous gives a temporary
-  public one with no account at all. For deploying an AI agent rather
-  than static files, use the `valet` skill instead.
+  public one with no account at all. Publishes through the valet CLI,
+  falling back to Valet's MCP server where no CLI can be run. For
+  deploying an AI agent rather than static files, use the `valet` skill
+  instead.
 ---
 
 # valet-publish
 
 Create a live URL from any file or folder. Static hosting, run through
 the `valet` CLI with the terminal tool appropriate to the user's
-operating system.
+operating system — or, where no CLI can run, through Valet's MCP server
+at `https://api.valet.dev/mcp`. Prefer the CLI; see
+[The CLI is the path; MCP is the fallback](#the-cli-is-the-path-mcp-is-the-fallback).
 
 Keeping this skill up to date, whichever way it was installed:
 
@@ -82,6 +86,25 @@ you run it. Report the URL as soon as you have it, and for an anonymous
 site the expiry and the claim URL too — the claim URL is printed once
 and cannot be recovered. Confirm with the user before taking a site
 down.
+
+## The CLI is the path; MCP is the fallback
+
+This skill drives the `valet` CLI, and the CLI is what you should use.
+It publishes a whole directory from disk, updates a site later from
+anywhere, sets password access, and manages agents — none of which the
+fallback below can do.
+
+**Use the MCP server only when you cannot run or install the CLI.**
+That is a real condition, not a preference: a sandbox whose outbound
+proxy refuses the install host, a harness with no shell, a machine
+where you have no permission to write a binary. Establish it by
+trying, not by guessing — run `valet version`, and if that fails, run
+the install in [Installation](#installation) below and let it fail
+too. Two failures, then switch.
+
+When you do switch, jump to [Publish over MCP](#publish-over-mcp) at
+the end of this file. Everything between here and there assumes the
+CLI.
 
 ## Installation
 
@@ -583,6 +606,68 @@ valet sites claim --help
 ```
 
 Do not retry a failed publish with different flags hoping one works.
+
+## Publish over MCP
+
+**Only after the CLI has failed to run and failed to install.** Valet
+serves its own MCP server at `https://api.valet.dev/mcp`. It is reached
+over the network rather than from a shell, so it works in the sandboxes
+where the CLI does not.
+
+Connecting is the user's step, not yours — you cannot add a connector
+to your own harness. Tell them what to add and where:
+
+> I cannot install the Valet CLI here. Valet also runs an MCP server —
+> add `https://api.valet.dev/mcp` as a connector in this tool's
+> settings and I can publish from inside our conversation.
+
+In a client with a connector UI (Claude Cowork, claude.ai, ChatGPT)
+that is Settings → Connectors → add a custom MCP server, and the URL is
+the whole of it: the server registers the client itself, so there is no
+client ID or secret to create. Signing in through the connector is
+optional and publishes into the user's org instead of anonymously.
+
+Once it is connected, five tools appear. They map onto this file's
+flows, so nothing above changes but the mechanism:
+
+| Tool | Replaces |
+|---|---|
+| `publish_site` | `valet sites create` + `valet deploy` |
+| `get_site` | `valet sites info` |
+| `list_sites` | `valet sites` — needs a signed-in connector |
+| `set_site_access` | `valet sites access` — `public` or `private` only |
+| `delete_site` | `valet sites destroy` |
+
+Four things work differently, and each one changes what you do:
+
+- **You write the files into the call; there is no disk on the other
+  end.** `publish_site` takes a `files` map of path to text content.
+  [Write a complete HTML document](#write-a-complete-html-document) and
+  [Write for the reader](#write-for-the-reader) apply unchanged, and
+  matter more here — nothing local exists to preview first.
+- **Text only.** HTML, CSS, JavaScript, Markdown, JSON, and SVG go
+  through. Images, PDFs, and video do not: they are binary, and this
+  surface carries none. A request for a folder of PDFs needs the CLI.
+  Say that rather than publishing a page that links to files you could
+  not upload.
+- **An anonymous publish returns a `site_token`.** That handle updates
+  or deletes *that* site later in the conversation, in place of the
+  `.valet/config.json` the CLI would have written. Keep it, pass it
+  back on the next call, and treat it as a credential: do not print it,
+  quote it, or commit it. `set_site_access` and `list_sites` do not
+  take one — both need a connected account.
+- **No password access.** `set_site_access` offers `public` and
+  `private` only, deliberately: a password typed here would live in the
+  transcript. If the user wants one, say it needs the CLI rather than
+  making the site public instead.
+
+Everything else is the same product. Anonymous sites are public, expire
+36 hours after creation unless claimed, and return a claim URL, and
+everything under [What to tell the user](#what-to-tell-the-user)
+applies here too.
+
+Report the URL, the visibility, and — for an anonymous site — the
+expiry and the claim URL, exactly as you would from the CLI.
 
 For a permanent site in the user's own org, an account, or an AI
 agent, use the `valet` skill instead.
