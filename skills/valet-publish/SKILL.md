@@ -177,6 +177,27 @@ cd ~/reports/migration-audit
 
 Then list the directory and read what is in it before deploying.
 
+## Follow the design system
+
+Before you build or substantially rewrite a page, call the
+`get_design_system` tool and follow what it returns — its palette, type
+scale, spacing, and layout. The plugin ships this tool alongside this
+skill, so it is available. It returns your organization's design system
+when the org has one, and a neutral default when it does not; either way,
+follow it.
+
+If the tool is unreachable, fall back to a structural baseline: set
+running text in a readable column about 65 characters wide and center it,
+use a clear type scale with generous line-height, give sections generous
+spacing, keep strong contrast between text and background, use the system
+font stack, and support light and dark through `prefers-color-scheme`.
+
+Precedence, when these compete: what the user asked for on this page wins;
+the organization's design system wins wherever it speaks; the default
+fills the rest. Apply this when you create or substantially rewrite a
+page. A finished file the user supplies is published unchanged, never
+restyled.
+
 ## Write a complete HTML document
 
 If you generated the page yourself, write the whole document —
