@@ -183,14 +183,18 @@ Before you build or substantially rewrite a page, call the
 `get_design_system` tool and follow what it returns — its palette, type
 scale, spacing, and layout. The plugin ships this tool alongside this
 skill, so it is available. It returns your organization's design system
-when the org has one, and a neutral default when it does not; either way,
+when the org has one, and the Valet default when it does not; either way,
 follow it.
 
 If the tool is unreachable, fall back to a structural baseline: set
-running text in a readable column about 65 characters wide and center it,
-use a clear type scale with generous line-height, give sections generous
-spacing, keep strong contrast between text and background, use the system
-font stack, and support light and dark through `prefers-color-scheme`.
+running text in a centered column about 40rem wide, letting a wide table
+or a card grid break out to about 66rem; use a clear type scale with
+generous line-height and tight headings; space paragraphs by 1rem and
+sections by 3rem or more from a single 0.25rem scale; keep strong
+contrast between text and background; use the system font stack; and
+support light and dark through `prefers-color-scheme`. Keep depth faint —
+a hairline border and at most a soft shadow — and use one accent color
+for links and primary actions.
 
 Precedence, when these compete: what the user asked for on this page wins;
 the organization's design system wins wherever it speaks; the default
