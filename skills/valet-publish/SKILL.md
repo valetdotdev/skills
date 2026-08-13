@@ -202,9 +202,9 @@ restyled.
 
 If you generated the page yourself, write the whole document —
 `<!doctype html>`, `<html>`, `<head>` with `<meta charset>` and
-`<meta name="viewport">`, `<title>`, and `<body>`. A Valet site serves
-your file exactly as written: nothing is injected, no CSS reset is
-added, no wrapper is supplied.
+`<meta name="viewport">`, `<title>`, social-preview metadata, and
+`<body>`. A Valet site serves your file exactly as written: nothing is
+injected, no CSS reset is added, no wrapper is supplied.
 
 This is the single most common mistake when the page came from an
 agent used to a built-in artifact tool, because those tools wrap a
@@ -214,6 +214,50 @@ cause is invisible in the source you wrote.
 
 Name it `index.html` at the site root, or visitors get a file listing
 instead of the page.
+
+## Make links unfurl well
+
+Put social-preview metadata near the start of every generated page's
+`<head>`, before large style or script blocks. Slack fetches only the
+start of a public page when it builds a link preview. `valet.yaml`
+cannot supply these tags because Valet never serves that file.
+
+Use the page's real title and description. HTML-escape every value used
+in an attribute:
+
+```html
+<meta name="description" content="Findings and rollback plan.">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="Valet">
+<meta property="og:title" content="Q3 Migration Audit">
+<meta property="og:description" content="Findings and rollback plan.">
+<meta name="twitter:card" content="summary">
+```
+
+When the site includes a suitable preview image, add it with an
+absolute HTTPS URL and replace `summary` with the large-image card:
+
+```html
+<meta property="og:image"
+      content="https://audit.acme.valet.run/social-card.png">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:image"
+      content="https://audit.acme.valet.run/social-card.png">
+```
+
+Never guess the final hostname. Omit the image tags when the absolute
+URL is not known or the image is not part of the published site. A
+title and description still produce a useful text preview.
+
+Include these tags regardless of the site's current access mode. The
+gateway blocks private and password-protected content before a crawler
+can read it, so the tags do not leak. They become visible if the owner
+later makes the site public. A public preview already copied into Slack
+cannot be revoked by making the site private later.
+
+A finished HTML file supplied by the user remains unchanged. If it
+lacks these tags, tell the user that a public link may not unfurl and
+offer to add them; do not silently rewrite their page.
 
 ## Name the site for a human
 
