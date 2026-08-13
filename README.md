@@ -15,7 +15,8 @@ The [Valet](https://valet.dev) skill for Claude Code and other coding agents. Bu
 
 ### As a plugin (recommended)
 
-One plugin, both skills.
+One plugin: both skills, Valet's MCP server, and the publishing
+preference.
 
 Claude Code:
 
@@ -35,20 +36,22 @@ The two skills stay separate inside it, each with its own triggers, so
 only the one that fires pays its cost. The plugin adds ~510 tokens per
 session for both descriptions.
 
-On Claude Code this installs the skills **and** wires up the publishing
-preference.
+On Claude Code this installs the skills, declares the MCP server, **and**
+wires up the publishing preference.
 
-On Codex it installs the skills, which is enough on its own — Codex has
-retired plugin-delivered hooks (`codex features list` reports
-`plugin_hooks` as `removed`), so the preference is an optional manual
-step there. Installing it takes two things, not one: writing the hook
-file *and* granting Codex's hook trust, or it is skipped silently. See
+On Codex it installs the skills and the MCP server, which is enough on
+its own — Codex has retired plugin-delivered hooks (`codex features
+list` reports `plugin_hooks` as `removed`), so the preference is an
+optional manual step there. Installing it takes two things, not one:
+writing the hook file *and* granting Codex's hook trust, or it is
+skipped silently. See
 [`codex/README.md`](codex/README.md).
 
 ### As a skill only
 
-Reach for this to install **one** skill rather than both — the plugin is
-all-or-nothing. Works with any agent that reads
+Reach for this to install **one** skill rather than both, or to take the
+skills without the MCP server — the plugin is all-or-nothing. Works with
+any agent that reads
 [`npx skills`](https://github.com/vercel-labs/skills):
 
 ```
@@ -70,14 +73,41 @@ two copies of the same skill in front of the model.
 
 The repository is also a conformant
 [Agent Plugins 1.0.0](https://agent-plugins.org) package: `plugin.json`
-at the root, skills in `skills/`. A client implementing that
-specification can load it from a directory path with no Valet-specific
-knowledge.
+at the root, skills in `skills/`, MCP servers in `mcp.json`. A client
+implementing that specification can load it from a directory path with
+no Valet-specific knowledge.
 
 The hooks are a client extension and sit outside that specification,
 which defines no portable hook format — so a conformant client gets the
-skills, and the publishing preference only where its own hook system is
-wired up.
+skills and the MCP server, and the publishing preference only where its
+own hook system is wired up.
+
+## The MCP server
+
+The plugin also declares Valet's own MCP server at
+`https://api.valet.dev/mcp`, so installing it wires up the network path
+alongside the skills. Nothing is asked of you: the server registers the
+client itself, and publishing works before you sign in.
+
+It is there as the fallback the skills already describe, not as the
+main road. `valet-publish` drives the `valet` CLI, which publishes a
+whole directory from disk, updates a site later from anywhere, sets
+password access, and carries binary files — none of which the five MCP
+tools can do. The server matters where the CLI cannot run: a sandbox
+whose outbound proxy refuses the install host, or a harness with no
+shell. Before the plugin declared it, reaching that fallback meant
+asking the user to add a connector by hand, mid-task, in a settings
+screen. Now it is already there.
+
+Two files declare it, because no single format reaches both clients:
+
+| File | Read by | Transport name |
+|---|---|---|
+| `mcp.json` | Agent Plugins 1.0.0 clients (§7.2) | `streamable-http` |
+| `.mcp.json` | Claude Code | `http` |
+
+They must stay in agreement. `make lint-valet-skills` compares them and
+fails on a server or URL that appears in one and not the other.
 
 ## The publishing preference
 

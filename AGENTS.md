@@ -22,6 +22,19 @@ need no bump; they document the plugin rather than ship in it.
 requires and the component layout Claude Code expects. CI runs it on
 every change to this directory. Run it before pushing.
 
+## CRITICAL: Keep the two MCP configurations in agreement
+
+The plugin declares Valet's MCP server twice, because no single format
+reaches both clients: `mcp.json` is the Agent Plugins 1.0.0 format
+(§7.2, transport `streamable-http`) and `.mcp.json` is Claude Code's
+(bare server keys, transport `http`). No client reads both, so a URL
+changed in one file alone ships silently to half the installed base.
+
+Edit both, or neither. `make lint-valet-skills` compares them.
+
+MCP configuration must not go inline in `plugin.json`: the Agent
+Plugins manifest schema is closed, and §7.2.1 forbids it.
+
 ## CRITICAL: Never Commit Directly to Main
 
 **NEVER commit directly to the main branch.** All changes must go through pull requests.

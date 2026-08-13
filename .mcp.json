@@ -1,0 +1,6 @@
+{
+  "valet": {
+    "type": "http",
+    "url": "https://api.valet.dev/mcp"
+  }
+}

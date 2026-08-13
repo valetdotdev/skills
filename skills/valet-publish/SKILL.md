@@ -102,6 +102,11 @@ trying, not by guessing — run `valet version`, and if that fails, run
 the install in [Installation](#installation) below and let it fail
 too. Two failures, then switch.
 
+Tools named `publish_site`, `get_site`, `list_sites`, `set_site_access`,
+and `delete_site` being available to you does not change this. The
+plugin declares that server, so on a plugin install they are present
+from the first turn — sitting there ready is not the condition above.
+
 When you do switch, jump to [Publish over MCP](#publish-over-mcp) at
 the end of this file. Everything between here and there assumes the
 CLI.
@@ -614,8 +619,12 @@ serves its own MCP server at `https://api.valet.dev/mcp`. It is reached
 over the network rather than from a shell, so it works in the sandboxes
 where the CLI does not.
 
-Connecting is the user's step, not yours — you cannot add a connector
-to your own harness. Tell them what to add and where:
+**Check whether it is already connected.** The plugin declares this
+server, so if `valet-publish` arrived that way the five tools below are
+already in your tool list. Use them and skip the rest of this section.
+
+Otherwise connecting is the user's step, not yours — you cannot add a
+connector to your own harness. Tell them what to add and where:
 
 > I cannot install the Valet CLI here. Valet also runs an MCP server —
 > add `https://api.valet.dev/mcp` as a connector in this tool's
