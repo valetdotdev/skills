@@ -1,7 +1,7 @@
 {
   "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
   "name": "valet",
-  "version": "0.5.2",
+  "version": "0.6.0",
   "description": "Publish pages to a live URL you own, and build, deploy, and run skilled AI agents from your terminal.",
   "author": {
     "name": "Valet",

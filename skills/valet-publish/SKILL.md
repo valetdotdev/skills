@@ -294,6 +294,11 @@ Write it for a folder of PDFs or images too. That is the case where it
 earns the most: there is no `index.html` to carry a `<title>`, so
 without a manifest the card has nothing but the hostname.
 
+Publishing over MCP instead? You do not write the file there — you pass
+the same two fields as the `title` and `description` arguments and Valet
+writes it for you, so the site ends up with the same manifest either
+way. See [Publish over MCP](#publish-over-mcp).
+
 **Update it when the page changes.** A description outlives the content
 it describes, and the next deploy republishes it either way.
 
@@ -716,13 +721,23 @@ flows, so nothing above changes but the mechanism:
 | `set_site_access` | `valet sites access` — `public` or `private` only |
 | `delete_site` | `valet sites destroy` |
 
-Four things work differently, and each one changes what you do:
+Five things work differently, and each one changes what you do:
 
 - **You write the files into the call; there is no disk on the other
   end.** `publish_site` takes a `files` map of path to text content.
   [Write a complete HTML document](#write-a-complete-html-document) and
   [Write for the reader](#write-for-the-reader) apply unchanged, and
   matter more here — nothing local exists to preview first.
+- **You name the site in the call and Valet writes the `valet.yaml`.**
+  `publish_site` requires `title` and `description`, and refuses a
+  `valet.yaml` among your files — you give it the two fields and it
+  writes the file for you. They mean exactly what
+  [Name the site for a human](#name-the-site-for-a-human) describes, so
+  write them the same way: `title` is what a person would call the page
+  and should match its own `<title>`, and `description` is one sentence
+  saying what it holds. Send them on every publish. The newest publish
+  wins, so a call that changes the page is also the call that says what
+  the page has become.
 - **Text only.** HTML, CSS, JavaScript, Markdown, JSON, and SVG go
   through. Images, PDFs, and video do not: they are binary, and this
   surface carries none. A request for a folder of PDFs needs the CLI.
