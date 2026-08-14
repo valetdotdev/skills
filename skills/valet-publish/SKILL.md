@@ -182,9 +182,15 @@ Then list the directory and read what is in it before deploying.
 Before you build or substantially rewrite a page, call the
 `get_design_system` tool and follow what it returns — its palette, type
 scale, spacing, and layout. The plugin ships this tool alongside this
-skill, so it is available. It returns your organization's design system
-when the org has one, and the Valet default when it does not; either way,
-follow it.
+skill, so it is available. For an account publish, omit `anonymous` so
+the MCP client connects when needed and reads the org's skill. For an
+explicitly anonymous publish, pass `anonymous: true`; no org is
+consulted and the Valet default is returned. Never pass `org_name` with
+`anonymous: true`.
+
+The CLI and MCP server use separate credentials. A successful
+`valet auth login` proves only that the CLI is connected. Let an
+account-first MCP call start the connector's OAuth flow when needed.
 
 If the tool is unreachable, fall back to a structural baseline: set
 running text in a centered column about 40rem wide, letting a wide table
@@ -744,8 +750,19 @@ connector to your own harness. Tell them what to add and where:
 In a client with a connector UI (Claude Cowork, claude.ai, ChatGPT)
 that is Settings → Connectors → add a custom MCP server, and the URL is
 the whole of it: the server registers the client itself, so there is no
-client ID or secret to create. Signing in through the connector is
-optional and publishes into the user's org instead of anonymously.
+client ID or secret to create.
+
+**The MCP path is account-first.** Call `get_design_system` and
+`publish_site` without `anonymous` for a normal publish. If the connector
+is not signed in, that call starts its OAuth flow. An existing CLI login
+does not authenticate the connector. `org_name` selects one of the
+connected account's orgs; it is not a credential.
+
+Pass `anonymous: true` to both tools only when the user explicitly wants
+a temporary public site. Do not infer that choice from a missing MCP
+credential. If the user later claims that site in a browser, the claim
+makes the site permanent but does not connect the MCP client. Its next
+account-first call starts OAuth.
 
 Once it is connected, its tools appear in your tool list. Six of them
 map onto this file's flows, so nothing above changes but the
@@ -782,12 +799,13 @@ Six things work differently, and each one changes what you do:
   surface carries none. A request for a folder of PDFs needs the CLI.
   Say that rather than publishing a page that links to files you could
   not upload.
-- **An anonymous publish returns a `site_token`.** That handle updates
-  or deletes *that* site later in the conversation, in place of the
-  `.valet/config.json` the CLI would have written. Keep it, pass it
+- **Anonymous mode is explicit.** Pass `anonymous: true` only on the
+  first `publish_site` call. It returns a `site_token`. That handle
+  updates or deletes *that* site later in the conversation, in place of
+  the `.valet/config.json` the CLI would have written. Keep it, pass it
   back on the next call, and treat it as a credential: do not print it,
-  quote it, or commit it. `set_site_access` and `list_sites` do not
-  take one — both need a connected account.
+  quote it, or commit it. `set_site_access` and `list_sites` do not take
+  one — both need a connected account.
 - **No password access.** `set_site_access` offers `public` and
   `private` only, deliberately: a password typed here would live in the
   transcript. If the user wants one, say it needs the CLI rather than
