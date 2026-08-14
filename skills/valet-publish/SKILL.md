@@ -363,11 +363,45 @@ the current directory, and prints the URL. It serves 404 until
 `valet deploy` finishes. Omit the name and the server generates one.
 Pass `--org <org>` if you belong to more than one.
 
-Report the URL and say that it is private and who can reach it.
+Report the URL and say that it is private and who can reach it. Then
+offer, in one sentence: *"I can email this to specific people — give
+me addresses and I'll share it with them."* That is an offer, not a
+question the run waits on — continue without pausing for an answer.
 
 ### Sharing it wider
 
-Only when the user asks, and say which one you did:
+**Share it with specific people first.** It is per-person and
+revocable, and it works on a private site without changing its access
+mode — the site stays off the open internet for everyone except the
+addresses named:
+
+```bash
+valet sites share migration-audit alice@example.com bob@example.com \
+  --message "Take a look before Friday"
+```
+
+Each address gets an email with a link that opens the site without a
+Valet account of its own — the mailbox is the credential. The link is
+a bearer credential too, so forwarding the email forwards access.
+`--expires-in <dur>` and `--expires-after-open <dur>` (`7d`, `48h`)
+bound the link's life; neither defaults, so an unflagged share never
+expires. Sharing an address that already has a live share re-sends
+its existing link rather than minting a new one.
+
+`valet sites share` prints a forwarding notice once it finishes. Print
+it to the user exactly as the CLI does, the same way you already pass
+through [the expiry line](#what-to-tell-the-user) — it names the
+unshare command, and paraphrasing it loses that.
+
+Manage a site's shares with:
+
+```bash
+valet sites shares migration-audit
+valet sites unshare migration-audit alice@example.com
+```
+
+**Change the access mode only when the user asks for it**, and say
+which one you did:
 
 ```bash
 valet sites access migration-audit password --password '<generated>'
@@ -375,11 +409,12 @@ valet sites access migration-audit public
 ```
 
 Password mode lets someone outside the org in with a password while
-staying off the open internet — usually what "send it to someone"
-actually means. **Pass `--password` explicitly**; without it the
-command prompts on a terminal that an agent run does not have.
-`public` means anyone on the internet, so confirm that is intended
-before running it.
+staying off the open internet — reach for `valet sites share` first;
+use this when the audience is a group with no individual addresses, or
+a password is genuinely what was asked for. **Pass `--password`
+explicitly**; without it the command prompts on a terminal that an
+agent run does not have. `public` means anyone on the internet, so
+confirm that is intended before running it.
 
 `valet sites access <name>` with no mode prints the current setting.
 
@@ -639,10 +674,12 @@ Always:
   and that adding an `index.html` replaces it.
 
 **Org sites** — say it is private and that org members reach it after
-a Valet login. If you changed the access mode, say which mode and what
-it means. Do not describe a private site as "shared" or "live for
-anyone"; someone opening it without a login sees a sign-in wall, and
-being surprised by that reads as a broken link.
+a Valet login, and offer, in one sentence, to email it to specific
+people — an offer the run never blocks on. If you changed the access
+mode, say which mode and what it means. Do not describe a private
+site as "shared" or "live for anyone"; someone opening it without a
+login sees a sign-in wall, and being surprised by that reads as a
+broken link.
 
 **Anonymous sites** — the expiry and the claim URL as well, and that
 `.valet/config.json` now holds the site's only credential and should
@@ -694,7 +731,7 @@ over the network rather than from a shell, so it works in the sandboxes
 where the CLI does not.
 
 **Check whether it is already connected.** The plugin declares this
-server, so if `valet-publish` arrived that way the five tools below are
+server, so if `valet-publish` arrived that way the tools below are
 already in your tool list. Use them and skip the rest of this section.
 
 Otherwise connecting is the user's step, not yours — you cannot add a
@@ -710,18 +747,20 @@ the whole of it: the server registers the client itself, so there is no
 client ID or secret to create. Signing in through the connector is
 optional and publishes into the user's org instead of anonymously.
 
-Once it is connected, five tools appear. They map onto this file's
-flows, so nothing above changes but the mechanism:
+Once it is connected, its tools appear in your tool list. Six of them
+map onto this file's flows, so nothing above changes but the
+mechanism:
 
 | Tool | Replaces |
 |---|---|
 | `publish_site` | `valet sites create` + `valet deploy` |
 | `get_site` | `valet sites info` |
 | `list_sites` | `valet sites` — needs a signed-in connector |
+| `share_site` | `valet sites share` — needs a signed-in connector |
 | `set_site_access` | `valet sites access` — `public` or `private` only |
 | `delete_site` | `valet sites destroy` |
 
-Five things work differently, and each one changes what you do:
+Six things work differently, and each one changes what you do:
 
 - **You write the files into the call; there is no disk on the other
   end.** `publish_site` takes a `files` map of path to text content.
@@ -753,6 +792,12 @@ Five things work differently, and each one changes what you do:
   `private` only, deliberately: a password typed here would live in the
   transcript. If the user wants one, say it needs the CLI rather than
   making the site public instead.
+- **`share_site` needs a signed-in connector too.** Like `list_sites`
+  and `set_site_access`, there is no anonymous site of your own to
+  share. It takes `name`, `org_name` (optional), `emails` (1 to 10
+  addresses), `message` (optional, capped at 500 characters), and the
+  two deadlines as integer seconds — `expires_in_seconds` and
+  `access_ttl_seconds` — rather than the CLI's duration strings.
 
 Everything else is the same product. Anonymous sites are public, expire
 36 hours after creation unless claimed, and return a claim URL, and
