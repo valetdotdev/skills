@@ -15,11 +15,14 @@ actions (destroy, remove, revoke) with the user before running them.
 Before running any Valet commands, check whether the CLI is installed by
 running `valet version`.
 
-If `valet` is not installed, **explain to the user why it is needed before attempting installation**:
+If `valet` is not installed, explain why it is needed and ask for permission
+before installing it:
 
 > The Valet CLI is required to create, deploy, and manage agents on the
-> Valet platform. I'll install the official release for your operating
-> system now.
+> Valet platform. May I install the official release for your operating
+> system?
+
+Run the installer only after the user agrees.
 
 On macOS or Linux, run the official installer:
 
@@ -37,8 +40,9 @@ After installation, run `valet version` again. If a Unix shell has not
 reloaded its PATH yet, use `$HOME/.local/bin/valet` for the rest of the
 current workflow. Do not reinstall the CLI.
 
-If an installed CLI is too old for a command, update it without guessing
-how it was installed:
+If an installed CLI is too old for a command, explain why the update is
+needed and ask for permission. After the user agrees, update it without
+guessing how it was installed:
 
 ```
 valet update
@@ -52,7 +56,10 @@ or build the CLI from source.
 
 ## Prerequisites
 
-After the CLI is installed, the user **must be authenticated** before any other command will work. Explain this to the user:
+After the CLI is installed, authenticate before any command that reads or
+writes account state. Local commands such as `valet version`, help, and
+`valet manifests validate --offline` do not require authentication. Explain
+the login before starting it:
 
 > Before we can create or manage agents, you need to be logged in to your Valet account. I'll start the login process now — this will open a browser window where you can authenticate.
 
@@ -62,7 +69,9 @@ Then run:
 valet auth login
 ```
 
-After login, verify the session is active with `valet auth whoami`. If authentication fails, let the user know and do not proceed with any other valet commands until they are successfully logged in.
+After login, verify the session with `valet auth whoami`. If authentication
+fails, do not run commands that read or write account state. Local help and
+offline validation remain available.
 
 ## Using the Built-in Help
 
@@ -91,7 +100,10 @@ Create a new agent project directory without running the full setup flow:
 valet new <name> [--dir <path>]
 ```
 
-Creates `<name>/` (or the path specified by `--dir`) containing `SOUL.md`, `AGENTS.md`, `skills/`, and `channels/`. The project is ready to edit — update `SOUL.md` to define your agent, then run `valet agents create` to deploy it.
+Creates `<name>/` (or the path specified by `--dir`) containing `SOUL.md`,
+`AGENTS.md`, `CLAUDE.md`, `valet.yaml`, `skills/`, and `channels/`. The
+project is ready to edit. Update the generated files, then run
+`valet agents create` to deploy it.
 
 Flags:
 - `--dir`: Directory to create the project in (default: `./<name>`)
@@ -128,7 +140,9 @@ These principles apply to all connectors, channels, and env vars. Follow this pr
 2. **Reuse existing**: Check `valet connectors --org <org>` or `valet channels --org <org>` for resources that already provide what you need. Attach rather than duplicate.
 3. **Org-scoped by default**: Always create connectors, channels, and env vars at the org level (`--org`). Org-scoped resources can be attached to any agent in the org, so a single `GITHUB_TOKEN` secret, `github` MCP connector, or `github-webhook` channel is reusable across every agent — no duplication, one place to rotate credentials. **Only drop to `--agent` when you have a concrete reason the resource cannot be shared** (e.g., per-agent rate limits, distinct credentials for the same service, a one-off test agent). When in doubt, use `--org` and attach. (Slack is a special case — see the Channels section.)
 4. **Env vars at org level by default**: Setting an env var with `--org` makes it available to every org-scoped connector and channel, and org-scoped plain vars reach every agent in the org. Any agent that later attaches those connectors/channels automatically inherits access — no duplication. Agent-scoped env vars override org-scoped ones of the same name when a specific agent needs a different value.
-5. **Verify before deploying**: Test every secret-backed command locally with `valet exec` before deploying (see "Pre-Deploy Verification").
+5. **Verify before finalizing**: After the agent exists, test every
+   secret-backed command with `valet exec` before treating the deployment as
+   ready. See "Connector verification with valet exec."
 
 ## Agent Lifecycle
 
@@ -223,7 +237,12 @@ valet drafts publish <draft_id>                               # promote draft to
 valet drafts discard <draft_id>                               # delete the draft
 ```
 
-Use `drafts create` to open a standing draft you edit and review before publishing — it prints the new draft id on stdout, which feeds `checkout`, `push`, and `publish`. The agent is taken from `--agent` or the linked directory; an agent may have only one open draft, so `--force` discards an existing one first. (`valet deploy` is the one-shot alternative that creates, pushes, publishes, and deploys in a single step.)
+Use `drafts create` to open a standing draft you edit and review before
+publishing. It prints the new draft id on stdout, which feeds `checkout`,
+`push`, and `publish`. The agent comes from `--agent` or the linked
+directory. An agent may have only one open draft, so `--force` discards an
+existing one first. Confirm before using it. (`valet deploy` is the one-shot
+alternative that creates, pushes, publishes, and deploys in one step.)
 
 Use `drafts push` to ship local file edits to a draft branch without publishing. `--dir` defaults to the current working directory; `--message` (`-m`) sets the commit message (defaults to `"Update draft"`). If no files changed, the command exits 0 without creating a commit.
 
@@ -384,13 +403,15 @@ valet channels detach <name> [--agent <agent>] [--force]
 
 For Slack channels, `--bot-name` sets the bot display name (defaults to agent name). After attaching, the CLI opens a browser for the Slack OAuth install flow and shows the bot name and workspace.
 
-For Slack channels, detaching destroys the per-agent Slack bot. The CLI prompts for confirmation before proceeding. Use `--force` to skip the prompt.
+For Slack channels, detaching destroys the per-agent Slack bot. The CLI
+prompts for confirmation before proceeding. Use `--force` only after the user
+explicitly confirms the destruction.
 
 Example:
 ```
 valet channels attach github-webhook --agent my-reviewer --events pull_request,issue_comment
 valet channels attach slack --agent my-agent --bot-name my-bot
-valet channels detach slack --force
+valet channels detach slack --agent my-agent
 ```
 
 ### Create a webhook channel
@@ -403,7 +424,12 @@ valet channels create webhook [name] \
 
 Verification schemes: `hmac-sha256` (default), `slack`, `stripe`, `svix`, `static-token`, `none`. Key flags: `--secret-name` (name of an existing secret from `valet env` to use instead of auto-generating; required for `slack`, `stripe`, and `svix`), `--signature-header` (not used with `slack` or `svix`), `--delivery-key-header`, `--delivery-key-path`, `--prompt`. For `hmac-sha256` and `static-token`, a managed secret is auto-generated if `--secret-name` is omitted. The `slack` scheme implements Slack's Events API signing protocol and handles `url_verification` challenges automatically. Run `valet channels create webhook --help` for full details.
 
-The command outputs the **webhook URL**, **signing secret**, and (if applicable) **managed secret name** — always save and report these to the user.
+The command prints the **webhook URL**, **signing secret**, and, when
+applicable, **managed secret name**. Report the URL and managed secret name.
+Do not repeat the raw signing secret in the response. Tell the user to copy
+it from their terminal output and store it securely. If command output is
+captured in the conversation, prefer `--secret-name` with a secret the user
+set in their own terminal so the command does not generate a new value.
 
 ### Create a Slack channel
 
@@ -514,7 +540,11 @@ valet env [--agent <name> | --org <name>]
 valet env unset <NAME> [--agent <name> | --org <name>] [--force]
 ```
 
-`valet env` lists the effective environment — each var's kind and scope, plain values inline, secret values masked, and an `overrides org` annotation when an agent-scoped var shadows an org-scoped one. Unsetting a var that a connector or channel references fails with an error naming the dependents; pass `--force` to override.
+`valet env` lists the effective environment: each var's kind and scope,
+plain values inline, secret values masked, and an `overrides org` annotation
+when an agent-scoped var shadows an org-scoped one. Unsetting a referenced
+var fails with an error naming the dependent connector or channel. Use
+`--force` only after the user confirms those dependents may break.
 
 ## Organizations
 
@@ -598,9 +628,12 @@ valet sessions delete <session-id> [-a <agent>]
 
 Removes a session and its transcript. Destructive — confirm before running. Run `valet sessions --help` for the full session subcommand list.
 
-## Pre-Deploy Verification with valet exec
+## Using valet exec
 
-`valet exec` is the **only way** to run local commands with Valet-managed env vars injected — it fetches both kinds. Values are stored in the control plane — they are **not** available as environment variables in your local shell. Always test secret-backed commands before deploying.
+`valet exec` is the **only way** to run local commands with Valet-managed env
+vars injected. It fetches both kinds. Values live in the control plane, not
+in your local shell. After the agent exists, test secret-backed commands
+before treating its deployment as ready.
 
 There are two modes:
 
@@ -634,7 +667,8 @@ valet exec -a my-agent GITHUB_TOKEN -- gh pr list
 valet exec -a my-agent API_KEY -- curl -H "Authorization: Bearer {{API_KEY}}" https://api.example.com
 
 # Multiple secrets in one command
-valet exec -a my-agent GITHUB_TOKEN,SLACK_TOKEN -- env
+valet exec -a my-agent GITHUB_TOKEN,SLACK_TOKEN -- \
+  sh -c 'test -n "$GITHUB_TOKEN" && test -n "$SLACK_TOKEN"'
 ```
 
 Flag: `--agent` or `-a`: Agent that owns the secrets (uses linked agent if omitted). Run `valet exec --help` for full details.
@@ -650,6 +684,7 @@ To test an MCP server that requires secret-backed environment variables:
 ```
 valet exec -a my-agent SLACK_BOT_TOKEN,SLACK_TEAM_ID -- \
   npx -y @modelcontextprotocol/server-slack
+```
 
 Without `valet exec`, the MCP server would start without the required tokens and fail to authenticate.
 
@@ -668,11 +703,17 @@ valet exec -a my-agent API_KEY -- curl https://api.example.com/data?key={{API_KE
 valet exec -a my-agent my-connector-name
 ```
 
-The same applies to any connector command. If your connector's `--command` or `--args` reference environment variables backed by secrets, test the exact command through `valet exec` before deploying.
+The same applies to any connector command. If its `--command` or `--args`
+reference secret-backed environment variables, test the exact command
+through `valet exec` before treating the deployment as ready.
 
-## Pre-Deploy Verification with valet exec
+## Connector verification with valet exec
 
-**Before deploying an agent, locally test every command that requires secrets using `valet exec`.** This catches authentication failures, wrong secret names, malformed URLs, and missing dependencies before they cause the agent to crash in production.
+After the initial `valet agents create` deploy, test every command that
+requires secrets with `valet exec`. This catches authentication failures,
+wrong secret names, malformed URLs, and missing dependencies before you
+treat the deployment as ready. Deploy any resulting source fix before the
+end-to-end test.
 
 ### What to test
 
@@ -700,12 +741,10 @@ valet exec -a my-agent API_TOKEN -- \
   curl -s -o /dev/null -w "%{http_code}" -H "Authorization: {{API_TOKEN}}" https://mcp.example.com/mcp
 ```
 
-Also test any webhook endpoint you plan to call with secrets in the URL:
-
-```
-valet exec -a my-agent WEBHOOK_SECRET -- \
-  curl -X POST https://hooks.example.com/{{WEBHOOK_SECRET}}/notify -d '{"test": true}'
-```
+Do not test a webhook by sending an arbitrary request to a production
+endpoint. Use the provider's documented test-event flow or a dedicated test
+endpoint. If either action can trigger real work, get the user's approval
+first.
 
 ### Verification checklist
 
@@ -715,7 +754,7 @@ Before running `valet deploy`, confirm:
 2. Each connector's command succeeds locally via `valet exec`
 3. Any secret-backed URLs resolve and authenticate correctly
 
-Do not deploy until all `valet exec` tests pass.
+Do not treat the setup as complete until all `valet exec` tests pass.
 
 ## Common Workflows
 
@@ -723,10 +762,7 @@ Do not deploy until all `valet exec` tests pass.
 
 Follow Resource Creation Principles — set up org-scoped resources first, then attach to the agent.
 
-1. Direct the user to set org-scoped secrets in their terminal
-2. Add connectors (catalog first, then custom if needed) at the org level
-3. Add channels (catalog first for webhooks) at the org level
-4. Create the agent and attach org resources:
+1. Direct the user to set org-scoped secrets in their terminal:
    ```
    valet env set GITHUB_TOKEN=<their-token> --org acme
    ```
@@ -751,7 +787,11 @@ Follow Resource Creation Principles — set up org-scoped resources first, then 
    valet channels create github-webhook --org acme
    ```
 
-5. Create the agent and attach org resources:
+5. Write the channel file at `channels/<channel-name>.md` when the agent
+   needs one. See "Writing Channel Files."
+
+6. Create the agent and attach org resources. This command performs the
+   initial deploy:
    ```
    cd my-agent-project
    valet agents create my-agent --org acme \
@@ -764,21 +804,20 @@ Follow Resource Creation Principles — set up org-scoped resources first, then 
    valet channels attach github-webhook --agent my-agent --events pull_request
    ```
 
-6. **Verify each connector command locally with `valet exec`** before proceeding:
+7. Verify each connector command with `valet exec` after the agent exists:
    ```
-   valet exec GITHUB_TOKEN -- \
+   valet exec -a my-agent GITHUB_TOKEN -- \
      npx -y @modelcontextprotocol/server-github
    ```
-   If this fails (bad token, missing dependency, wrong command), fix it now.
+   The create command already performed the initial deploy. Fix any
+   authentication, dependency, or command failure before the final deploy.
 
-7. Create the channel file at `channels/<channel-name>.md` (see "Writing Channel Files").
-
-8. Deploy to pick up the channel file:
+8. Deploy any fixes made after verification:
    ```
    valet deploy
    ```
 
-9. Validate end-to-end with an interactive test loop (see below).
+9. Validate end-to-end with the interactive test loop below.
 
 ### One-off agent setup (agent-scoped)
 
@@ -945,19 +984,27 @@ Want to proceed with this plan, or would you like to adjust anything?
 
 ### Step 4: Generate the agent
 
-1. Create the project directory: `mkdir -p <agent-name>/channels`
-2. Write `SOUL.md` following the "Writing SOUL.md" guidance below
-3. Write channel files if the agent uses webhooks (see "Writing Channel Files")
-4. Write skill files if documenting connector usage (see "Writing Skill Files")
-5. Run the validation checklist:
+1. Scaffold the project with `valet new <agent-name>`.
+2. Write `SOUL.md` using the "Writing SOUL.md" guidance below.
+3. Write channel files when the agent uses webhooks. See "Writing Channel
+   Files."
+4. Write custom skills under `skills/<name>/SKILL.md` when the agent needs
+   local procedural knowledge.
+5. Fill in the generated `valet.yaml` metadata. Add catalog setup fields only
+   when the user asked for the dashboard or catalog workflow.
+6. Update the generated `AGENTS.md` last, after every setup requirement is
+   known. This keeps the deployed release and future setup instructions in
+   sync.
+7. Run the validation checklist:
    - [ ] SOUL.md exists with non-empty Purpose and Workflow
    - [ ] Guardrails has both Always and Never subsections
    - [ ] No hardcoded IDs that should be `<placeholder>`s
    - [ ] Channel files have Scope section if webhook-driven
    - [ ] Channel files include webhook payload location instruction
    - [ ] No secrets or API keys in any file
-   - [ ] AGENTS.md written as the last step (see "Writing AGENTS.md")
-6. Direct the user to set secrets at the org level (preferred) or agent level:
+   - [ ] AGENTS.md documents all setup without containing secret values
+   - [ ] `valet manifests validate` passes
+8. Direct the user to set secrets at the org level (preferred) or agent level:
    ```
    valet env set SECRET_NAME=<value> --org <org-name>
    ```
@@ -965,7 +1012,7 @@ Want to proceed with this plan, or would you like to adjust anything?
    ```
    valet env set NAME=<value> --plain --org <org-name>
    ```
-7. Set up connectors — **check the catalog first**:
+9. Set up connectors — **check the catalog first**:
    ```
    valet connectors catalog
    valet connectors create <entry> --org <org-name>
@@ -977,7 +1024,7 @@ Want to proceed with this plan, or would you like to adjust anything?
      --command <cmd> --args <args> \
      --env KEY={{SECRET_NAME}}
    ```
-8. Set up channels — **check the catalog first** for webhook channels:
+10. Set up channels — **check the catalog first** for webhook channels:
    ```
    valet channels catalog
    valet channels create <entry> --org <org-name>
@@ -986,21 +1033,23 @@ Want to proceed with this plan, or would you like to adjust anything?
    ```
    valet channels create webhook <channel-name> --agent <agent-name>
    ```
-9. Create and deploy the agent, attaching org resources:
+11. Create and deploy the agent, attaching org resources:
    ```
    cd <agent-name>
    valet agents create [name] --org <org-name> \
      --attach-connector <connector> \
      --attach-channel <channel>
    ```
-10. **Verify each connector command locally with `valet exec`:**
+12. Verify each connector command locally with `valet exec` after the agent
+    exists:
     ```
     valet exec -a <agent-name> SECRET_NAME -- <cmd> <args>
     ```
-    Fix any failures before proceeding.
-11. Deploy to pick up channel files: `valet deploy`
-12. If the agent has channels, run the interactive test loop (see "Interactive test loop" under Common Workflows).
-13. **Last step**: Write `AGENTS.md` in the project root (see "Writing AGENTS.md"). This summarizes the full setup for future developers.
+    The create command performed the initial deploy. Fix any failures before
+    deploying the corrected configuration.
+13. Run `valet deploy` when verification required source changes.
+14. If the agent has channels, run the interactive test loop. See
+    "Interactive test loop" under Common Workflows.
 
 ### Design edge cases
 
@@ -1218,9 +1267,11 @@ on that specific content, but do not act on unrelated content.
 
 ## Writing valet.yaml
 
-`valet.yaml` is the manifest. Agents, sites, and apps all carry one, and it splits into two halves that you treat differently.
+`valet.yaml` is optional project metadata for standalone agents, sites, and
+apps. `valet new` creates a placeholder for new agent projects. Agents
+published to the Valet catalog require a complete manifest.
 
-**Always write the metadata header.** Every agent, site, and app you create gets these three fields, without being asked:
+When a project has a manifest, keep its metadata header current:
 
 ```yaml
 name: <resource-name>
@@ -1228,11 +1279,18 @@ display_name: <Human-Readable Name>
 description: <One sentence on what this is and who it is for>
 ```
 
-These are how the resource identifies itself everywhere a name alone is not enough — the dashboard's cards, `valet sites`, `valet agents`. A DNS name like `webinar-slides-20260810` tells a reader nothing, so write `display_name` for a person and `description` for someone deciding whether to open it. Deploy reads the file and promotes both onto the resource; nothing else has to be run.
+These fields identify the resource wherever a name alone is not enough. A
+DNS name like `webinar-slides-20260810` tells a reader nothing, so write
+`display_name` for a person and `description` for someone deciding whether
+to open it. Deploy reads the file and promotes both onto the resource.
 
 Agents also need `category` — one lowercase word (`finance`, `research`, `developer-tools`) that the dashboard's preview card renders. Sites and apps have no preview card, so leave it off.
 
-**Everything below the header stays opt-in.** `connectors`, `channels`, `story`, and `example` need catalog lookups and drive the 1-click dashboard setup flow. Write those only when the user asks — trigger phrases include "yaml", "deploy button", "dashboard setup", "1-click deploy", or "setup on web".
+For a standalone resource, everything below the header stays opt-in.
+`connectors`, `channels`, `story`, and `example` drive the dashboard setup
+flow. Add them when the user asks for a deploy button, dashboard setup,
+one-click setup, or catalog publication. A catalog-published agent requires
+the complete story and dependency fields described below.
 
 Sites and apps take the header and nothing else. A `connectors` or `channels` block on either is rejected at deploy: a site has no runtime and an app runs a Procfile process, so neither can act on one.
 
@@ -1293,7 +1351,9 @@ After writing the file, verify:
 
 ## Writing AGENTS.md
 
-`AGENTS.md` is the **last file written** before the session ends. It lives in the root of the agent project directory and serves as a human- and LLM-readable setup guide for anyone who needs to deploy this agent in the future.
+`AGENTS.md` is the **last project file written** before deployment. It lives
+in the agent project root and serves as a human- and LLM-readable setup guide
+for anyone who needs to deploy the agent later.
 
 **NEVER include secret values, API keys, or tokens in AGENTS.md.** Only describe what is needed and why.
 
@@ -1590,10 +1650,10 @@ manifests.
 
 ```
 my-agent/
-  valet.yaml           # Manifest for 1-click dashboard setup (required)
   AGENTS.md            # Setup guide for future developers (required)
+  CLAUDE.md            # Points Claude Code at AGENTS.md
   SOUL.md              # Agent identity and behavior (required)
-  valet.yaml           # Manifest — required for catalog-published agents
+  valet.yaml           # From valet new; required for catalog publication
   channels/            # Channel files (for webhook/trigger-driven agents)
     <channel-name>.md
   skills/              # Agent-scoped skill documentation (optional)
@@ -1613,16 +1673,26 @@ All deployed files are **read-only** at runtime. The agent can write new files (
   Use the official direct installer for new installations and `valet
   update` for existing ones. If either fails, stop rather than downloading
   a raw binary or building from source.
-- **Authentication first**: Always verify the user is logged in (`valet auth whoami`) before running any non-auth valet commands. If not logged in, explain that authentication is required and run `valet auth login`. Do not proceed until authentication succeeds.
+- **Authenticate before account access**: Run `valet auth whoami` before a
+  command reads or writes account state. If the user is logged out, explain
+  why login is required and start `valet auth login`. Local version, help,
+  and offline manifest-validation commands remain available while logged
+  out.
 - **Use `valet help` proactively**: When you encounter a command, flag, or feature you're unsure about, run `valet help <command>` before guessing. The CLI help is the authoritative source.
 - **Never ask for secret values inside the LLM session.** Direct the user to run `valet env set NAME=VALUE` in their own terminal and wait for confirmation. Plain env vars (`valet env set NAME=VALUE --plain`) are not credentials and may be set directly.
-- **Always verify privileged commands with `valet exec` before deploying.** After the user sets secrets and you create connectors, test the underlying command locally using `valet exec <names> -- <command>`. This is the only way to run commands with Valet-managed secrets locally. Do not deploy until the command succeeds. Use `{{SECRET_NAME}}` template syntax to embed secrets in URLs, headers, or env values.
+- **Verify privileged commands with `valet exec`.** After the agent exists,
+  test each underlying command with `valet exec <names> -- <command>`. This
+  is the only way to run commands with Valet-managed secrets locally. Fix
+  failures before the final deploy and end-to-end test. Use
+  `{{SECRET_NAME}}` only when a tool requires a secret in an argument.
 - When the user asks to create an agent from scratch, follow "Designing a New Agent".
 - When the user asks to capture the current session as an agent, follow "Learning from the Current Session".
 - When writing SOUL.md, follow the template and synthesis rules. Never leave Purpose or Workflow empty.
 - When authoring a `valet.yaml` for a catalog-published agent, follow "Authoring the agent story". Run `valet manifests validate` after every edit — length caps and the 3-step role order are non-negotiable.
 - For destructive commands (`destroy`, `remove`, `revoke`), always confirm with the user first.
-- When creating webhook channels, report the webhook URL and signing secret. When writing channel files, include the payload location instruction.
+- When creating webhook channels, report the webhook URL and managed secret
+  name. Do not repeat the raw signing secret. When writing channel files,
+  include the payload location instruction.
 - After deploying an agent with channels for the first time, run the interactive test loop.
 - If a command fails, read the error and troubleshoot. Common issues: not
   logged in, no `SOUL.md`, not linked, or an agent crash. For installer or
