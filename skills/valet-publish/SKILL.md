@@ -359,40 +359,89 @@ detail, and there is no narrower option in this version.
 Once a connector is attached, its tools are reachable same-origin at
 `/__valet/mcp/<connector-name>` on the site's own hostname — no
 credential in the page, no CORS, no separate origin to configure. The
-connector must be a **stateless** HTTP MCP server: one that answers
-each `tools/list` and `tools/call` on its own, with no `initialize`
-session to keep. A server that requires that handshake before
-answering other calls cannot back a page, because the broker keeps no
-session and any call may land on a different pod. POST
-a JSON-RPC body with `credentials: "same-origin"` so the visitor's
-site session goes along, `Content-Type: application/json`, and
-`X-Valet-MCP: 1`, the header that forces any cross-origin attempt to
-preflight — which the broker never answers, so only a same-origin call
-like this one completes:
+connector must be an HTTP MCP server; sessionless and stateful ones
+both work. A sessionless server answers each `tools/list` and
+`tools/call` on its own. A stateful server — the reference SDK's
+default — issues an `Mcp-Session-Id` header on its `initialize`
+response and expects it back, with `MCP-Protocol-Version`, on every
+later call. The page is the MCP client, so the page holds that
+session. The broker forwards the handshake and relays the session
+header, but keeps no session state itself: the state rides in each
+request, so any call can land on any gateway pod.
+
+Every call is a POST with a JSON-RPC body, `credentials:
+"same-origin"` so the visitor's site session goes along,
+`Content-Type: application/json`, and `X-Valet-MCP: 1`, the header
+that forces any cross-origin attempt to preflight — which the broker
+never answers, so only a same-origin call completes. The same helper
+serves both server kinds — paste it whole:
 
 ```js
-async function callConnector(connector, method, params) {
-  const response = await fetch(`/__valet/mcp/${connector}`, {
+const sessions = new Map(); // one handshake per connector, per tab
+
+function post(connector, body, session) {
+  const headers = { "Content-Type": "application/json", "X-Valet-MCP": "1" };
+  if (session) {
+    headers["Mcp-Session-Id"] = session.id;
+    headers["MCP-Protocol-Version"] = session.protocol;
+  }
+  return fetch(`/__valet/mcp/${connector}`, {
     method: "POST",
     credentials: "same-origin",
-    headers: {
-      "Content-Type": "application/json",
-      "X-Valet-MCP": "1",
-    },
-    body: JSON.stringify({
-      jsonrpc: "2.0",
-      id: crypto.randomUUID(),
-      method,
-      params,
-    }),
+    headers,
+    body: JSON.stringify(body),
   });
+}
 
+function ensureSession(connector) {
+  if (!sessions.has(connector)) {
+    const dance = initialize(connector).catch((err) => {
+      sessions.delete(connector); // a failed handshake is not cached
+      throw err;
+    });
+    sessions.set(connector, dance);
+  }
+  return sessions.get(connector);
+}
+
+async function initialize(connector) {
+  const response = await post(connector, {
+    jsonrpc: "2.0",
+    id: crypto.randomUUID(),
+    method: "initialize",
+    params: {
+      protocolVersion: "2025-06-18",
+      capabilities: {},
+      clientInfo: { name: "valet-site-page", version: "1.0" },
+    },
+  });
+  const id = response.headers.get("Mcp-Session-Id");
+  if (!id) return null; // sessionless server: plain calls from here on
+  const { result, error } = await response.json();
+  if (error) throw new Error(error.message);
+  const session = { id, protocol: result.protocolVersion };
+  await post(
+    connector,
+    { jsonrpc: "2.0", method: "notifications/initialized" },
+    session,
+  );
+  return session;
+}
+
+async function callConnector(connector, method, params) {
+  let session = await ensureSession(connector);
+  const body = { jsonrpc: "2.0", id: crypto.randomUUID(), method, params };
+  let response = await post(connector, body, session);
+  if (session && response.status >= 400 && response.status < 500) {
+    sessions.delete(connector); // stale session: handshake again, once
+    session = await ensureSession(connector);
+    response = await post(connector, body, session);
+  }
   if (response.status === 403) {
     // The site's access mode changed, or this visitor's session no
     // longer qualifies. There is nothing to retry — show it plainly.
     throw new Error("This page can no longer reach its connector.");
   }
-
   const { result, error } = await response.json();
   if (error) throw new Error(error.message);
   return result;
@@ -406,11 +455,29 @@ const issues = await callConnector("linear", "tools/call", {
 
 `tools/call` is the workhorse — it is the method that does something,
 and most pages need nothing else. `tools/list` returns the connector's
-tool schemas, useful while you are still designing the page. Calling
-`initialize` first is optional: it exists for MCP client libraries that
-expect a handshake, and the broker answers it locally rather than
-forwarding it upstream, but plain `fetch` code like the example above
-can go straight to `tools/call`.
+tool schemas, useful while you are still designing the page. The
+helper runs the session protocol so the rest of the page never thinks
+about it:
+
+- `ensureSession` runs `initialize` once per tab, per connector,
+  behind a shared promise — five widgets racing on one connector cost
+  one handshake.
+- When the server issues an `Mcp-Session-Id` response header, the
+  helper stores it with the negotiated `protocolVersion` from the
+  result, sends `notifications/initialized`, and attaches both headers
+  to every later call. A sessionless server issues no header, and the
+  helper degrades to plain calls.
+- On any 4xx from a session-carrying call, the helper re-initializes
+  once and retries. Session expiry is not reliably a 404 — some
+  servers answer 400 for a stale session — so any 4xx while a session
+  is held means "handshake again", once.
+
+The answer is always one JSON document, whatever the server does. A
+stateful server may frame its answer as a short-lived SSE stream; the
+broker unwraps that server-side and hands the page plain JSON. The
+`initialize` result relays verbatim, so it may advertise capabilities
+beyond tools; the broker still proxies only `tools/list` and
+`tools/call`, and anything else answers `method not found`.
 
 **Always handle a `403`.** The site's access mode can change after the
 page has already loaded — someone can make a private site public, or
@@ -418,8 +485,9 @@ revoke a share — and the broker enforces the current mode on every
 call, not the one in effect when the page was written. A page that
 treats every response as either data or a thrown network error will
 render `undefined` where a number belonged. Show a message instead of
-retrying; there is no session to refresh and no attachment to re-make
-from inside the page.
+retrying: the refusal is about the site's access, not the connector's
+session, so a fresh handshake cannot help and there is no attachment
+to re-make from inside the page.
 
 **In-page caching is the page's decision, not the platform's.**
 Responses carry `Cache-Control: no-store`, so nothing is cached on the
