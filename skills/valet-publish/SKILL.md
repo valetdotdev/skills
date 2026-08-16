@@ -346,6 +346,100 @@ but the result would work better as a short conversational answer, do
 that instead. If the user explicitly asked for a URL, publish the
 concise page without padding it.
 
+## Calling a connector attached to the site
+
+A site can hold connector attachments the same way an agent does — an
+org member attaches one so the site's own page can reach it. **The
+grant follows the page: share the page and you share the connector.**
+Attaching hands everyone who can open the page the connector's full
+reach, including whatever it can write, not a per-viewer slice of it.
+Say that plainly to whoever is attaching one; it is not a hidden
+detail, and there is no narrower option in this version.
+
+Once a connector is attached, its tools are reachable same-origin at
+`/__valet/mcp/<connector-name>` on the site's own hostname — no
+credential in the page, no CORS, no separate origin to configure. The
+connector must be a **stateless** HTTP MCP server: one that answers
+each `tools/list` and `tools/call` on its own, with no `initialize`
+session to keep. A server that requires that handshake before
+answering other calls cannot back a page, because the broker keeps no
+session and any call may land on a different pod. POST
+a JSON-RPC body with `credentials: "same-origin"` so the visitor's
+site session goes along, `Content-Type: application/json`, and
+`X-Valet-MCP: 1`, the header that forces any cross-origin attempt to
+preflight — which the broker never answers, so only a same-origin call
+like this one completes:
+
+```js
+async function callConnector(connector, method, params) {
+  const response = await fetch(`/__valet/mcp/${connector}`, {
+    method: "POST",
+    credentials: "same-origin",
+    headers: {
+      "Content-Type": "application/json",
+      "X-Valet-MCP": "1",
+    },
+    body: JSON.stringify({
+      jsonrpc: "2.0",
+      id: crypto.randomUUID(),
+      method,
+      params,
+    }),
+  });
+
+  if (response.status === 403) {
+    // The site's access mode changed, or this visitor's session no
+    // longer qualifies. There is nothing to retry — show it plainly.
+    throw new Error("This page can no longer reach its connector.");
+  }
+
+  const { result, error } = await response.json();
+  if (error) throw new Error(error.message);
+  return result;
+}
+
+const issues = await callConnector("linear", "tools/call", {
+  name: "list_issues",
+  arguments: { project: "core" },
+});
+```
+
+`tools/call` is the workhorse — it is the method that does something,
+and most pages need nothing else. `tools/list` returns the connector's
+tool schemas, useful while you are still designing the page. Calling
+`initialize` first is optional: it exists for MCP client libraries that
+expect a handshake, and the broker answers it locally rather than
+forwarding it upstream, but plain `fetch` code like the example above
+can go straight to `tools/call`.
+
+**Always handle a `403`.** The site's access mode can change after the
+page has already loaded — someone can make a private site public, or
+revoke a share — and the broker enforces the current mode on every
+call, not the one in effect when the page was written. A page that
+treats every response as either data or a thrown network error will
+render `undefined` where a number belonged. Show a message instead of
+retrying; there is no session to refresh and no attachment to re-make
+from inside the page.
+
+**In-page caching is the page's decision, not the platform's.**
+Responses carry `Cache-Control: no-store`, so nothing is cached on the
+page's behalf, and the platform will not choose for you: a dashboard
+that renders instantly from a cache and refreshes underneath is a
+normal, welcome pattern to build in memory. Writing a result to
+`localStorage` is a different choice — it leaves org data sitting on
+whatever machine opened the page, including a shared or public one, for
+as long as the browser keeps it. Say so plainly if you reach for it,
+and prefer an in-memory cache that clears when the tab closes.
+
+**A public site's calls always fail.** Making a site public was never a
+delegation to anyone in particular, so the broker refuses every call on
+a public site, including one from a member whose session predates the
+switch. Making the site private again resumes calls within CDC lag —
+the attachment itself was never touched, so there is no re-attach and
+nothing to republish. If a page you are debugging suddenly returns
+`403` on every call, check the site's access mode before you suspect
+the connector.
+
 ## Publish to your org
 
 The default for work product. The site is **private on creation** —
