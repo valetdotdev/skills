@@ -356,6 +356,19 @@ reach, including whatever it can write, not a per-viewer slice of it.
 Say that plainly to whoever is attaching one; it is not a hidden
 detail, and there is no narrower option in this version.
 
+**Finding a connector.** Discover what the org offers before you
+write a page: `list_attachable_connectors` on the Valet MCP server
+lists exactly the connectors a site can hold — HTTP MCP servers on
+the sse or streamable-http transport — and marks the ones a named
+site already has. On the CLI, `valet connectors list --sites` is the
+same filter. Attach with `attach_site_connector` or `valet connectors
+attach <name> --site <site>`, then read `list_site_connectors` (or
+`valet sites info`): it reports each attachment's live tools and
+their schemas, which is the moment to write the page's calls —
+guessing a schema produces a page that fails on its first click. The
+attach paths refuse a connector no page could call, so anything the
+discovery list offers will attach; anything it omits will not.
+
 Once a connector is attached, its tools are reachable same-origin at
 `/__valet/mcp/<connector-name>` on the site's own hostname — no
 credential in the page, no CORS, no separate origin to configure. The
