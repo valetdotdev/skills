@@ -1,0 +1,416 @@
+<!doctype html>
+<!--
+  system-health.html — a reference page for a Valet site that reads live
+  data from a connector attached to that site.
+
+  Replace three things and this page is yours:
+
+    1. CONNECTOR  — the name the connector is attached under. That is
+       what list_site_connectors reports and what the request path
+       carries. It is not the catalog entry's name if the attachment
+       was aliased with --as.
+
+    2. SECTIONS   — the tool name and arguments for each section. Read
+       the schemas with `valet sites info --schemas` (or
+       list_site_connectors over MCP), then sample each tool for
+       real with `valet connectors call` or call_site_connector, and
+       write the parsing against the answer you actually saw. Both
+       sections here expect a markdown pipe table, because that is what
+       most MCP servers answer with. If your sample came back as JSON,
+       read result.structuredContent instead of calling parsePipeTable.
+
+    3. The copy   — the <title>, the meta description, the headings,
+       and the "How this page works" section at the bottom.
+
+  Everything between SESSION HELPER and END SESSION HELPER is copied
+  verbatim from the valet-publish skill. Do not edit it.
+
+  Deploy this file as index.html at a site root, beside a valet.yaml.
+  The connector must already be attached to that site, and the site
+  must not be public: the broker refuses every call on a public site.
+-->
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>System Health</title>
+    <meta name="description" content="Live traffic and top pages, read from an attached connector." />
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="Valet" />
+    <meta property="og:title" content="System Health" />
+    <meta property="og:description" content="Live traffic and top pages, read from an attached connector." />
+    <meta name="twitter:card" content="summary" />
+    <style>
+      :root {
+        color-scheme: light dark;
+        --bg: #ffffff;
+        --fg: #16181d;
+        --muted: #5c626e;
+        --line: #e3e5ea;
+        --accent: #3055d8;
+        --bar: #3055d8;
+        --warn: #a8341f;
+      }
+      @media (prefers-color-scheme: dark) {
+        :root {
+          --bg: #14161a;
+          --fg: #e9ebef;
+          --muted: #9aa1ae;
+          --line: #292d35;
+          --accent: #8ea6ff;
+          --bar: #8ea6ff;
+          --warn: #ff9d8a;
+        }
+      }
+      * { box-sizing: border-box; }
+      body {
+        margin: 0 auto;
+        padding: 3rem 1.25rem 5rem;
+        max-width: 60rem;
+        background: var(--bg);
+        color: var(--fg);
+        font: 1rem/1.6 system-ui, -apple-system, "Segoe UI", sans-serif;
+      }
+      h1 { font-size: 1.85rem; line-height: 1.2; margin: 0 0 0.35rem; }
+      h2 { font-size: 1.2rem; line-height: 1.3; margin: 0 0 0.75rem; }
+      p { margin: 0 0 1rem; }
+      .lede { color: var(--muted); margin-bottom: 3rem; }
+      section { margin-bottom: 3rem; }
+      .panel {
+        border: 1px solid var(--line);
+        border-radius: 0.5rem;
+        padding: 1.25rem;
+        overflow-x: auto;
+      }
+      .status { color: var(--muted); font-size: 0.9rem; margin: 0; }
+      .failed { color: var(--warn); font-size: 0.9rem; margin: 0; }
+      .failed code { word-break: break-word; }
+      table { border-collapse: collapse; width: 100%; font-size: 0.95rem; }
+      th, td {
+        text-align: left;
+        padding: 0.45rem 0.75rem 0.45rem 0;
+        border-bottom: 1px solid var(--line);
+      }
+      th { font-weight: 600; color: var(--muted); }
+      td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
+      svg { display: block; width: 100%; height: auto; }
+      .bar { fill: var(--bar); }
+      .grid { stroke: var(--line); stroke-width: 1; }
+      .tick { fill: var(--muted); font-size: 11px; }
+      footer { border-top: 1px solid var(--line); padding-top: 1.5rem; color: var(--muted); }
+      footer code { color: var(--fg); }
+      a { color: var(--accent); }
+    </style>
+  </head>
+  <body>
+    <h1>System Health</h1>
+    <p class="lede">Read live from an attached connector each time this page loads.</p>
+
+    <section>
+      <h2>Traffic, last 7 days</h2>
+      <div class="panel" id="traffic"><p class="status">Loading…</p></div>
+    </section>
+
+    <section>
+      <h2>Top pages</h2>
+      <div class="panel" id="pages"><p class="status">Loading…</p></div>
+    </section>
+
+    <footer>
+      <h2>How this page works</h2>
+      <p>
+        The page is static HTML. Every number on it is fetched in your
+        browser, when you open it, from a connector an organization
+        member attached to this site. Nothing is baked in at publish
+        time, and no credential is in the page: calls go to
+        <code>/__valet/mcp/&lt;connector&gt;</code> on this same
+        hostname, and Valet attaches the organization's credential
+        server-side.
+      </p>
+      <p>
+        Each section calls its own tool and renders its own failure. A
+        connector that is slow, unreachable, or refusing one tool
+        family leaves every other section on the page intact.
+      </p>
+    </footer>
+
+    <script>
+      // ---------------------------------------------------------------
+      // Replace: the attachment's name, and one entry per section.
+      // ---------------------------------------------------------------
+      const CONNECTOR = "analytics";
+
+      const SECTIONS = [
+        {
+          id: "traffic",
+          tool: "run_query",
+          args: { query: "pageviews by day for the last 7 days" },
+          render: renderChart,
+        },
+        {
+          id: "pages",
+          tool: "run_query",
+          args: { query: "top 10 pages by pageviews for the last 7 days" },
+          render: renderTable,
+        },
+      ];
+
+      // ------------------------- SESSION HELPER ----------------------
+      // Verbatim from the valet-publish skill. Do not edit.
+      const sessions = new Map(); // one handshake per connector, per tab
+
+      function post(connector, body, session) {
+        const headers = { "Content-Type": "application/json", "X-Valet-MCP": "1" };
+        if (session) {
+          headers["Mcp-Session-Id"] = session.id;
+          headers["MCP-Protocol-Version"] = session.protocol;
+        }
+        return fetch(`/__valet/mcp/${connector}`, {
+          method: "POST",
+          credentials: "same-origin",
+          headers,
+          body: JSON.stringify(body),
+        });
+      }
+
+      function ensureSession(connector) {
+        if (!sessions.has(connector)) {
+          const dance = initialize(connector).catch((err) => {
+            sessions.delete(connector); // a failed handshake is not cached
+            throw err;
+          });
+          sessions.set(connector, dance);
+        }
+        return sessions.get(connector);
+      }
+
+      async function initialize(connector) {
+        const response = await post(connector, {
+          jsonrpc: "2.0",
+          id: crypto.randomUUID(),
+          method: "initialize",
+          params: {
+            protocolVersion: "2025-06-18",
+            capabilities: {},
+            clientInfo: { name: "valet-site-page", version: "1.0" },
+          },
+        });
+        const id = response.headers.get("Mcp-Session-Id");
+        if (!id) return null; // sessionless server: plain calls from here on
+        const { result, error } = await response.json();
+        if (error) throw new Error(error.message);
+        const session = { id, protocol: result.protocolVersion };
+        await post(
+          connector,
+          { jsonrpc: "2.0", method: "notifications/initialized" },
+          session,
+        );
+        return session;
+      }
+
+      async function callConnector(connector, method, params) {
+        let session = await ensureSession(connector);
+        const body = { jsonrpc: "2.0", id: crypto.randomUUID(), method, params };
+        let response = await post(connector, body, session);
+        if (session && response.status >= 400 && response.status < 500) {
+          sessions.delete(connector); // stale session: handshake again, once
+          session = await ensureSession(connector);
+          response = await post(connector, body, session);
+        }
+        if (response.status === 403) {
+          // The site's access mode changed, or this visitor's session no
+          // longer qualifies. There is nothing to retry — show it plainly.
+          throw new Error("This page can no longer reach its connector.");
+        }
+        const { result, error } = await response.json();
+        if (error) throw new Error(error.message);
+        return result;
+      }
+      // ----------------------- END SESSION HELPER --------------------
+
+      // callTool runs one tool and returns its text.
+      //
+      // The helper above throws only on a JSON-RPC error. A tool that
+      // refuses — an argument it will not take, a credential whose
+      // scope does not cover it — answers successfully with isError
+      // set, so that case is turned into a throw here and every
+      // section's catch sees one kind of failure.
+      async function callTool(tool, args) {
+        const result = await callConnector(CONNECTOR, "tools/call", {
+          name: tool,
+          arguments: args,
+        });
+        const text = (result.content || [])
+          .filter((block) => typeof block.text === "string" && block.text !== "")
+          .map((block) => block.text)
+          .join("\n");
+        if (result.isError) {
+          throw new Error(text || "the connector reported an error");
+        }
+        return text;
+      }
+
+      // parsePipeTable reads a markdown pipe table into a header row
+      // and body rows. It tolerates tables written with or without
+      // outer pipes, and drops the |---|---| separator. It returns null
+      // when the text is not a table, which is the signal to show the
+      // answer as it came rather than guessing at it.
+      function parsePipeTable(text) {
+        const rows = [];
+        for (const raw of text.split("\n")) {
+          const line = raw.trim();
+          if (!line.includes("|")) continue;
+          const cells = line
+            .replace(/^\|/, "")
+            .replace(/\|$/, "")
+            .split("|")
+            .map((cell) => cell.trim());
+          rows.push(cells);
+        }
+        if (rows.length < 2) return null;
+        const header = rows[0];
+        const isSeparator = (row) => row.every((cell) => /^:?-+:?$/.test(cell));
+        const body = rows
+          .slice(1)
+          .filter((row) => !isSeparator(row) && row.length === header.length);
+        if (body.length === 0) return null;
+        return { header, body };
+      }
+
+      // toNumber reads a numeric cell, tolerating thousands separators,
+      // a leading currency symbol, and a trailing percent sign. A cell
+      // that is not a number returns null rather than 0 — stripping the
+      // non-digits first would read "/pricing" as an empty string and
+      // then as zero, which right-aligns a column of URLs and draws a
+      // chart of flat bars.
+      function toNumber(cell) {
+        const text = String(cell).trim();
+        if (!/^[-+]?[$€£]?\d[\d,\s]*(\.\d+)?%?$/.test(text)) return null;
+        const value = Number(text.replace(/[^0-9.\-]/g, ""));
+        return Number.isFinite(value) ? value : null;
+      }
+
+      function escapeHTML(value) {
+        return String(value).replace(
+          /[&<>"']/g,
+          (character) =>
+            ({
+              "&": "&amp;",
+              "<": "&lt;",
+              ">": "&gt;",
+              '"': "&quot;",
+              "'": "&#39;",
+            })[character],
+        );
+      }
+
+      const formatNumber = new Intl.NumberFormat().format;
+
+      // renderTable renders a parsed pipe table as an HTML table,
+      // right-aligning any column whose body cells all read as numbers.
+      function renderTable(text) {
+        const table = parsePipeTable(text);
+        if (!table) return `<pre>${escapeHTML(text)}</pre>`;
+        const numeric = table.header.map((_, column) =>
+          table.body.every((row) => toNumber(row[column]) !== null),
+        );
+        const head = table.header
+          .map((cell, i) => `<th${numeric[i] ? ' class="num"' : ""}>${escapeHTML(cell)}</th>`)
+          .join("");
+        const body = table.body
+          .map(
+            (row) =>
+              "<tr>" +
+              row
+                .map(
+                  (cell, i) =>
+                    `<td${numeric[i] ? ' class="num"' : ""}>${escapeHTML(cell)}</td>`,
+                )
+                .join("") +
+              "</tr>",
+          )
+          .join("");
+        return `<table><thead><tr>${head}</tr></thead><tbody>${body}</tbody></table>`;
+      }
+
+      // renderChart renders a two-column pipe table — a label and a
+      // number — as a hand-rolled SVG bar chart. No chart library: a
+      // Valet site serves the file exactly as written, and an external
+      // script is one more thing that can fail to load.
+      function renderChart(text) {
+        const table = parsePipeTable(text);
+        if (!table) return `<pre>${escapeHTML(text)}</pre>`;
+        const valueColumn = table.header.length - 1;
+        const points = table.body
+          .map((row) => ({
+            label: row[0],
+            value: toNumber(row[valueColumn]),
+          }))
+          .filter((point) => point.value !== null);
+        if (points.length === 0) return renderTable(text);
+
+        const width = 720;
+        const height = 240;
+        const pad = { top: 16, right: 8, bottom: 30, left: 52 };
+        const plotWidth = width - pad.left - pad.right;
+        const plotHeight = height - pad.top - pad.bottom;
+        const max = Math.max(...points.map((point) => point.value), 1);
+        const step = plotWidth / points.length;
+        const barWidth = Math.max(2, step * 0.62);
+
+        const gridlines = [0, 0.5, 1]
+          .map((fraction) => {
+            const y = pad.top + plotHeight * (1 - fraction);
+            const label = formatNumber(Math.round(max * fraction));
+            return (
+              `<line class="grid" x1="${pad.left}" y1="${y}" ` +
+              `x2="${width - pad.right}" y2="${y}" />` +
+              `<text class="tick" x="${pad.left - 8}" y="${y + 4}" ` +
+              `text-anchor="end">${escapeHTML(label)}</text>`
+            );
+          })
+          .join("");
+
+        const bars = points
+          .map((point, index) => {
+            const barHeight = (point.value / max) * plotHeight;
+            const x = pad.left + index * step + (step - barWidth) / 2;
+            const y = pad.top + plotHeight - barHeight;
+            const centre = pad.left + index * step + step / 2;
+            return (
+              `<rect class="bar" x="${x}" y="${y}" width="${barWidth}" ` +
+              `height="${barHeight}" rx="2">` +
+              `<title>${escapeHTML(point.label)}: ` +
+              `${escapeHTML(formatNumber(point.value))}</title></rect>` +
+              `<text class="tick" x="${centre}" y="${height - 10}" ` +
+              `text-anchor="middle">${escapeHTML(point.label)}</text>`
+            );
+          })
+          .join("");
+
+        return (
+          `<svg viewBox="0 0 ${width} ${height}" role="img" ` +
+          `aria-label="Bar chart of ${escapeHTML(table.header[valueColumn])}">` +
+          `${gridlines}${bars}</svg>`
+        );
+      }
+
+      // load runs one section. Its whole job is that a failure stops
+      // here: the message lands in this section's own panel and every
+      // other section still renders.
+      async function load(section) {
+        const panel = document.getElementById(section.id);
+        try {
+          const text = await callTool(section.tool, section.args);
+          panel.innerHTML = section.render(text);
+        } catch (error) {
+          panel.innerHTML =
+            '<p class="failed">This section could not load: ' +
+            `<code>${escapeHTML(error.message)}</code></p>`;
+        }
+      }
+
+      SECTIONS.forEach(load);
+    </script>
+  </body>
+</html>

@@ -346,6 +346,153 @@ but the result would work better as a short conversational answer, do
 that instead. If the user explicitly asked for a URL, publish the
 concise page without padding it.
 
+## Build a page on live data
+
+Someone asks for a product health dashboard, a status board, a funnel
+report — a page whose numbers have to be current. That is not a
+publish, it is a short build loop, and the step people skip is the one
+that decides whether the page works on its first load: calling a
+connector for real before writing any page code.
+
+Say what you are about to do before step 4. The page reads its data
+through a connector attached to the site, and attaching is a grant:
+everyone who can open the page can call every tool that connector
+exposes, with the credential Valet holds. Get agreement, then walk the
+nine steps.
+
+1. **List what the org can attach.** `list_attachable_connectors` on
+   the Valet MCP server returns exactly the connectors a site can
+   hold — HTTP MCP servers on the sse or streamable-http transport —
+   and marks the ones a named site already has. On the CLI,
+   `valet connectors list --sites` is the same filter. The plugin
+   ships the MCP server alongside this skill, so both are available.
+2. **Match by description.** Every listed connector that came from the
+   catalog carries its entry's description, so read for the data the
+   user asked for instead of guessing from a name. A custom connector
+   has no catalog entry and shows no description; ask what it serves
+   rather than assuming.
+3. **On no match, ask — then do the setup yourself.** Ask what the
+   user uses for that data: *"Which analytics product do you use?"*
+   Then find the catalog entry and create the connector. Both surfaces
+   do the whole job:
+
+   ```bash
+   valet connectors catalog                    # browse the entries
+   valet connectors catalog get <entry>        # its transport and slots
+   valet connectors create <entry> --org <org>
+   ```
+
+   Over MCP, `list_catalog_connectors` returns every entry Valet
+   offers with its description, how its credential arrives, and
+   whether a page could call it; `create_connector` then takes the
+   entry name and a `secrets` object of slot name to value. It refuses
+   rather than half-creating: if a required slot has no value and the
+   org holds none, the answer names the slots still needed and nothing
+   is created.
+
+   The user's part is providing a key or clicking through an
+   authorization — never editing a config file, never a transport or a
+   URL. Keep that part frictionless: if the user pastes the key to
+   you, take it — pass it in `create_connector`'s `secrets`, or set it
+   with `valet env set <SLOT>=<key> --org <org>` and create — while
+   mentioning they can instead enter it on the dashboard's
+   Integrations page, `https://dashboard.valet.dev/<org>/integrations`,
+   or at the create command's own prompt, so it never passes through
+   the conversation.
+
+   **An entry that authorizes in a browser needs a browser.** On the
+   CLI, `valet connectors create` prints an authorization URL and
+   waits. Over MCP, `create_connector` will not do it at all: it
+   answers with the entry's name and the Integrations page, which
+   creates the connector and runs the authorization in one place.
+   Send the user there and wait for them to say it is done. The same
+   page is the link to hand anyone who would rather click than run a
+   command.
+
+   Do not invent a connector that is not in the catalog, and do not
+   build the page against made-up data while you wait.
+4. **Attach it to the site.** `attach_site_connector`, or
+   `valet connectors attach <name> --site <site>`. The attach paths
+   refuse a connector no page could call, so anything the discovery
+   list offered will attach and anything it omitted will not.
+   Attaching a connector that is already attached changes nothing.
+5. **Read the tool schemas.** On the CLI, `valet sites info --schemas`
+   reports each attachment's live tools and their argument schemas,
+   which is what your calls have to satisfy; `valet sites info`
+   without the flag lists the same tools by name only. Over MCP,
+   `list_site_connectors` reports the same, live.
+6. **Sample one tool for real, before you write any page code.** Use
+   `valet connectors call <connector> <tool> [--args '<json>']
+   --site <site>` on the CLI, or `call_site_connector` over MCP. A
+   schema says what a tool accepts; only a call says what it answers,
+   and the answer is what the page has to parse.
+
+   ```bash
+   $ valet connectors call posthog exec --args '{"command":"docs"}' \
+       --site reports
+   | path     | views |
+   | -------- | ----- |
+   | /pricing |  1204 |
+   ```
+
+   This runs the tool for real, with the organization's credential and
+   whatever side effects it has. Sample a read-only tool, and ask the
+   user before running anything that sends, writes, or deletes.
+   Sample every tool family the page will use, not just the first one.
+7. **Build the page on the session helper.** Copy the helper in
+   [Calling a connector attached to the site](#calling-a-connector-attached-to-the-site)
+   whole, and write each section against the response you saw rather
+   than the response you expected. Isolate the sections: one failing
+   call should leave the rest of the page rendered.
+8. **Verify by opening the page.** Sampling proved the connector. It
+   proves nothing about the site's access mode, the visitor's session,
+   or the edge — so fetch the deployed URL and read what came back.
+   Tiles showing `undefined` or `NaN` mean the parse assumption was
+   wrong, not that the connector failed.
+9. **Share it.** Report the URL, say it is private and who can reach
+   it, and offer to email it to named people — see
+   [Sharing it wider](#sharing-it-wider). Say once more, plainly, that
+   everyone who can open the page can call the connector.
+
+### What a connector's answer looks like
+
+Five facts about tool results. Each one has broken a page that skipped
+step 6.
+
+- **The answer is text in blocks.** A result carries `content[]`;
+  every text block joins with newlines into one string. The `isError`
+  flag beside it says the connector refused rather than answered, and
+  it is a flag on a successful response — not a thrown error, not a
+  non-200. Check it explicitly.
+- **The text is usually a markdown table, not JSON.** Parse the table;
+  do not call `JSON.parse` on it. Some servers also publish
+  `structuredContent`, and that is the better thing to read when it is
+  there — but most publish none, so do not build on it until a sample
+  shows it.
+- **Some servers are a single meta-tool.** `tools/list` returns one
+  name, and the real query goes in one string argument — a `command`
+  or `query` field carrying a whole expression. The schema looks
+  trivial and the tool is not.
+- **Session conformance is not credential scope.** A server can
+  complete the handshake, publish twenty tools, and still answer 401
+  on every tool the stored credential's scope does not cover.
+  `list_site_connectors` reports the handshake, not the scope. Only a
+  call per tool family finds this, which is why step 6 says every
+  family.
+- **An unknown tool answers; it does not fail.** A misspelled tool
+  comes back with `is_error` set and the connector's own sentence
+  naming what it did not recognize. `valet connectors call` prints
+  that sentence to stdout and exits 1. Read the sentence — it is
+  usually the fix.
+
+**A worked page ships beside this file.**
+[`examples/system-health.html`](examples/system-health.html) is a
+complete, working reference: the session helper verbatim, two data
+sections that fail independently, a hand-rolled SVG bar chart, a
+markdown-pipe-table parser feeding an HTML table, and a closing section
+explaining the mechanism to whoever opens the page. Its comment header
+names the three things to replace.
+
 ## Calling a connector attached to the site
 
 A site can hold connector attachments the same way an agent does — an
@@ -356,18 +503,9 @@ reach, including whatever it can write, not a per-viewer slice of it.
 Say that plainly to whoever is attaching one; it is not a hidden
 detail, and there is no narrower option in this version.
 
-**Finding a connector.** Discover what the org offers before you
-write a page: `list_attachable_connectors` on the Valet MCP server
-lists exactly the connectors a site can hold — HTTP MCP servers on
-the sse or streamable-http transport — and marks the ones a named
-site already has. On the CLI, `valet connectors list --sites` is the
-same filter. Attach with `attach_site_connector` or `valet connectors
-attach <name> --site <site>`, then read `list_site_connectors` (or
-`valet sites info`): it reports each attachment's live tools and
-their schemas, which is the moment to write the page's calls —
-guessing a schema produces a page that fails on its first click. The
-attach paths refuse a connector no page could call, so anything the
-discovery list offers will attach; anything it omits will not.
+[Build a page on live data](#build-a-page-on-live-data) is how a
+connector gets attached in the first place. This section is the page's
+half of the contract, once one is.
 
 Once a connector is attached, its tools are reachable same-origin at
 `/__valet/mcp/<connector-name>` on the site's own hostname — no
