@@ -317,6 +317,13 @@ valet connectors create mcp-server <name> \
   --header Authorization={{API_TOKEN}}
 ```
 
+**OAuth-protected servers** need no credential flags. Valet discovers the server's authorization endpoints, creates the connector pending, opens your browser, and waits for the grant:
+
+```
+valet connectors create mcp-server research --org acme \
+  --transport streamable-http --url https://mcp.example.com/mcp
+```
+
 **Command connectors** wrap CLI tools. They require `--command` and accept `--secrets` (comma-separated secret names injected at runtime).
 
 **Naming rule**: Name the connector after the CLI command the agent will type. The connector name becomes the executable on the agent's PATH, so it must match the command exactly. For tools installed via npx, the CLI command may differ from the npm package name — always use the CLI command.
@@ -351,7 +358,7 @@ valet connectors [--org <org>] [--agent <agent>]
 valet connectors info <name>
 ```
 
-`valet connectors info` shows name, type, transport, command, args, URL, env, headers, secrets (for connectors with `--secrets` configured), and catalog origin.
+`valet connectors info` shows name, type, transport, status, command, args, URL, env, headers, secrets (for connectors with `--secrets` configured), and catalog origin. Status is `active` or `pending`; a pending connector is still waiting for its OAuth authorization, and its tool calls fail until the grant lands. Connectors that hold credentials also show an auth status (`pending`, `active`, `needs_reauth`, or `revoked`) and, when a grant broke, the provider's reason. Run `valet connectors reauthorize <name>` to restore one.
 
 ### Destroy a connector
 

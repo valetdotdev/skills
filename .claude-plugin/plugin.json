@@ -1,6 +1,6 @@
 {
   "name": "valet",
-  "version": "0.7.11",
+  "version": "0.7.12",
   "description": "Publish pages to a live URL you own, and build, deploy, and run skilled AI agents from your terminal.",
   "author": {
     "name": "Valet",
