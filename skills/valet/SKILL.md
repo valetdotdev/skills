@@ -165,7 +165,7 @@ Sources for `--from`:
 
 Use `--attach-connector` and `--attach-channel` to wire org-scoped resources to the agent at creation time (repeatable flags).
 
-When using `--from <local-path>`, the CLI pushes your project source to code.storage without creating `.git` or `.gitignore` inside your directory. Agent directories nested in a monorepo can be staged and committed normally — no manual cleanup needed.
+When using `--from <local-path>`, the CLI pushes your project source without creating `.git` or `.gitignore` inside your directory. Agent directories nested in a monorepo can be staged and committed normally — no manual cleanup needed.
 
 ### Manifest inline channels (cron, heartbeat, and mcp)
 
@@ -206,6 +206,20 @@ valet deploy [-a <name>] [--org <org>] [--no-wait]
 The target follows the standard resolver (flags → project link → default org). Inside a linked directory, both agent and org come from the link; passing `--agent` or `--org` overrides the link entirely.
 
 The command reports progress through each step of the deploy pipeline. If the agent has pending connector installs or channel attachments that must be completed before deployment, the command exits with a clear error describing the required configuration.
+
+#### What deploy uploads
+
+`valet deploy` uploads **every regular file under the directory**, recursively. It skips only `.git` and `.valet`. There is no ignore file.
+
+Check the directory before deploying:
+
+```
+find . -type f -size +1M -not -path './.git/*' -not -path './.valet/*'
+```
+
+An agent bundle is prose and small config: `SOUL.md`, `channels/*.md`, skills, `valet.yaml`. If the directory is also a build tree, move the agent files into their own directory and deploy that. A single file over 25 MiB fails the deploy, after the whole upload has already gone over the wire.
+
+The same walk backs `valet agents create` and `valet drafts push`.
 
 ### List agents
 
