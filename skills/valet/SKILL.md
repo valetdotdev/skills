@@ -217,7 +217,7 @@ Check the directory before deploying:
 find . -type f -size +1M -not -path './.git/*' -not -path './.valet/*'
 ```
 
-An agent bundle is prose and small config: `SOUL.md`, `channels/*.md`, skills, `valet.yaml`. If the directory is also a build tree, move the agent files into their own directory and deploy that. A single file over 25 MiB fails the deploy, after the whole upload has already gone over the wire.
+An agent bundle is prose and small config: `SOUL.md`, `channels/*.md`, skills, `valet.yaml`. If the directory is also a build tree, move the agent files into their own directory and deploy that. A single file over 25 MiB is refused before anything uploads — deploy names the file and exits 1.
 
 The same walk backs `valet agents create` and `valet drafts push`.
 
