@@ -10,7 +10,7 @@
     {
       "name": "valet",
       "displayName": "Valet",
-      "version": "0.7.21",
+      "version": "0.7.22",
       "source": "./",
       "description": "Publish files and artifacts to a live URL you own, and build, deploy, and run skilled AI agents from your terminal.",
       "homepage": "https://valet.dev",

@@ -333,6 +333,14 @@ selectors matched. Before publishing, render the page at 390px and verify
 document.documentElement.clientWidth`. Nobody is going to fix the page
 after it deploys.
 
+**Clear the host dock when the page scrolls.**
+Valet may place a bottom-center dock over the published page. When the page
+scrolls vertically, give its main scroll container bottom padding or equivalent
+clearance of about `calc(6rem + env(safe-area-inset-bottom))` so the final
+content can scroll fully above the dock. Do not introduce scrolling solely to
+create this clearance. For fixed-height or slide-like artifacts, keep essential
+content and controls away from the bottom center when the composition allows.
+
 ### Write a complete HTML document
 
 If you generated the page yourself, write the whole document —
