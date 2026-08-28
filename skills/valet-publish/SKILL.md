@@ -171,38 +171,169 @@ cd ~/reports/migration-audit
 
 Then list the directory and read what is in it before deploying.
 
+## Choose the artifact and treatment
+
+Honor the deliverable and constraints the user names. If the user asks
+for an essay, slide deck, dashboard, marketing page, PDF, or file set,
+that fixes the artifact form. Otherwise choose the form from the
+audience, job, and source material before you design it. A request for a
+live URL chooses delivery; it does not imply one long scrolling page.
+
+Calibrate the treatment, not whether to design. An audit deserves the
+same craft as a launch page, but it rarely needs the same drama. A
+utilitarian artifact benefits from clear hierarchy, considered spacing,
+and direct access to the answer. An editorial or persuasive artifact
+can carry a stronger point of view. Let the subject, audience, and job
+decide rather than reaching for a stock composition.
+
+Write a short design plan before building. Name:
+
+- **Artifact** — the form you will publish.
+- **Audience** — who will read, scan, present, or use it.
+- **Job** — what that person should learn, decide, or do.
+- **Treatment** — the degree and kind of visual expression.
+- **Organizing idea** — the principle that gives the material order.
+- **Dominant visual move** — the one compositional choice that carries
+  the treatment.
+
+Record palette, type, or layout choices only when the chosen artifact or
+the organization's identity needs them. Build from the plan, but revise
+it when the content proves a choice wrong.
+
 ## Follow the design system
 
-Before you build or substantially rewrite a page, call the
-`get_design_system` tool and follow what it returns — its palette, type
-scale, spacing, and layout. The plugin ships this tool alongside this
-skill, so it is available. For an account publish, omit `anonymous` so
-the MCP client connects when needed and reads the org's skill. For an
-explicitly anonymous publish, pass `anonymous: true`; no org is
-consulted and the Valet default is returned. Never pass `org_name` with
-`anonymous: true`.
+Before you build or substantially rewrite an artifact, call the
+`get_design_system` tool. The plugin ships this tool alongside this
+skill. For an account publish, omit `anonymous` so the MCP client
+connects when needed and reads the organization's skill. For an
+explicitly anonymous publish, pass `anonymous: true`; no organization
+is consulted and the Valet default is returned. Never pass `org_name`
+with `anonymous: true`.
 
 The CLI and MCP server use separate credentials. A successful
 `valet auth login` proves only that the CLI is connected. Let an
 account-first MCP call start the connector's OAuth flow when needed.
 
-If the tool is unreachable, fall back to a structural baseline: set
-running text in a centered column about 40rem wide, letting a wide table
-or a card grid break out to about 66rem; use a clear type scale with
-generous line-height and tight headings; space paragraphs by 1rem and
-sections by 3rem or more from a single 0.25rem scale; keep strong
-contrast between text and background; use the system font stack; and
-support light and dark through `prefers-color-scheme`. Keep depth faint —
-a hairline border and at most a soft shadow — and use one accent color
-for links and primary actions.
+The returned document supplies identity where it speaks: recognizable
+color and type roles, material, rhythm, imagery, data treatment, motion,
+or other signals. It does not choose the artifact or prescribe one
+universal structure. Apply it to the artifact you chose; do not turn its
+examples into mandatory anatomy.
 
-Precedence, when these compete: what the user asked for on this page wins;
-the organization's design system wins wherever it speaks; the default
-fills the rest. Apply this when you create or substantially rewrite a
-page. A finished file the user supplies is published unchanged, never
+Use this decision order when guidance competes:
+
+1. Honor the requested deliverable and explicit constraints.
+2. Let artifact guidance choose form, treatment, structure, and
+   interaction where the user left them open.
+3. Apply safety, accessibility, and medium correctness.
+4. Express the organization identity wherever its document speaks.
+5. Use artifact guidance and model judgment for every remaining choice.
+
+`get_design_system` returns one document. If it returns an organization
+system, do not layer the Valet default beneath it. If the organization
+document leaves a choice open, that choice stays open to the artifact
+and your judgment. If the tool is unreachable, continue without
+claiming an organization identity; do not invent one.
+
+A finished file the user supplies is published unchanged, never
 restyled.
 
-## Write a complete HTML document
+## Build the artifact well
+
+These principles apply to any artifact you create or substantially
+rewrite.
+
+**Make hierarchy answer the job.** Put the useful thing first. Give
+each section, panel, or sequence one purpose. Let scale, contrast,
+position, and pacing show what matters before decoration does.
+
+**Match structure to material.** Use prose for explanation, a table for
+comparison, a chart for a quantitative relationship, and repeated
+containers only for genuinely parallel items. Do not manufacture
+content to complete a layout.
+
+**Protect content integrity.** Preserve the source's facts, meaning,
+uncertainty, and voice unless the user asks for editorial changes.
+Never invent numbers, categories, quotations, examples, or conclusions
+to fill a composition.
+
+**Let visual signals mean something.** Numbered markers, eyebrows,
+dividers, labels, color, and motion should encode a real sequence,
+category, state, or emphasis. Used as ornament, they tell the audience
+something false.
+
+**Avoid the generated house style.** Where the user or design system
+pins a direction, follow it. Elsewhere avoid reflexive cream-and-serif,
+near-black with acid green, purple-to-blue gradients, familiar safe
+fonts, emoji markers, centered everything, and the same rounded card
+repeated through the artifact. Make choices from this subject.
+
+Apply medium craft only to the medium you chose:
+
+- **Essay or editorial report:** protect reading measure, argument
+  order, citations, and the rhythm between prose and evidence.
+- **Slide deck or narrative sequence:** design a sequence of distinct
+  beats, control density per frame, and make each frame legible at
+  presentation distance.
+- **Dashboard:** optimize for scanning, comparison, state, and action.
+  When it reads live data, follow
+  [What a dashboard owes the reader](#what-a-dashboard-owes-the-reader).
+- **Marketing surface:** make the promise, proof, and primary action
+  clear without inventing claims or padding the page.
+
+## If the artifact is HTML
+
+The guidance in this section applies only when you generate or
+substantially rewrite HTML. Other artifact forms use their own medium's
+technical and accessibility requirements.
+
+### Build the HTML well
+
+**Make both themes work.** Define the whole light palette as custom
+properties on a bare `:root`, then redefine *only those properties*
+inside `@media (prefers-color-scheme: dark)`, and style every component
+through them. A color whose only declaration sits inside the media block
+never applies in light mode, and the page renders one theme's text on
+the other theme's background — the most common way a published page
+comes out unreadable. Set `color-scheme: light dark` so form controls
+and scrollbars follow, and give `body` an explicit background from a
+property rather than leaving it transparent. A page that deliberately
+commits to one look may skip the dark block, but it still declares every
+color explicitly.
+
+**Let the type carry the page.** Keep running text near 65 characters
+wide, set a type scale and stay on it, give headings `text-wrap:
+balance`, and give uppercase labels a little letter-spacing. A Valet
+site is a plain static site with no content-security policy of its own,
+so a typeface may come from any host — or, better, ship in the published
+directory behind a `@font-face` rule, which keeps the page working when
+a font host does not and tells no third party who read it. Declare a
+real fallback stack either way.
+
+**Let layout do the spacing.** Lay sibling groups out with flex or grid
+and `gap` rather than per-element margins that collapse or double. Give
+wide content — tables, code blocks, diagrams — `overflow-x: auto` on a
+container of its own, so the body never scrolls sideways on a phone. When a
+local scroller is necessary, show a visible cue when more content is available;
+a clipped edge alone can look broken. Preserve essential identifying context.
+For a table, keep the identifying column visible when practical or use another
+narrow-screen representation. Use `font-variant-numeric: tabular-nums`
+wherever digits line up in a column. Flex and grid children default to their
+content's minimum width. Give a child that contains wide content `min-width:
+0`, and define flexible grid tracks as `minmax(0, 1fr)` rather than `1fr`.
+Watch selector specificity: a type-level rule and an element-level rule
+fighting over the same padding is how spacing silently undoes itself.
+
+**Make it usable.** Give keyboard focus a visible state, honor
+`prefers-reduced-motion`, close every non-void element, and quote every
+attribute. Inspect computed foreground and background colors, then verify
+rendered text contrast on every surface; safe tokens do not prove the intended
+selectors matched. Before publishing, render the page at 390px and verify
+`document.documentElement.scrollWidth <=
+document.documentElement.clientWidth`. Nobody is going to fix the page
+after it deploys.
+
+### Write a complete HTML document
 
 If you generated the page yourself, write the whole document —
 `<!doctype html>`, `<html>`, `<head>` with `<meta charset>` and
@@ -216,10 +347,26 @@ fragment for you. A fragment deployed here renders in quirks mode
 with default styling and no mobile scaling — it looks broken, and the
 cause is invisible in the source you wrote.
 
+Three more habits from those tools do not transfer, and each fails
+quietly:
+
+- **No reset arrives.** A built-in artifact host injects a small CSS
+  reset ahead of your styles. Valet injects nothing, so a page that
+  leaned on one keeps its doctype and still comes out with default
+  margins, list padding, and heading sizes. Write the reset you need.
+- **Markdown is served, not rendered.** A `.md` file published here is a
+  file at a URL: the browser shows plain text or downloads it. There is
+  no renderer. Publish HTML when you want a page.
+- **Nothing stamps a theme onto the page.** A selector like
+  `[data-theme="dark"]` on the root element is an artifact host's
+  convention. Here the page owns `<html>` and no host writes to it, so
+  `prefers-color-scheme` decides the theme — unless the page ships a
+  toggle that stamps the attribute itself.
+
 Name it `index.html` at the site root, or visitors get a file listing
 instead of the page.
 
-## Make links unfurl well
+### Make links unfurl well
 
 Put social-preview metadata near the start of every generated page's
 `<head>`, before large style or script blocks. Slack fetches only the
@@ -282,6 +429,15 @@ to agents. Keep `display_name` and the page's own `<title>` saying the
 same thing — they are the same claim in two places, and a reader who
 sees them disagree cannot tell which is current.
 
+Write `display_name` as a name rather than a caption: a short noun
+phrase, usually two to four words, specific enough that someone scanning
+a list of sites can tell which one it is. Stop at the name — a title
+carrying its own explainer after a dash or a colon reads as filler, and
+`description` is where that sentence belongs. When a candidate pairs
+something specific with something generic, keep the specific half:
+`Q3 Migration Audit` survives the trim, `Status Dashboard` could sit on
+any site in the org.
+
 `valet deploy` reads the file and labels the site with it in the
 dashboard and in `valet sites`. **The file itself is never published**:
 it is skipped on upload, so it does not appear at
@@ -304,20 +460,21 @@ it describes, and the next deploy republishes it either way.
 
 ## Write for the reader
 
-Apply this guidance when you create or substantially rewrite a page.
-Publish finished files supplied by the user unchanged. When the user
-asks you to transform source material, preserve its facts, meaning, and
-voice unless they ask for editorial changes.
+Apply this guidance when you create or substantially rewrite an
+artifact. Here, "reader" means the person who will read, scan, present,
+or use it. Publish finished files supplied by the user unchanged. When
+the user asks you to transform source material, preserve its facts,
+meaning, and voice unless they ask for editorial changes.
 
-Before choosing a layout, identify what the reader came to learn or do.
-Let that purpose determine the page's order and structure.
+Before choosing a structure, identify what the reader came to learn or
+do. Let that purpose determine the artifact's order and composition.
 
 - **Put the useful thing first.** Lead with the finding in an analysis,
   the current state on a status page, or the primary action in a tool.
   Skip preambles and descriptions of what the page intends to cover.
-- **Give every section one job.** Add a section only when it answers a
-  distinct question. Do not add summaries, takeaways, or conclusions
-  that merely repeat material already on the page.
+- **Give every part one job.** Add a section, panel, or frame only when
+  it answers a distinct question. Do not add summaries, takeaways, or
+  conclusions that merely repeat material already present.
 - **Match the structure to the material.** Use prose for an explanation,
   a table for comparison, a chart for a quantitative relationship, and
   cards for genuinely parallel items. Do not manufacture content to
@@ -337,14 +494,14 @@ Let that purpose determine the page's order and structure.
   headings, and emoji unless they suit the source material or the user
   asks for them.
 
-Before publishing, remove every sentence, section, chart, and card that
-does not answer the reader's question, support the answer, provide
-necessary context, or enable an action.
+Before publishing, remove every sentence, section, frame, chart, and
+card that does not answer the reader's question, support the answer,
+provide necessary context, or enable an action.
 
-Match the page's length to its substance. If you chose to create a page
-but the result would work better as a short conversational answer, do
-that instead. If the user explicitly asked for a URL, publish the
-concise page without padding it.
+Match the artifact's length to its substance. If the result would work
+better as a short conversational answer, do that instead. If the user
+explicitly asked for a URL, publish a concise artifact without padding
+it or forcing it into one long page.
 
 ## Build a page on live data
 
@@ -453,6 +610,29 @@ nine steps.
    it, and offer to email it to named people — see
    [Sharing it wider](#sharing-it-wider). Say once more, plainly, that
    everyone who can open the page can call the connector.
+
+### What a dashboard owes the reader
+
+A dashboard is scanned, not read, so the craft moves from prose to
+information design.
+
+- **Answer first, detail under it.** Lead with the state of the thing,
+  in one line a reader can act on, and put the tables and series below.
+- **Encode state in form, not only in number.** A pill, a chip, a
+  colored stripe — what needs attention should be findable without
+  reading a figure.
+- **Keep semantic color separate from the accent.** Good, warning, and
+  critical are a vocabulary of their own. Spend the accent on them and
+  the page can no longer say "this is fine" and "this is the primary
+  action" at the same time.
+- **Give a chart the same care as the type.** A faint grid, an
+  emphasized endpoint, labeled units, and an axis that starts where the
+  data says it should. A chart that exaggerates a change is worse than
+  the table it replaced.
+- **Say when the numbers are from.** Live data has a timestamp, and a
+  reader who cannot see it cannot tell a stale page from a quiet one.
+  Render the fetch time, and say plainly when a section failed instead
+  of leaving it blank.
 
 ### What a connector's answer looks like
 

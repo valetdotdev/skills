@@ -80,9 +80,18 @@
         border: 1px solid var(--line);
         border-radius: 0.5rem;
         padding: 1.25rem;
+      }
+      .table-scroll {
         overflow-x: auto;
       }
+      .scroll-cue {
+        color: var(--muted);
+        font-size: 0.85rem;
+        margin: 0 0 0.5rem;
+      }
+      .scroll-cue[hidden] { display: none; }
       .status { color: var(--muted); font-size: 0.9rem; margin: 0; }
+      .stamp { color: var(--muted); font-size: 0.85rem; margin: 0.75rem 0 0; }
       .failed { color: var(--warn); font-size: 0.9rem; margin: 0; }
       .failed code { word-break: break-word; }
       table { border-collapse: collapse; width: 100%; font-size: 0.95rem; }
@@ -92,6 +101,11 @@
         border-bottom: 1px solid var(--line);
       }
       th { font-weight: 600; color: var(--muted); }
+      th:first-child, td:first-child {
+        position: sticky;
+        left: 0;
+        background: var(--bg);
+      }
       td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
       svg { display: block; width: 100%; height: auto; }
       .bar { fill: var(--bar); }
@@ -290,6 +304,16 @@
         return Number.isFinite(value) ? value : null;
       }
 
+      // A reader cannot tell a stale page from a quiet one unless the
+      // page says when it read the numbers.
+      function readAt() {
+        return new Date().toLocaleTimeString([], {
+          hour: "2-digit",
+          minute: "2-digit",
+          timeZoneName: "short",
+        });
+      }
+
       function escapeHTML(value) {
         return String(value).replace(
           /[&<>"']/g,
@@ -330,8 +354,26 @@
               "</tr>",
           )
           .join("");
-        return `<table><thead><tr>${head}</tr></thead><tbody>${body}</tbody></table>`;
+        return (
+          '<div class="table-block">' +
+          '<p class="scroll-cue" hidden>Scroll horizontally for more columns →</p>' +
+          '<div class="table-scroll" tabindex="0" role="region" ' +
+          'aria-label="Scrollable data table">' +
+          `<table><thead><tr>${head}</tr></thead><tbody>${body}</tbody></table>` +
+          "</div></div>"
+        );
       }
+
+      function updateOverflowCue(scroller) {
+        const cue = scroller.previousElementSibling;
+        cue.hidden = scroller.scrollWidth <= scroller.clientWidth + 1;
+      }
+
+      function updateOverflowCues(container = document) {
+        container.querySelectorAll(".table-scroll").forEach(updateOverflowCue);
+      }
+
+      window.addEventListener("resize", () => updateOverflowCues());
 
       // renderChart renders a two-column pipe table — a label and a
       // number — as a hand-rolled SVG bar chart. No chart library: a
@@ -402,7 +444,10 @@
         const panel = document.getElementById(section.id);
         try {
           const text = await callTool(section.tool, section.args);
-          panel.innerHTML = section.render(text);
+          panel.innerHTML =
+            section.render(text) +
+            `<p class="stamp">Read ${escapeHTML(readAt())}</p>`;
+          requestAnimationFrame(() => updateOverflowCues(panel));
         } catch (error) {
           panel.innerHTML =
             '<p class="failed">This section could not load: ' +
