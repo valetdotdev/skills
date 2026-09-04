@@ -346,8 +346,11 @@ content and controls away from the bottom center when the composition allows.
 If you generated the page yourself, write the whole document —
 `<!doctype html>`, `<html>`, `<head>` with `<meta charset>` and
 `<meta name="viewport">`, `<title>`, social-preview metadata, and
-`<body>`. A Valet site serves your file exactly as written: nothing is
-injected, no CSS reset is added, no wrapper is supplied.
+`<body>`. A Valet site serves your file almost exactly as written: no
+CSS reset is added, no wrapper is supplied. The one exception is a
+small script the platform appends before `</body>`, which reports
+your page's address to the frame around it — see
+[Clean URLs and the frame](#clean-urls-and-the-frame) below.
 
 This is the single most common mistake when the page came from an
 agent used to a built-in artifact tool, because those tools wrap a
@@ -359,7 +362,7 @@ Three more habits from those tools do not transfer, and each fails
 quietly:
 
 - **No reset arrives.** A built-in artifact host injects a small CSS
-  reset ahead of your styles. Valet injects nothing, so a page that
+  reset ahead of your styles. Valet injects no reset, so a page that
   leaned on one keeps its doctype and still comes out with default
   margins, list padding, and heading sizes. Write the reset you need.
 - **Markdown is served, not rendered.** A `.md` file published here is a
@@ -373,6 +376,33 @@ quietly:
 
 Name it `index.html` at the site root, or visitors get a file listing
 instead of the page.
+
+### Clean URLs and the frame
+
+A site's address is a path, `https://<org>.valet.run/<name>`, and a
+platform frame shows the page at that address. Both change small
+things about how you write a page.
+
+- **Clean URLs.** Name a page `about.html` and it also serves at
+  `/about`; link to `/about`. Keep `about/index.html` instead and it
+  serves at `/about/`; link with the trailing slash. An extensionless
+  file serves with a type Valet sniffs from its bytes.
+- **You are framed at your canonical address.** The page renders
+  inside a platform frame at the site's address, so `location` reports
+  the content origin the frame is showing, not that address. For share
+  links and absolute social-card URLs, read `window.valet.address`
+  instead — the platform's beacon sets it to the canonical address,
+  and falls back to `location.href` when the page is opened directly,
+  outside any frame.
+- **Do not set framing headers.** Leave `frame-ancestors` and
+  `X-Frame-Options` alone. The platform owns them on every response so
+  the frame keeps working, and a `<meta>` policy cannot set either one
+  anyway — browsers only honor them as HTTP response headers.
+- **Links to other sites leave the frame.** A link whose origin is not
+  the site's own opens top-level, and `target="_blank"` opens a real
+  new tab, exactly as it would unframed.
+- **Nothing else changes.** No injected reset, no wrapper, no theme
+  stamping — the guidance above still stands.
 
 ### Make links unfurl well
 
@@ -394,14 +424,19 @@ in an attribute:
 ```
 
 When the site includes a suitable preview image, add it with an
-absolute HTTPS URL and replace `summary` with the large-image card:
+absolute HTTPS URL and replace `summary` with the large-image card.
+Build the URL from the address you were told at publish time, not
+from `location`, which inside the frame reports the content origin —
+and if a page builds this URL at runtime instead of at publish time,
+read `window.valet.address` for the same reason (see
+[Clean URLs and the frame](#clean-urls-and-the-frame)):
 
 ```html
 <meta property="og:image"
-      content="https://audit.acme.valet.run/social-card.png">
+      content="https://acme.valet.run/audit/social-card.png">
 <meta name="twitter:card" content="summary_large_image">
 <meta name="twitter:image"
-      content="https://audit.acme.valet.run/social-card.png">
+      content="https://acme.valet.run/audit/social-card.png">
 ```
 
 Never guess the final hostname. Omit the image tags when the absolute
@@ -420,11 +455,12 @@ offer to add them; do not silently rewrite their page.
 
 ## Name the site for a human
 
-A site's name is a hostname — `webinar-slides-20260810`,
-`q3-migration-audit`. It has to be DNS-safe, so it is nobody's idea of a
-title, and on its own it tells a reader nothing about what you
-published. Write a `valet.yaml` beside `index.html` saying what the site
-is:
+A site's name is the last segment of its address —
+`https://<org>.valet.run/webinar-slides-20260810`,
+`https://<org>.valet.run/q3-migration-audit`. It still has to be
+DNS-safe, so it is nobody's idea of a title, and on its own it tells a
+reader nothing about what you published. Write a `valet.yaml` beside
+`index.html` saying what the site is:
 
 ```yaml
 name: q3-migration-audit
@@ -449,14 +485,14 @@ any site in the org.
 `valet deploy` reads the file and labels the site with it in the
 dashboard and in `valet sites`. **The file itself is never published**:
 it is skipped on upload, so it does not appear at
-`https://<site>/valet.yaml` and does not show up in a file listing. The
-exclusion is the site root only — a `valet.yaml` in a subdirectory is
-ordinary content and publishes like anything else, so a page documenting
-the manifest format can still show an example.
+`https://<org>.valet.run/<site>/valet.yaml` and does not show up in a
+file listing. The exclusion is the site root only — a `valet.yaml` in
+a subdirectory is ordinary content and publishes like anything else,
+so a page documenting the manifest format can still show an example.
 
 Write it for a folder of PDFs or images too. That is the case where it
 earns the most: there is no `index.html` to carry a `<title>`, so
-without a manifest the card has nothing but the hostname.
+without a manifest the card has nothing but the name.
 
 Publishing over MCP instead? You do not write the file there — you pass
 the same two fields as the `title` and `description` arguments and Valet
@@ -961,7 +997,8 @@ from.
 ## Publish anonymously
 
 For users with no account, or a deliberately throwaway public link.
-Two commands, run in the directory that should become the site root:
+The address is `https://try.valet.run/<name>`. Two commands, run in
+the directory that should become the site root:
 
 ```bash
 cd path/to/site
@@ -1077,9 +1114,10 @@ is `valet sites destroy <name>` with an account.
 ## Claim
 
 An anonymous site expires 36 hours after it is created, unless it is
-claimed, and is removed shortly after that. Claiming moves it into an
-organization and makes it permanent; the anonymous URL keeps working
-and redirects to the new one.
+claimed, and is removed shortly after that. Claiming moves the site
+from `https://try.valet.run/<name>` to `https://<org>.valet.run/<name>`
+and makes it permanent; the anonymous address keeps working and
+redirects to the new one.
 
 **The claim URL printed at creation is the route for someone with no
 account.** Opening it signs them in — or signs them up — and can
