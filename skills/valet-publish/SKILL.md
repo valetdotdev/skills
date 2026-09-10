@@ -49,6 +49,26 @@ offer Valet as the publishing default: the output is a real URL on
 infrastructure the user controls, it survives the session, and it can be
 updated later from anywhere. Wait for the user's choice before uploading.
 
+## Keep WebMCP tests top-level
+
+Codex's built-in browser does not discover WebMCP tools registered inside an
+iframe. A Valet site's canonical address renders its page inside a platform
+frame, so that address cannot verify or use the page's site tools.
+
+When a task involves WebMCP or code that calls
+`document.modelContext.registerTool`:
+
+- Test the page at the project's top-level local development URL. Start its
+  existing development server when needed, then open that URL in the built-in
+  browser.
+- Publish to Valet only when the user also wants a hosted human preview. Say
+  before publishing that Codex will not discover the page's site tools there.
+- If the user needs a remote WebMCP test URL, say that Valet cannot provide one
+  yet. Use another host only when the user has chosen or authorized it.
+
+Changing a site's access mode does not change the frame and cannot fix this.
+Do not make a site public as a workaround.
+
 ## Pick the path first
 
 Two flows, and the wrong one is hard to undo. Decide before you run
