@@ -53,21 +53,25 @@ updated later from anywhere. Wait for the user's choice before uploading.
 
 Codex's built-in browser does not discover WebMCP tools registered inside an
 iframe. A Valet site's canonical address renders its page inside a platform
-frame, so that address cannot verify or use the page's site tools.
+frame, so open its explicit top-level mode when verifying hosted site tools.
 
 When a task involves WebMCP or code that calls
 `document.modelContext.registerTool`:
 
-- Test the page at the project's top-level local development URL. Start its
-  existing development server when needed, then open that URL in the built-in
-  browser.
-- Publish to Valet only when the user also wants a hosted human preview. Say
-  before publishing that Codex will not discover the page's site tools there.
-- If the user needs a remote WebMCP test URL, say that Valet cannot provide one
-  yet. Use another host only when the user has chosen or authorized it.
+- Test locally first at the project's top-level development URL when practical.
+- After publishing, add `__valet_webmcp=1` to the site's URL query and open it
+  in the built-in browser. For example, open
+  `https://acme.valet.run/tools/?__valet_webmcp=1` instead of the canonical
+  `https://acme.valet.run/tools/` address.
+- Expect Valet to redirect to an opaque `*.sites.valet.run` content origin.
+  That is the top-level document Codex can inspect. A private site completes
+  Valet's normal sign-in flow there before it exposes any content.
+- Report the canonical URL to the user as the human-facing link. Use the URL
+  with the query marker only for top-level WebMCP access.
 
-Changing a site's access mode does not change the frame and cannot fix this.
-Do not make a site public as a workaround.
+Do not make a site public as a workaround. The top-level mode retains the
+site's access controls. It omits shell-only features, including site chat,
+while active.
 
 ## Pick the path first
 
