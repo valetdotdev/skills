@@ -606,7 +606,7 @@ separate model command, and the manifest does not carry one — if the
 user asks to switch an agent to a different model, this is the answer.
 
 ```
-valet ps scale agent=glm-5.2                 # Change model, keep the count
+valet ps scale agent=glm-5.3                 # Change model, keep the count
 valet ps scale agent=0                       # Stop the agent, keep the model
 valet ps scale agent=1                       # Start it again
 valet ps scale agent=claude-sonnet-5:1       # Set both at once
@@ -614,7 +614,7 @@ valet ps scale agent=claude-sonnet-5:1       # Set both at once
 
 Pass a single `agent=<value>` pair. The right side is a model ID, a
 process count, or `model:count`. Changing one preserves the other, so
-`agent=glm-5.2` does not stop a running agent and `agent=0` does not
+`agent=glm-5.3` does not stop a running agent and `agent=0` does not
 reset its model.
 
 **An agent's count is 0 or 1 today.** There is no horizontal scaling of
