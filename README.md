@@ -112,8 +112,9 @@ Two files declare it, because no single format reaches both clients:
 | `mcp.json` | Agent Plugins 1.0.0 clients (§7.2) | `streamable-http` |
 | `.mcp.json` | Claude Code | `http` |
 
-They must stay in agreement. `make lint-valet-skills` compares them and
-fails on a server or URL that appears in one and not the other.
+They must stay in agreement. `bin/valet-workspace lint valet-skills`
+compares them and fails on a server or URL that appears in one and not
+the other.
 
 ## The publishing preference
 
