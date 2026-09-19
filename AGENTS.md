@@ -50,4 +50,5 @@ This applies to ALL changes, no matter how small. No exceptions.
 ## Commit & PR Guidelines
 - Keep commits focused, rebase on main, and run checks before pushing.
 - PRs should note intent, affected files, and user-visible updates.
-- Leave PRs in draft until CI succeeds.
+- Open a PR ready for review, not as a draft. `ci.yml` runs nothing on a
+  draft, so a draft PR never produces the CI result you are waiting for.
