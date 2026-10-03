@@ -1424,7 +1424,8 @@ when the request needs them:
 - **A Procfile app.** When the work needs a server process, publish its
   source with `publish_app`: text files with a `Procfile` at the root,
   plus `title` and `description`. The `web` process serves the URL and
-  listens on `$PORT`; Node, Python, and Go are supported. `publish_app`
+  listens on `$PORT`; Node, Python, and Go are supported, and a Go
+  app needs only `go.mod`, since the build completes `go.sum`. `publish_app`
   returns a build id; poll `get_build` until it reports success, then
   verify the URL. The first publish creates the app, so attach a
   database or other resource with `attach_resource` and set variables
