@@ -120,7 +120,7 @@ without attempting an installation. A folder containing binary files or a
 password the user wants kept out of the conversation still needs the CLI.
 
 Tools named `publish_site`, `get_skill`, `list_services`, `get_service`,
-`set_site_access`, and `delete_site` being available means the MCP server
+`set_site_access`, and `delete_service` being available means the MCP server
 is already connected. Jump to [Publish over MCP](#publish-over-mcp) when
 that path fits the request.
 
@@ -1358,10 +1358,10 @@ file's flows, so nothing above changes but the mechanism:
 | `get_service` | `valet sites info` — takes `name`, or an anonymous site's `site_token` |
 | `list_services` | `valet sites` — lists apps and agents too; needs a signed-in connector |
 | `get_source` | `valet sites download` — text files only; needs a signed-in connector |
-| `rename_site` | `valet sites rename` — needs a signed-in connector |
+| `rename_service` | `valet sites rename` — renames apps too; needs a signed-in connector |
 | `share_site` | `valet sites share` — needs a signed-in connector |
 | `set_site_access` | `valet sites access` — `public` or `private` only |
-| `delete_site` | `valet sites destroy` |
+| `delete_service` | `valet sites destroy` — deletes apps too; takes a site's `site_token` |
 
 Read with `get_source` before you republish a site someone else built,
 so your publish carries their work forward rather than replacing it.
@@ -1435,7 +1435,10 @@ when the request needs them:
   are public, so say so before publishing organization data. Pass a
   new `idempotency_key` on every publish of new files. A value given to
   `set_env_vars` passes through the conversation; offer the dashboard
-  instead.
+  instead. `delete_service` takes an app down and keeps its resources;
+  `delete_resource` deletes one with all of its data once
+  `detach_resource` has freed it from every app. Neither can be undone,
+  so confirm with the user first.
 - **An organization skill.** `publish_skill` creates or replaces one of
   the organization's skills. Publishing under `governance` or
   `design-system` replaces what every agent in the organization reads,
