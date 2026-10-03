@@ -109,19 +109,20 @@ down.
 
 This skill drives the `valet` CLI, and the CLI is what you should use.
 It publishes whole directories and binary files from disk, recovers an
-account site's files later, and supports password access. The MCP path can
-publish and update text files, manage account-site sharing and public or
-private access, and update an anonymous site while its token remains in the
-conversation.
+account site's files later, and prompts for a password without echoing
+it. The MCP path can publish and update text files, manage account-site
+sharing and public, private, or password access, and update an anonymous
+site while its token remains in the conversation.
 
 Use the MCP server when the CLI cannot run or the user declines an install.
 If the MCP tools are already connected and support the request, use them
 without attempting an installation. A folder containing binary files or a
-request for password access still needs the CLI.
+password the user wants kept out of the conversation still needs the CLI.
 
-Tools named `publish_site`, `get_site`, `list_sites`, `set_site_access`,
-and `delete_site` being available means the MCP server is already connected.
-Jump to [Publish over MCP](#publish-over-mcp) when that path fits the request.
+Tools named `publish_site`, `get_skill`, `list_services`, `get_service`,
+`set_site_access`, and `delete_site` being available means the MCP server
+is already connected. Jump to [Publish over MCP](#publish-over-mcp) when
+that path fits the request.
 
 Everything between here and the MCP section assumes the CLI.
 
@@ -224,19 +225,41 @@ Record palette, type, or layout choices only when the chosen artifact or
 the organization's identity needs them. Build from the plan, but revise
 it when the content proves a choice wrong.
 
-## Follow the design system
+## Read the organization's governance first
 
-Before you build or substantially rewrite an artifact, call the
-`get_design_system` tool. The plugin ships this tool alongside this
-skill. For an account publish, omit `anonymous` so the MCP client
-connects when needed and reads the organization's skill. For an
-explicitly anonymous publish, pass `anonymous: true`; no organization
-is consulted and the Valet default is returned. Never pass `org_name`
-with `anonymous: true`.
+Before any work, call the `get_skill` tool with `name: governance` and
+follow what it returns. The plugin ships Valet's MCP server, and this
+tool with it, alongside this skill. The governance skill says what the
+organization expects of published work, in what order to work, and
+which other skills to read and when. Read it again before you publish.
+
+An organization may have replaced Valet's version. The result's
+`source` says which you are holding: `org` is the organization's own
+and overrides anything here, and `default` is Valet's. When the
+governance skill names another skill, read it with `get_skill`.
+`list_skills` lists every skill the organization has written. If the
+tool is unreachable, continue, and tell the user you could not read
+the organization's standards.
+
+For an account publish, omit `anonymous` so the MCP client connects
+when needed and reads the organization's skills. For an explicitly
+anonymous publish, pass `anonymous: true`; no organization is consulted
+and Valet's default is returned. Never pass `org_name` with
+`anonymous: true`.
 
 The CLI and MCP server use separate credentials. A successful
 `valet auth login` proves only that the CLI is connected. Let an
 account-first MCP call start the connector's OAuth flow when needed.
+
+## Follow the design system
+
+Before you build or substantially rewrite an artifact, call `get_skill`
+with `name: design-system`, passing `anonymous` exactly as you did for
+governance. It answers with the organization's design system when it
+has written one, and otherwise with the preset the organization chose
+or Valet's default. When `source` is `default` and a `reason` is
+present, the organization's selection could not be honored; say so
+rather than claiming its identity.
 
 The returned document supplies identity where it speaks: recognizable
 color and type roles, material, rhythm, imagery, data treatment, motion,
@@ -253,7 +276,7 @@ Use this decision order when guidance competes:
 4. Express the organization identity wherever its document speaks.
 5. Use artifact guidance and model judgment for every remaining choice.
 
-`get_design_system` returns one document. If it returns an organization
+`get_skill` returns one design system. If it returns an organization
 system, do not layer the Valet default beneath it. If the organization
 document leaves a choice open, that choice stays open to the artifact
 and your judgment. If the tool is unreachable, continue without
@@ -1311,30 +1334,37 @@ that is Settings → Connectors → add a custom MCP server, and the URL is
 the whole of it: the server registers the client itself, so there is no
 client ID or secret to create.
 
-**The MCP path is account-first.** Call `get_design_system` and
-`publish_site` without `anonymous` for a normal publish. If the connector
-is not signed in, that call starts its OAuth flow. An existing CLI login
+**The MCP path is account-first.** Call `get_skill` and `publish_site`
+without `anonymous` for a normal publish. If the connector is not
+signed in, that call starts its OAuth flow. An existing CLI login
 does not authenticate the connector. `org_name` selects one of the
 connected account's orgs; it is not a credential.
 
-Pass `anonymous: true` to both tools only when the user explicitly wants
+Pass `anonymous: true` to both only when the user explicitly wants
 a temporary public site. Do not infer that choice from a missing MCP
 credential. If the user later claims that site in a browser, the claim
 makes the site permanent but does not connect the MCP client. Its next
 account-first call starts OAuth.
 
-Once it is connected, its tools appear in your tool list. Six of them
-map onto this file's flows, so nothing above changes but the
-mechanism:
+Once it is connected, its tools appear in your tool list. Start every
+task the way [Read the organization's governance
+first](#read-the-organizations-governance-first) says: `get_skill` with
+`governance`, then the skills it names. These tools map onto this
+file's flows, so nothing above changes but the mechanism:
 
 | Tool | Replaces |
 |---|---|
 | `publish_site` | `valet sites create` + `valet deploy` |
-| `get_site` | `valet sites info` |
-| `list_sites` | `valet sites` — needs a signed-in connector |
+| `get_service` | `valet sites info` — takes `name`, or an anonymous site's `site_token` |
+| `list_services` | `valet sites` — lists apps and agents too; needs a signed-in connector |
+| `get_source` | `valet sites download` — text files only; needs a signed-in connector |
+| `rename_site` | `valet sites rename` — needs a signed-in connector |
 | `share_site` | `valet sites share` — needs a signed-in connector |
 | `set_site_access` | `valet sites access` — `public` or `private` only |
 | `delete_site` | `valet sites destroy` |
+
+Read with `get_source` before you republish a site someone else built,
+so your publish carries their work forward rather than replacing it.
 
 Six things work differently, and each one changes what you do:
 
@@ -1363,15 +1393,17 @@ Six things work differently, and each one changes what you do:
   updates or deletes *that* site later in the conversation, in place of
   the `.valet/config.json` the CLI would have written. Keep it, pass it
   back on the next call, and treat it as a credential: do not print it,
-  quote it, or commit it. `set_site_access` and `list_sites` do not take
-  one — both need a connected account.
-- **No password access.** `set_site_access` offers `public` and
-  `private` only, deliberately: a password typed here would live in the
-  transcript. If the user wants one, say it needs the CLI rather than
-  making the site public instead.
-- **`share_site` needs a signed-in connector too.** Like `list_sites`
-  and `set_site_access`, there is no anonymous site of your own to
-  share. It takes `name`, `org_name` (optional), `emails` (1 to 10
+  quote it, or commit it. `get_service` takes it too.
+  `set_site_access` and `list_services` do not — both need a connected
+  account.
+- **Password access passes the password through the conversation.**
+  `set_site_access` accepts `mode: password` with a `password` argument
+  (at most 72 bytes), and the password then lives in the transcript. Tell
+  the user that, and offer the CLI when they would rather type it at a
+  prompt. Never make the site public instead.
+- **`share_site` needs a signed-in connector too.** Like
+  `list_services` and `set_site_access`, there is no anonymous site of
+  your own to share. It takes `name`, `org_name` (optional), `emails` (1 to 10
   addresses), `message` (optional, capped at 500 characters), and the
   two deadlines as integer seconds — `expires_in_seconds` and
   `access_ttl_seconds` — rather than the CLI's duration strings.
@@ -1383,6 +1415,32 @@ applies here too.
 
 Report the URL, the visibility, and — for an anonymous site — the
 expiry and the claim URL, exactly as you would from the CLI.
+
+### Apps and skills over MCP
+
+The same server publishes more than static sites. Reach for these only
+when the request needs them:
+
+- **A Procfile app.** When the work needs a server process, publish its
+  source with `publish_app`: text files with a `Procfile` at the root,
+  plus `title` and `description`. The `web` process serves the URL and
+  listens on `$PORT`; Node, Python, and Go are supported. `publish_app`
+  returns a build id; poll `get_build` until it reports success, then
+  verify the URL. The first publish creates the app, so attach a
+  database or other resource with `attach_resource` and set variables
+  with `set_env_vars` after it; each restarts the app with its new
+  variables. `list_resource_catalog` names the providers and the
+  variables each sets, so read it before writing the app's code, and
+  write the app to start without them and say what is missing. Apps
+  are public, so say so before publishing organization data. Pass a
+  new `idempotency_key` on every publish of new files. A value given to
+  `set_env_vars` passes through the conversation; offer the dashboard
+  instead.
+- **An organization skill.** `publish_skill` creates or replaces one of
+  the organization's skills. Publishing under `governance` or
+  `design-system` replaces what every agent in the organization reads,
+  so do it only when the user asked to change how the organization
+  works, and show them the content first.
 
 Use this skill for every static-site publish, including permanent account
 sites. Use the `valet` skill to create or deploy an AI agent.

@@ -87,23 +87,29 @@ own hook system is wired up.
 The plugin also declares Valet's own MCP server at
 `https://api.valet.dev/mcp`, so installing it wires up the network path
 alongside the skills. The server registers the client itself. A normal
-publish starts the connector's OAuth flow when needed; `anonymous: true`
+call starts the connector's OAuth flow when needed; `anonymous: true`
 is reserved for an explicitly temporary public site.
+
+The server publishes websites and Procfile apps, reads back what an
+organization has published, and reads and publishes the organization's
+skills. `governance` is the entry skill: the server's instructions and
+`valet-publish` both tell a model to read it with `get_skill` before any
+work, and it names the other skills to read, `design-system` among
+them. The server's `tools/list` answer describes the full tool
+surface.
+
+`valet-publish` still prefers the `valet` CLI where it can run. The CLI
+publishes a whole directory from disk and carries binary files, which the
+MCP tools do not. It also keeps a visitor password out of the
+conversation, which `set_site_access` cannot. The server is the path
+where the CLI cannot run — a sandbox whose outbound proxy refuses the
+install host, or a harness with no shell — and the source of the
+organization's skills on either path.
 
 The CLI and MCP connector keep separate credentials. Claiming an
 anonymous site signs the user into the browser and makes the site
 permanent, but it cannot authenticate the connector. The next
 account-first MCP call starts that client's OAuth flow.
-
-It is there as the fallback the skills already describe, not as the
-main road. `valet-publish` drives the `valet` CLI, which publishes a
-whole directory from disk, updates a site later from anywhere, sets
-password access, and carries binary files — none of which the MCP
-tools can do. The server matters where the CLI cannot run: a sandbox
-whose outbound proxy refuses the install host, or a harness with no
-shell. Before the plugin declared it, reaching that fallback meant
-asking the user to add a connector by hand, mid-task, in a settings
-screen. Now it is already there.
 
 Two files declare it, because no single format reaches both clients:
 

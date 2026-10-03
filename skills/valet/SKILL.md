@@ -140,9 +140,8 @@ These principles apply to all connectors, channels, and env vars. Follow this pr
 2. **Reuse existing**: Check `valet connectors --org <org>` or `valet channels --org <org>` for resources that already provide what you need. Attach rather than duplicate.
 3. **Org-scoped by default**: Always create connectors, channels, and env vars at the org level (`--org`). Org-scoped resources can be attached to any agent in the org, so a single `GITHUB_TOKEN` secret, `github` MCP connector, or `github-webhook` channel is reusable across every agent — no duplication, one place to rotate credentials. **Only drop to `--agent` when you have a concrete reason the resource cannot be shared** (e.g., per-agent rate limits, distinct credentials for the same service, a one-off test agent). When in doubt, use `--org` and attach. (Slack is a special case — see the Channels section.)
 4. **Env vars at org level by default**: Setting an env var with `--org` makes it available to every org-scoped connector and channel, and org-scoped plain vars reach every agent in the org. Any agent that later attaches those connectors/channels automatically inherits access — no duplication. Agent-scoped env vars override org-scoped ones of the same name when a specific agent needs a different value.
-5. **Verify before finalizing**: After the agent exists, test every
-   secret-backed command with `valet exec` before treating the deployment as
-   ready. See "Connector verification with valet exec."
+5. **Verify before finalizing**: After the agent exists, ask it to use each
+   command connector before treating the deployment as ready.
 
 ## Agent Lifecycle
 
@@ -593,7 +592,6 @@ valet orgs set-default <name>      # Switch the default org
 |---------|---------|------|
 | `valet run <prompt>` | Send a single prompt to an agent; supports `--org` | `valet help run` |
 | `valet console` | Start an interactive REPL with an agent; supports `--org` and `--resume <session-id>`. Surfaces actionable stream errors (`timed out; try again?`, `rate limited; try again in a moment`, `could not reach server; check your network`) with the raw detail appended after the prefix | `valet help console` |
-| `valet exec` | Run a command with secrets injected into its environment | `valet help exec` |
 | `valet logs [-n <num>]` | Stream live logs; shows 100 historical lines by default (`-n 0` for live only); supports `--org` | `valet help logs` |
 | `valet ps` | List agent processes (can show `idle` state); supports `--org` | `valet help ps` |
 | `valet ps scale` | Change an agent's model or process count (see [Scaling](#scaling)) | `valet help ps scale` |
@@ -649,133 +647,16 @@ valet sessions delete <session-id> [-a <agent>]
 
 Removes a session and its transcript. Destructive — confirm before running. Run `valet sessions --help` for the full session subcommand list.
 
-## Using valet exec
+## Environment variables and connector verification
 
-`valet exec` is the **only way** to run local commands with Valet-managed env
-vars injected. It fetches both kinds. Values live in the control plane, not
-in your local shell. After the agent exists, test secret-backed commands
-before treating its deployment as ready.
+Use `valet env set` to store values. Secret values stay out of the agent
+environment; plain values are available to the agent. Command connectors
+receive only their declared secrets through the runtime connector helper.
 
-There are two modes:
-
-### Connector mode (no `--`)
-
-The first argument is looked up as a connector name. If a `command` connector is found, its secrets are fetched and injected, and the connector's configured command is executed. Extra arguments are appended after the connector's configured args:
-
-```
-# Run the "gh" command connector (looks up connector named "gh")
-valet exec -a my-agent gh pr list
-
-# Use linked agent from current directory
-valet exec gh pr list
-```
-
-### Explicit secrets mode (with `--`)
-
-Secret names are passed as a comma-separated positional argument before `--`. The command and its arguments follow after `--`:
-
-```
-valet exec [-a <agent>] SECRET[,SECRET...] -- command [args...]
-```
-
-Fetches the requested secret values and executes the given command with those secrets injected into the environment. The current process is replaced by the command.
-
-```
-# Run gh with GITHUB_TOKEN injected as an env var
-valet exec -a my-agent GITHUB_TOKEN -- gh pr list
-
-# Pass a secret as a CLI argument using {{}} syntax
-valet exec -a my-agent API_KEY -- curl -H "Authorization: Bearer {{API_KEY}}" https://api.example.com
-
-# Multiple secrets in one command
-valet exec -a my-agent GITHUB_TOKEN,SLACK_TOKEN -- \
-  sh -c 'test -n "$GITHUB_TOKEN" && test -n "$SLACK_TOKEN"'
-```
-
-Flag: `--agent` or `-a`: Agent that owns the secrets (uses linked agent if omitted). Run `valet exec --help` for full details.
-
-### Template syntax for CLI arguments
-
-Use `{{SECRET_NAME}}` in command arguments to substitute secret values directly. This is useful for tools that accept credentials as flags or in URLs rather than reading from the environment. Works in both modes.
-
-### Running MCP servers locally
-
-To test an MCP server that requires secret-backed environment variables:
-
-```
-valet exec -a my-agent SLACK_BOT_TOKEN,SLACK_TEAM_ID -- \
-  npx -y @modelcontextprotocol/server-slack
-```
-
-Without `valet exec`, the MCP server would start without the required tokens and fail to authenticate.
-
-### Why valet exec is required
-
-Regular shell commands (`curl`, `npx`, `node`, etc.) cannot access Valet secrets. This will **not** work:
-
-```
-# WRONG — $API_KEY is not set in your shell
-curl https://api.example.com/data?key=$API_KEY
-
-# CORRECT — valet exec injects the secret (explicit secrets mode)
-valet exec -a my-agent API_KEY -- curl https://api.example.com/data?key={{API_KEY}}
-
-# OR use connector mode if you have a command connector configured
-valet exec -a my-agent my-connector-name
-```
-
-The same applies to any connector command. If its `--command` or `--args`
-reference secret-backed environment variables, test the exact command
-through `valet exec` before treating the deployment as ready.
-
-## Connector verification with valet exec
-
-After the initial `valet agents create` deploy, test every command that
-requires secrets with `valet exec`. This catches authentication failures,
-wrong secret names, malformed URLs, and missing dependencies before you
-treat the deployment as ready. Deploy any resulting source fix before the
-end-to-end test.
-
-### What to test
-
-Any connector command that references secrets in its `--env` flags should be verified locally. Reproduce the exact command the connector will run, wrapping it in `valet exec`:
-
-```
-# If the connector is defined as:
-valet connectors create github-server \
-  --transport stdio \
-  --command npx \
-  --args -y,@modelcontextprotocol/server-github \
-  --env GITHUB_PERSONAL_ACCESS_TOKEN={{GITHUB_TOKEN}}
-
-# Test the underlying command locally:
-valet exec -a my-agent GITHUB_TOKEN -- \
-  npx -y @modelcontextprotocol/server-github
-```
-
-For remote connectors (SSE/streamable-http) with secret-backed headers or URLs, test with curl:
-
-```
-# If the connector uses --header Authorization={{API_TOKEN}} --url https://mcp.example.com/mcp
-# Test the endpoint is reachable and the token works:
-valet exec -a my-agent API_TOKEN -- \
-  curl -s -o /dev/null -w "%{http_code}" -H "Authorization: {{API_TOKEN}}" https://mcp.example.com/mcp
-```
-
-Do not test a webhook by sending an arbitrary request to a production
-endpoint. Use the provider's documented test-event flow or a dedicated test
-endpoint. If either action can trigger real work, get the user's approval
-first.
-
-### Verification checklist
-
-Before running `valet deploy`, confirm:
-
-1. All env vars are set: `valet env --agent <name>` and `valet env --org <org>` list every name referenced by connectors
-2. Each connector's command succeeds locally via `valet exec`
-3. Any secret-backed URLs resolve and authenticate correctly
-
-Do not treat the setup as complete until all `valet exec` tests pass.
+After deployment, ask the agent to use each command connector. Its response
+confirms the deployed connector can authenticate without exposing its secret.
+For remote connectors, use the provider's documented test flow. Do not copy
+Valet-managed secret values into a local shell command.
 
 ## Common Workflows
 
@@ -825,13 +706,9 @@ Follow Resource Creation Principles — set up org-scoped resources first, then 
    valet channels attach github-webhook --agent my-agent --events pull_request
    ```
 
-7. Verify each connector command with `valet exec` after the agent exists:
-   ```
-   valet exec -a my-agent GITHUB_TOKEN -- \
-     npx -y @modelcontextprotocol/server-github
-   ```
-   The create command already performed the initial deploy. Fix any
-   authentication, dependency, or command failure before the final deploy.
+7. Ask the agent to use each command connector after the initial deploy.
+   Fix any authentication, dependency, or command failure before the final
+   deploy.
 
 8. Deploy any fixes made after verification:
    ```
@@ -1061,13 +938,8 @@ Want to proceed with this plan, or would you like to adjust anything?
      --attach-connector <connector> \
      --attach-channel <channel>
    ```
-12. Verify each connector command locally with `valet exec` after the agent
-    exists:
-    ```
-    valet exec -a <agent-name> SECRET_NAME -- <cmd> <args>
-    ```
-    The create command performed the initial deploy. Fix any failures before
-    deploying the corrected configuration.
+12. Ask the agent to use each command connector after the initial deploy.
+    Fix any failures before deploying the corrected configuration.
 13. Run `valet deploy` when verification required source changes.
 14. If the agent has channels, run the interactive test loop. See
     "Interactive test loop" under Common Workflows.
@@ -1701,11 +1573,8 @@ All deployed files are **read-only** at runtime. The agent can write new files (
   out.
 - **Use `valet help` proactively**: When you encounter a command, flag, or feature you're unsure about, run `valet help <command>` before guessing. The CLI help is the authoritative source.
 - **Never ask for secret values inside the LLM session.** Direct the user to run `valet env set NAME=VALUE` in their own terminal and wait for confirmation. Plain env vars (`valet env set NAME=VALUE --plain`) are not credentials and may be set directly.
-- **Verify privileged commands with `valet exec`.** After the agent exists,
-  test each underlying command with `valet exec <names> -- <command>`. This
-  is the only way to run commands with Valet-managed secrets locally. Fix
-  failures before the final deploy and end-to-end test. Use
-  `{{SECRET_NAME}}` only when a tool requires a secret in an argument.
+- **Verify command connectors after deploy.** Ask the agent to use each
+  connector. Fix failures before the final deploy and end-to-end test.
 - When the user asks to create an agent from scratch, follow "Designing a New Agent".
 - When the user asks to capture the current session as an agent, follow "Learning from the Current Session".
 - When writing SOUL.md, follow the template and synthesis rules. Never leave Purpose or Workflow empty.
