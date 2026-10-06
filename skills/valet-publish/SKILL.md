@@ -1426,8 +1426,13 @@ when the request needs them:
   plus `title` and `description`. The `web` process serves the URL and
   listens on `$PORT`; Node, Python, and Go are supported, and a Go
   app needs only `go.mod`, since the build completes `go.sum`. `publish_app`
-  returns a build id; poll `get_build` until it reports success, then
-  verify the URL. The first publish creates the app, so attach a
+  returns a build id; poll `get_build` until its deploy state is `up`
+  or `crashed`, not just until the build succeeds. On `up`, verify the
+  URL. On `crashed`, read each crashed process's reason, fix the code
+  (or the platform or configuration failure it names), and publish
+  again: rollouts only move forward, and a web process that had a
+  running release keeps serving it, so a working URL does not prove
+  the new release is live. The first publish creates the app, so attach a
   database or other resource with `attach_resource` and set variables
   with `set_env_vars` after it; each restarts the app with its new
   variables. `list_resource_catalog` names the providers and the
