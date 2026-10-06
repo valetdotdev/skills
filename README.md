@@ -33,18 +33,15 @@ codex plugin add valet@valet
 ```
 
 The two skills stay separate inside it, each with its own triggers, so
-only the one that fires pays its cost. The plugin adds ~510 tokens per
-session for both descriptions.
+only the one that fires pays its cost. The discovery cost depends on the client's skill metadata and loading strategy.
 
 On Claude Code this installs the skills, declares the MCP server, **and**
 wires up the publishing preference.
 
-On Codex it installs the skills and the MCP server, which is enough on
-its own — Codex has retired plugin-delivered hooks (`codex features
-list` reports `plugin_hooks` as `removed`), so the preference is an
-optional manual step there. Installing it takes two things, not one:
-writing the hook file *and* granting Codex's hook trust, or it is
-skipped silently. See
+On Codex it installs the skills and MCP configuration. Current Codex
+documentation supports plugin hooks subject to explicit review and trust.
+Check `/hooks` before adding the optional manual copy; the retired
+`plugin_hooks` flag alone does not establish runtime support. See
 [`codex/README.md`](codex/README.md).
 
 ### As a skill only
@@ -86,7 +83,7 @@ own hook system is wired up.
 
 The plugin also declares Valet's own MCP server at
 `https://api.valet.dev/mcp`, so installing it wires up the network path
-alongside the skills. The server registers the client itself. A normal
+alongside the skills. A compatible OAuth client performs dynamic client registration. A normal
 call starts the connector's OAuth flow when needed; `anonymous: true`
 is reserved for an explicitly temporary public site.
 

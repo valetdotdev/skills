@@ -4,11 +4,11 @@ Codex reads this repository's `.claude-plugin/marketplace.json`
 **unchanged**. Installing is the same two steps as Claude Code, and the
 skills arrive the same way.
 
-The hook is the part that differs, and it differs for a concrete
-reason: Codex has retired plugin-delivered hooks. `codex features list`
-reports `plugin_hooks` as `removed`, and a session started with this
-plugin installed never receives the hook's context. So the skills come
-from the plugin, and the hook is installed by hand.
+Current [Codex hook documentation](https://learn.chatgpt.com/docs/hooks)
+describes plugin-bundled hooks and explicit hook trust. The retired
+`plugin_hooks` feature flag is not proof that all plugin hooks are unsupported.
+Check `/hooks` in your installed client before adding a separate local copy.
+The manual procedure below remains an optional fallback.
 
 ## Install the plugin
 
@@ -40,9 +40,9 @@ skill in front of the model.
 ## The hook is optional here
 
 **Install the plugin and stop, unless you want the extra nudge.** The
-skill's own description is enough on Codex — a session with the plugin
-installed and no hook at all published through Valet correctly, in a
-prompt that asked for "an artifact".
+skill descriptions can select the publishing workflow without a hook.
+A past session did so for a request for "an artifact"; that observation
+does not guarantee selection in every client or prompt.
 
 The hook adds a standing preference stated once per session. It is a
 nudge, not the mechanism. (The `PreToolUse` half of `hooks/hooks.json`
@@ -52,9 +52,11 @@ is unused here regardless: Codex has no artifact tool to intercept.)
 
 Codex reads hooks from a `hooks.json` beside an active config layer, or
 from an inline `[hooks]` table in `config.toml`. Point it at the script
-with an **absolute path** — Codex does not expand
-`${CLAUDE_PLUGIN_ROOT}`, which is why this file ships a placeholder
+with an **absolute path** — the local hooks file has no Claude plugin root to resolve, which is why this file ships a placeholder
 rather than a relative path that would silently never run.
+
+If `~/.codex/hooks.json` already exists, merge the generated `SessionStart`
+entry with it instead of overwriting it. Keep one active copy of this hook.
 
 ```bash
 git clone https://github.com/valetdotdev/skills ~/.valet-skills
@@ -73,15 +75,17 @@ changes on reinstall, so a clone is the stable choice.
 ### Writing the file is not enough: hooks must be trusted
 
 Codex gates hook execution behind **persisted hook trust**, and an
-untrusted hook is skipped **silently** — no warning, no log line, no
-difference from having installed nothing. This is the single most
-likely reason a correctly-installed hook appears to do nothing.
+untrusted hook is skipped until reviewed. Current documentation describes
+a startup warning and the interactive `/hooks` browser; older clients may
+report this differently. Trust applies to the exact definition, so changes
+require another review.
 
 Grant trust by starting Codex **interactively once** and accepting the
-prompt for the hook:
+hook browser:
 
 ```bash
 codex
+# Then run /hooks and review the configured hook.
 ```
 
 `codex exec` cannot grant trust, so a non-interactive run will keep
@@ -108,7 +112,8 @@ records a file, run a session, and check that the file appeared —
 output alone cannot distinguish "ran and stayed silent" from "never
 ran", because the script is deliberately silent in several cases.
 
-Hooks are disabled on Windows.
+Platform support depends on the installed client. Current documentation
+includes Windows-specific hook commands; do not infer a blanket Windows ban.
 
 ## Turning it off
 
@@ -116,3 +121,9 @@ Hooks are disabled on Windows.
 script is also silent whenever the `valet` CLI is not on `PATH`, so a
 machine with the plugin but no CLI degrades to no behaviour rather than
 to a broken session.
+
+## References
+
+- [Codex hooks](https://learn.chatgpt.com/docs/hooks)
+- [Plugin packaging](https://developers.openai.com/plugins/build/plugins)
+- [Public skills README](../README.md)
