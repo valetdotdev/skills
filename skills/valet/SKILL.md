@@ -1185,7 +1185,9 @@ flow. Add them when the user asks for a deploy button, dashboard setup,
 one-click setup, or catalog publication. A catalog-published agent requires
 the complete story and dependency fields described below.
 
-Sites and apps take the header and nothing else. A `connectors` or `channels` block on either is rejected at deploy: a site has no runtime and an app runs a Procfile process, so neither can act on one.
+An app may also declare `emoji: "📦"` — exactly one emoji that the dashboard draws beside the app's name. Text or two emoji are rejected at deploy.
+
+Sites and apps take nothing else. A `connectors` or `channels` block on either is rejected at deploy: a site has no runtime and an app runs a Procfile process, so neither can act on one.
 
 **Keep the manifest current.** When a resource's purpose changes, update `display_name` and `description` in the same change. A stale description outlives the content it describes, and the next deploy publishes it.
 
