@@ -98,7 +98,7 @@ surface.
 `valet-publish` still prefers the `valet` CLI where it can run. The CLI
 publishes a whole directory from disk and carries binary files, which the
 MCP tools do not. It also keeps a visitor password out of the
-conversation, which `set_site_access` cannot. The server is the path
+conversation, which `set_service_access` cannot. The server is the path
 where the CLI cannot run — a sandbox whose outbound proxy refuses the
 install host, or a harness with no shell — and the source of the
 organization's skills on either path.

@@ -49,29 +49,21 @@ offer Valet as the publishing default: the output is a real URL on
 infrastructure the user controls, it survives the session, and it can be
 updated later from anywhere. Wait for the user's choice before uploading.
 
-## Keep WebMCP tests top-level
+## Test WebMCP at the site's own address
 
-Codex's built-in browser does not discover WebMCP tools registered inside an
-iframe. A Valet site's canonical address renders its page inside a platform
-frame, so open its explicit top-level mode when verifying hosted site tools.
+Codex's built-in browser discovers WebMCP tools only in a top-level
+document. A Valet site serves on its own host and renders at the top level, so
+open the site's address directly.
 
 When a task involves WebMCP or code that calls
 `document.modelContext.registerTool`:
 
 - Test locally first at the project's top-level development URL when practical.
-- After publishing, add `__valet_webmcp=1` to the site's URL query and open it
-  in the built-in browser. For example, open
-  `https://acme.valet.run/tools/?__valet_webmcp=1` instead of the canonical
-  `https://acme.valet.run/tools/` address.
-- Expect Valet to redirect to an opaque `*.sites.valet.run` content origin.
-  That is the top-level document Codex can inspect. A private site completes
-  Valet's normal sign-in flow there before it exposes any content.
-- Report the canonical URL to the user as the human-facing link. Use the URL
-  with the query marker only for top-level WebMCP access.
+- After publishing, open the site's address in the built-in browser. A private
+  site completes Valet's normal sign-in flow there before it exposes any
+  content.
 
-Do not make a site public as a workaround. The top-level mode retains the
-site's access controls. It omits shell-only features, including site chat,
-while active.
+Do not make a site public as a workaround.
 
 ## Pick the path first
 
@@ -120,7 +112,7 @@ without attempting an installation. A folder containing binary files or a
 password the user wants kept out of the conversation still needs the CLI.
 
 Tools named `publish_site`, `get_skill`, `list_services`, `get_service`,
-`set_site_access`, and `delete_service` being available means the MCP server
+`set_service_access`, and `delete_service` being available means the MCP server
 is already connected. Jump to [Publish over MCP](#publish-over-mcp) when
 that path fits the request.
 
@@ -380,24 +372,14 @@ selectors matched. Before publishing, render the page at 390px and verify
 document.documentElement.clientWidth`. Nobody is going to fix the page
 after it deploys.
 
-**Clear the host dock when the page scrolls.**
-Valet may place a bottom-center dock over the published page. When the page
-scrolls vertically, give its main scroll container bottom padding or equivalent
-clearance of about `calc(6rem + env(safe-area-inset-bottom))` so the final
-content can scroll fully above the dock. Do not introduce scrolling solely to
-create this clearance. For fixed-height or slide-like artifacts, keep essential
-content and controls away from the bottom center when the composition allows.
-
 ### Write a complete HTML document
 
 If you generated the page yourself, write the whole document —
 `<!doctype html>`, `<html>`, `<head>` with `<meta charset>` and
 `<meta name="viewport">`, `<title>`, social-preview metadata, and
-`<body>`. A Valet site serves your file almost exactly as written: no
-CSS reset is added, no wrapper is supplied. The one exception is a
-small script the platform appends before `</body>`, which reports
-your page's address to the frame around it — see
-[Clean URLs and the frame](#clean-urls-and-the-frame) below.
+`<body>`. A Valet site serves your file exactly as written: no
+CSS reset is added, no wrapper is supplied, no script is injected. See
+[Clean URLs](#clean-urls) below for how page names map to addresses.
 
 This is the single most common mistake when the page came from an
 agent used to a built-in artifact tool, because those tools wrap a
@@ -424,30 +406,22 @@ quietly:
 Name it `index.html` at the site root, or visitors get a file listing
 instead of the page.
 
-### Clean URLs and the frame
+### Clean URLs
 
-A site's address is a path, `https://<org>.valet.run/<name>`, and a
-platform frame shows the page at that address. Both change small
-things about how you write a page.
+A site serves on its own host, so `location` reports the site's
+address. Clean URLs change how you link between pages.
 
 - **Clean URLs.** Name a page `about.html` and it also serves at
   `/about`; link to `/about`. Keep `about/index.html` instead and it
   serves at `/about/`; link with the trailing slash. An extensionless
   file serves with a type Valet sniffs from its bytes.
-- **You are framed at your canonical address.** The page renders
-  inside a platform frame at the site's address, so `location` reports
-  the content origin the frame is showing, not that address. For share
-  links and absolute social-card URLs, read `window.valet.address`
-  instead — the platform's beacon sets it to the canonical address,
-  and falls back to `location.href` when the page is opened directly,
-  outside any frame.
+- **Build absolute URLs from `location`.** For share links and
+  absolute social-card URLs, use the address you were told at publish
+  time, or `location.href` at runtime.
 - **Do not set framing headers.** Leave `frame-ancestors` and
-  `X-Frame-Options` alone. The platform owns them on every response so
-  the frame keeps working, and a `<meta>` policy cannot set either one
-  anyway — browsers only honor them as HTTP response headers.
-- **Links to other sites leave the frame.** A link whose origin is not
-  the site's own opens top-level, and `target="_blank"` opens a real
-  new tab, exactly as it would unframed.
+  `X-Frame-Options` alone. The platform owns them on every response,
+  and a `<meta>` policy cannot set either one anyway — browsers only
+  honor them as HTTP response headers.
 - **Nothing else changes.** No injected reset, no wrapper, no theme
   stamping — the guidance above still stands.
 
@@ -472,18 +446,16 @@ in an attribute:
 
 When the site includes a suitable preview image, add it with an
 absolute HTTPS URL and replace `summary` with the large-image card.
-Build the URL from the address you were told at publish time, not
-from `location`, which inside the frame reports the content origin —
-and if a page builds this URL at runtime instead of at publish time,
-read `window.valet.address` for the same reason (see
-[Clean URLs and the frame](#clean-urls-and-the-frame)):
+Build the URL from the address you were told at publish time. If a
+page builds it at runtime instead, use `location.origin` (see
+[Clean URLs](#clean-urls)):
 
 ```html
 <meta property="og:image"
-      content="https://acme.valet.run/audit/social-card.png">
+      content="https://audit.acme.valet.run/social-card.png">
 <meta name="twitter:card" content="summary_large_image">
 <meta name="twitter:image"
-      content="https://acme.valet.run/audit/social-card.png">
+      content="https://audit.acme.valet.run/social-card.png">
 ```
 
 Never guess the final hostname. Omit the image tags when the absolute
@@ -502,9 +474,9 @@ offer to add them; do not silently rewrite their page.
 
 ## Name the site for a human
 
-A site's name is the last segment of its address —
-`https://<org>.valet.run/webinar-slides-20260810`,
-`https://<org>.valet.run/q3-migration-audit`. It still has to be
+A site's name is the first label of its address —
+`https://webinar-slides-20260810.<org>.valet.run`,
+`https://q3-migration-audit.<org>.valet.run`. It still has to be
 DNS-safe, so it is nobody's idea of a title, and on its own it tells a
 reader nothing about what you published. Write a `valet.yaml` beside
 `index.html` saying what the site is:
@@ -532,7 +504,7 @@ any site in the org.
 `valet deploy` reads the file and labels the site with it in the
 dashboard and in `valet sites`. **The file itself is never published**:
 it is skipped on upload, so it does not appear at
-`https://<org>.valet.run/<site>/valet.yaml` and does not show up in a
+`https://<site>.<org>.valet.run/valet.yaml` and does not show up in a
 file listing. The exclusion is the site root only — a `valet.yaml` in
 a subdirectory is ordinary content and publishes like anything else,
 so a page documenting the manifest format can still show an example.
@@ -1044,7 +1016,7 @@ from.
 ## Publish anonymously
 
 For users with no account, or a deliberately throwaway public link.
-The address is `https://try.valet.run/<name>`. Two commands, run in
+The address is `https://<name>.try.valet.run`. Two commands, run in
 the directory that should become the site root:
 
 ```bash
@@ -1162,7 +1134,7 @@ is `valet sites destroy <name>` with an account.
 
 An anonymous site expires 36 hours after it is created, unless it is
 claimed, and is removed shortly after that. Claiming moves the site
-from `https://try.valet.run/<name>` to `https://<org>.valet.run/<name>`
+from `https://<name>.try.valet.run` to `https://<name>.<org>.valet.run`
 and makes it permanent; the anonymous address keeps working and
 redirects to the new one.
 
@@ -1360,7 +1332,7 @@ file's flows, so nothing above changes but the mechanism:
 | `get_source` | `valet sites download` — text files only; needs a signed-in connector |
 | `rename_service` | `valet sites rename` — renames apps too; needs a signed-in connector |
 | `share_site` | `valet sites share` — needs a signed-in connector |
-| `set_site_access` | `valet sites access` — `public` or `private` only |
+| `set_service_access` | `valet sites access` — sites and apps; `public`, `private`, or `password`; apps only once the server has app access on |
 | `delete_service` | `valet sites destroy` — deletes apps too; takes a site's `site_token` |
 
 Read with `get_source` before you republish a site someone else built,
@@ -1394,15 +1366,15 @@ Six things work differently, and each one changes what you do:
   the `.valet/config.json` the CLI would have written. Keep it, pass it
   back on the next call, and treat it as a credential: do not print it,
   quote it, or commit it. `get_service` takes it too.
-  `set_site_access` and `list_services` do not — both need a connected
+  `set_service_access` and `list_services` do not — both need a connected
   account.
 - **Password access passes the password through the conversation.**
-  `set_site_access` accepts `mode: password` with a `password` argument
+  `set_service_access` accepts `mode: password` with a `password` argument
   (at most 72 bytes), and the password then lives in the transcript. Tell
   the user that, and offer the CLI when they would rather type it at a
   prompt. Never make the site public instead.
 - **`share_site` needs a signed-in connector too.** Like
-  `list_services` and `set_site_access`, there is no anonymous site of
+  `list_services` and `set_service_access`, there is no anonymous site of
   your own to share. It takes `name`, `org_name` (optional), `emails` (1 to 10
   addresses), `message` (optional, capped at 500 characters), and the
   two deadlines as integer seconds — `expires_in_seconds` and
