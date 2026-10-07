@@ -602,7 +602,7 @@ nine steps.
    valet connectors create <entry> --org <org>
    ```
 
-   Over MCP, `list_catalog_connectors` returns every entry Valet
+   Over MCP, `list_connector_catalog` returns every entry Valet
    offers with its description, how its credential arrives, and
    whether a page could call it; `create_connector` then takes the
    entry name and a `secrets` object of slot name to value. It refuses
