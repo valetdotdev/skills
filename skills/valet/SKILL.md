@@ -108,6 +108,14 @@ project is ready to edit. Update the generated files, then run
 Flags:
 - `--dir`: Directory to create the project in (default: `./<name>`)
 
+## Without the CLI
+
+Where the CLI cannot run, Valet's MCP server at
+`https://api.valet.dev/mcp` publishes and manages agents too:
+`publish_agent`, `attach_skill`, `attach_connector`, and the tools that
+list, inspect, and destroy them. Call `get_skill` with `governance`
+first. Prefer the CLI when it is available.
+
 ## Core Concepts
 
 - **Agent**: An AI agent defined by a `SOUL.md` file in a project directory. Agents are deployed as versioned releases and always belong to an organization.

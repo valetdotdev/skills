@@ -112,7 +112,7 @@ without attempting an installation. A folder containing binary files or a
 password the user wants kept out of the conversation still needs the CLI.
 
 Tools named `publish_site`, `get_skill`, `list_services`, `get_service`,
-`set_service_access`, and `delete_service` being available means the MCP server
+`set_service_access`, and `destroy_service` being available means the MCP server
 is already connected. Jump to [Publish over MCP](#publish-over-mcp) when
 that path fits the request.
 
@@ -219,7 +219,7 @@ it when the content proves a choice wrong.
 
 ## Read the organization's governance first
 
-Before any work, call the `get_skill` tool with `name: governance` and
+Before any work, call the `get_skill` tool with `skill: governance` and
 follow what it returns. The plugin ships Valet's MCP server, and this
 tool with it, alongside this skill. The governance skill says what the
 organization expects of published work, in what order to work, and
@@ -246,7 +246,7 @@ account-first MCP call start the connector's OAuth flow when needed.
 ## Follow the design system
 
 Before you build or substantially rewrite an artifact, call `get_skill`
-with `name: design-system`, passing `anonymous` exactly as you did for
+with `skill: design-system`, passing `anonymous` exactly as you did for
 governance. It answers with the organization's design system when it
 has written one, and otherwise with the preset the organization chose
 or Valet's default. When `source` is `default` and a `reason` is
@@ -580,11 +580,12 @@ everyone who can open the page can call every tool that connector
 exposes, with the credential Valet holds. Get agreement, then walk the
 nine steps.
 
-1. **List what the org can attach.** `list_attachable_connectors` on
-   the Valet MCP server returns exactly the connectors a site can
-   hold — HTTP MCP servers on the sse or streamable-http transport —
-   and marks the ones a named site already has. On the CLI,
-   `valet connectors list --sites` is the same filter. The plugin
+1. **List what the org can attach.** `list_connectors` on the Valet
+   MCP server lists every org connector. Pass the site as `name` and
+   take the rows with `can_hold: true` — HTTP MCP servers on the sse
+   or streamable-http transport; each row also says whether the site
+   already holds it. On the CLI, `valet connectors list --sites` lists
+   only the connectors a site can hold. The plugin
    ships the MCP server alongside this skill, so both are available.
 2. **Match by description.** Every listed connector that came from the
    catalog carries its entry's description, so read for the data the
@@ -602,7 +603,7 @@ nine steps.
    valet connectors create <entry> --org <org>
    ```
 
-   Over MCP, `list_connector_catalog` returns every entry Valet
+   Over MCP, `list_catalog_connectors` returns every entry Valet
    offers with its description, how its credential arrives, and
    whether a page could call it; `create_connector` then takes the
    entry name and a `secrets` object of slot name to value. It refuses
@@ -631,19 +632,19 @@ nine steps.
 
    Do not invent a connector that is not in the catalog, and do not
    build the page against made-up data while you wait.
-4. **Attach it to the site.** `attach_site_connector`, or
+4. **Attach it to the site.** `attach_connector`, or
    `valet connectors attach <name> --site <site>`. The attach paths
-   refuse a connector no page could call, so anything the discovery
-   list offered will attach and anything it omitted will not.
+   refuse a connector no page could call, so a row marked
+   `can_hold: true` will attach and one marked false will not.
    Attaching a connector that is already attached changes nothing.
 5. **Read the tool schemas.** On the CLI, `valet sites info --schemas`
    reports each attachment's live tools and their argument schemas,
    which is what your calls have to satisfy; `valet sites info`
    without the flag lists the same tools by name only. Over MCP,
-   `list_site_connectors` reports the same, live.
+   `list_connector_tools` reports the same, live.
 6. **Sample one tool for real, before you write any page code.** Use
    `valet connectors call <connector> <tool> [--args '<json>']
-   --site <site>` on the CLI, or `call_site_connector` over MCP. A
+   --site <site>` on the CLI, or `call_connector` over MCP. A
    schema says what a tool accepts; only a call says what it answers,
    and the answer is what the page has to parse.
 
@@ -662,7 +663,9 @@ nine steps.
 7. **Build the page on the session helper.** Copy the helper in
    [Calling a connector attached to the site](#calling-a-connector-attached-to-the-site)
    whole, and write each section against the response you saw rather
-   than the response you expected. Isolate the sections: one failing
+   than the response you expected. Over MCP, `get_skill` with
+   `skill: connectors` and `path: client.md` returns the same client
+   notes and `helper.js`. Isolate the sections: one failing
    call should leave the rest of the page rendered.
 8. **Verify by opening the page.** Sampling proved the connector. It
    proves nothing about the site's access mode, the visitor's session,
@@ -719,7 +722,7 @@ step 6.
 - **Session conformance is not credential scope.** A server can
   complete the handshake, publish twenty tools, and still answer 401
   on every tool the stored credential's scope does not cover.
-  `list_site_connectors` reports the handshake, not the scope. Only a
+  `list_connector_tools` reports the handshake, not the scope. Only a
   call per tool family finds this, which is why step 6 says every
   family.
 - **An unknown tool answers; it does not fail.** A misspelled tool
@@ -1331,9 +1334,9 @@ file's flows, so nothing above changes but the mechanism:
 | `list_services` | `valet sites` — lists apps and agents too; needs a signed-in connector |
 | `get_source` | `valet sites download` — text files only; needs a signed-in connector |
 | `rename_service` | `valet sites rename` — renames apps too; needs a signed-in connector |
-| `share_site` | `valet sites share` — needs a signed-in connector |
+| `share_service` | `valet sites share` — needs a signed-in connector |
 | `set_service_access` | `valet sites access` — sites and apps; `public`, `private`, or `password`; apps only once the server has app access on |
-| `delete_service` | `valet sites destroy` — deletes apps too; takes a site's `site_token` |
+| `destroy_service` | `valet sites destroy` — deletes apps too; takes a site's `site_token` |
 
 Read with `get_source` before you republish a site someone else built,
 so your publish carries their work forward rather than replacing it.
@@ -1373,12 +1376,12 @@ Six things work differently, and each one changes what you do:
   (at most 72 bytes), and the password then lives in the transcript. Tell
   the user that, and offer the CLI when they would rather type it at a
   prompt. Never make the site public instead.
-- **`share_site` needs a signed-in connector too.** Like
+- **`share_service` needs a signed-in connector too.** Like
   `list_services` and `set_service_access`, there is no anonymous site of
   your own to share. It takes `name`, `org_name` (optional), `emails` (1 to 10
   addresses), `message` (optional, capped at 500 characters), and the
-  two deadlines as integer seconds — `expires_in_seconds` and
-  `access_ttl_seconds` — rather than the CLI's duration strings.
+  two deadlines as duration strings — `expires_in` and `access_ttl`,
+  such as `24h` or `7d` — as the CLI does.
 
 Everything else is the same product. Anonymous sites are public, expire
 36 hours after creation unless claimed, and return a claim URL, and
@@ -1407,16 +1410,23 @@ when the request needs them:
   the new release is live. The first publish creates the app, so attach a
   database or other resource with `attach_resource` and set variables
   with `set_env_vars` after it; each restarts the app with its new
-  variables. `list_resource_catalog` names the providers and the
+  variables. `list_catalog_resources` names the providers and the
   variables each sets, so read it before writing the app's code, and
   write the app to start without them and say what is missing. Apps
   are public, so say so before publishing organization data. Pass a
   new `idempotency_key` on every publish of new files. A value given to
   `set_env_vars` passes through the conversation; offer the dashboard
-  instead. `delete_service` takes an app down and keeps its resources;
-  `delete_resource` deletes one with all of its data once
+  instead. `destroy_service` takes an app down and keeps its resources;
+  `destroy_resource` deletes one with all of its data once
   `detach_resource` has freed it from every app. Neither can be undone,
   so confirm with the user first.
+- **Running an app.** `get_logs` reads an app's recent output; read it
+  before you guess at a fix. `restart_service` restarts the app's
+  processes without a new release. `scale_service` sets a process
+  type's count: only `web` starts running, so scale a worker or other
+  type up from zero to use it. `list_releases` lists the app's
+  releases; to roll back, pass an earlier release to `get_source`,
+  then publish that source again.
 - **An organization skill.** `publish_skill` creates or replaces one of
   the organization's skills. Publishing under `governance` or
   `design-system` replaces what every agent in the organization reads,

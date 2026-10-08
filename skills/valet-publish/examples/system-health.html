@@ -6,14 +6,14 @@
   Replace three things and this page is yours:
 
     1. CONNECTOR  — the name the connector is attached under. That is
-       what list_site_connectors reports and what the request path
+       what list_connector_tools reports and what the request path
        carries. It is not the catalog entry's name if the attachment
        was aliased with --as.
 
     2. SECTIONS   — the tool name and arguments for each section. Read
        the schemas with `valet sites info --schemas` (or
-       list_site_connectors over MCP), then sample each tool for
-       real with `valet connectors call` or call_site_connector, and
+       list_connector_tools over MCP), then sample each tool for
+       real with `valet connectors call` or call_connector, and
        write the parsing against the answer you actually saw. Both
        sections here expect a markdown pipe table, because that is what
        most MCP servers answer with. If your sample came back as JSON,
