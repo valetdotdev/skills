@@ -525,7 +525,7 @@ Env vars are named values scoped to an org or agent, managed with the `valet env
 - **Secret** (the default): credentials (API tokens, service keys, signing secrets) used by connectors and channels at runtime. The agent can invoke tools that depend on secrets but never sees the values — they flow through connectors and channels, not through the agent's environment, and list output masks them.
 - **Plain** (`--plain`): configuration the agent should read directly — a region, a base URL, a customer identifier. Plain values are delivered to the agent's unix environment, readable as `$NAME` from bash and from code the agent writes, listed by name in the agent's system prompt, and displayed in list output.
 
-Reference an env var of either kind in connector or channel configuration with `{{NAME}}` syntax. Names are unique per scope across both kinds, and a var's kind cannot be changed in place — unset it and set it again with the new kind.
+Reference an env var of either kind in connector or channel configuration with `{{NAME}}` syntax. Names are unique per scope across both kinds. Setting an existing name with the other kind changes its kind in place.
 
 **Default to `--org` when setting env vars.** Org-scoped env vars are available to every org-scoped connector and channel — and org-scoped plain vars reach every agent in the org — so one `GITHUB_TOKEN` or `REGION` serves every agent that needs it, and rotation is a single `valet env set` away. Use `--agent` only when an agent needs a different value for the same name (e.g., a distinct API key per agent); the agent-scoped var overrides the org-scoped one.
 
