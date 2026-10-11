@@ -469,7 +469,7 @@ Slack is a two-step setup. Do both in order:
 valet channels create slack --org <org>
 ```
 
-The CLI prompts for a config token and refresh token (generate them at https://api.slack.com/apps under "Your App Configuration Tokens"), stores them encrypted, and records the workspace. There is exactly one org-level Slack channel per org — skip this step if the org is already connected (`valet channels --org <org>` will show a `slack` entry with the workspace name).
+The CLI prompts for a Slack app access token and refresh token (generate them at https://api.slack.com/apps under "Your App Configuration Tokens"), stores them encrypted, and records the workspace. There is exactly one org-level Slack channel per org — skip this step if the org is already connected (`valet channels --org <org>` will show a `slack` entry with the workspace name).
 
 **Step 2 — Once per agent that needs to be in Slack:** create a per-agent Slack channel.
 
