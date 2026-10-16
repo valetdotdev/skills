@@ -76,6 +76,19 @@ on name and version, that both marketplaces agree, and that no
 `hooks/hooks.json` exists. CI also runs
 `claude plugin validate ./valet-skills --strict`.
 
+The same lint checks the skill against the generated references, so a
+renamed command or tool fails CI instead of drifting. In every Markdown
+file under `skills/valet/`, each `valet ...` command (in an inline code
+span or a shell fence) must name a command path in
+`valet-cli/reference/commands.json`, and each flag must exist on that
+command. A subcommand that no longer exists shows up as an argument
+passed to its parent. Each backticked name like `publish_site`, whose
+first segment is a verb that starts an MCP tool name, must be a tool in
+`valet-api/reference/mcp-tools.json`. The rules mirror
+`cliCommandProblems` in `valet.dev/src/pages/docs/markdown/examples.ts`.
+Comments, pipes, `&&`, `valet help ...`, and `[optional]` brackets are
+skipped. CI runs the lint when either reference changes.
+
 ## The MCP server
 
 The plugin also declares Valet's own MCP server at

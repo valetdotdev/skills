@@ -20,8 +20,11 @@ Changes to `README.md`, `AGENTS.md`, `LICENSE`, and `codex/README.md`
 need no bump; they document the plugin rather than ship in it.
 
 `make lint-valet-skills` enforces this, along with the name match Codex
-requires and the component layout Claude Code expects. CI runs it on
-every change to this directory. Run it before pushing.
+requires, the component layout Claude Code expects, and the `valet`
+commands, flags, and MCP tool names the skill text uses, which must exist
+in `valet-cli/reference/commands.json` and
+`valet-api/reference/mcp-tools.json`. CI runs it on every change to this
+directory and to those references. Run it before pushing.
 
 ## CRITICAL: Keep the two plugins in one directory
 
