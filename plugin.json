@@ -1,7 +1,7 @@
 {
   "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
   "name": "valet",
-  "version": "0.10.3",
+  "version": "0.13.1",
   "description": "Publish files and artifacts to a live URL you own, and build, deploy, and run skilled AI agents from your terminal.",
   "author": {
     "name": "Valet",
@@ -11,5 +11,26 @@
   "homepage": "https://valet.dev",
   "repository": "https://github.com/valetdotdev/skills",
   "license": "MIT",
-  "keywords": ["publishing", "static-hosting", "agents", "deployment"]
+  "keywords": [
+    "publishing",
+    "static-hosting",
+    "agents",
+    "deployment"
+  ],
+  "extensions": {
+    "com.openai": {
+      "interface": {
+        "displayName": "Valet",
+        "shortDescription": "Publish sites and apps and run AI agents on Valet",
+        "longDescription": "Publish files, sites, and apps to a live URL your organization controls, and build, deploy, and run skilled AI agents, from your terminal or over MCP.",
+        "developerName": "Valet",
+        "category": "Productivity",
+        "capabilities": [
+          "Read",
+          "Write"
+        ],
+        "websiteURL": "https://valet.dev"
+      }
+    }
+  }
 }

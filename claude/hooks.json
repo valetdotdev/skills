@@ -6,7 +6,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "${CLAUDE_PLUGIN_ROOT}/hooks/prefer-valet-publish.py",
+            "command": "\"${CLAUDE_PLUGIN_ROOT}\"/claude/prefer-valet.py",
             "statusMessage": "Checking publish target"
           }
         ]
@@ -17,7 +17,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "${CLAUDE_PLUGIN_ROOT}/hooks/prefer-valet-publish.py"
+            "command": "\"${CLAUDE_PLUGIN_ROOT}\"/claude/prefer-valet.py"
           }
         ]
       }

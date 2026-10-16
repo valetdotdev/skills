@@ -9,11 +9,12 @@ content **only** when the version changes — otherwise `/plugin update`
 reports "already at the latest version" and ships nothing.
 
 So any change to a skill, a hook, or a manifest also bumps the version
-in all three manifests, which must always agree:
+in every manifest, which must always agree:
 
 - `plugin.json`
 - `.claude-plugin/plugin.json`
 - `.claude-plugin/marketplace.json`
+- `.agents/plugins/marketplace.json`
 
 Changes to `README.md`, `AGENTS.md`, `LICENSE`, and `codex/README.md`
 need no bump; they document the plugin rather than ship in it.
@@ -21,6 +22,26 @@ need no bump; they document the plugin rather than ship in it.
 `make lint-valet-skills` enforces this, along with the name match Codex
 requires and the component layout Claude Code expects. CI runs it on
 every change to this directory. Run it before pushing.
+
+## CRITICAL: Keep the two plugins in one directory
+
+Claude Code and Codex read this directory differently:
+
+- Codex reads `plugin.json`, `mcp.json`, and
+  `.agents/plugins/marketplace.json`. The OpenAI listing lives in
+  `plugin.json` under `extensions["com.openai"].interface`. OAuth with
+  dynamic client registration lives in `mcp.json` under each server's
+  `extensions["com.openai"].auth`.
+- Claude Code reads `.claude-plugin/`, `.mcp.json`, and the hook file its
+  `plugin.json` `hooks` field names.
+
+Keep the Claude hook at `claude/hooks.json`. Never create
+`hooks/hooks.json`: Codex loads it by default, and OpenAI's public
+directory excludes plugins with hooks. Quote the plugin root in hook
+commands (`"\"${CLAUDE_PLUGIN_ROOT}\"/claude/prefer-valet.py"`);
+`claude plugin validate --strict` warns otherwise.
+
+The two marketplaces must name the same plugin, version, and source.
 
 ## CRITICAL: Keep the two MCP configurations in agreement
 

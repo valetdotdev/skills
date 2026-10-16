@@ -1,21 +1,24 @@
 # Valet Skills
 
-The [Valet](https://valet.dev) skill for Claude Code and other coding agents. Build, deploy, and run skilled AI agents from your terminal.
+The [Valet](https://valet.dev) skill for Claude Code and other coding agents. Publish sites and apps, and build, deploy, and run skilled AI agents, from your terminal or over MCP.
 
 > **This repository is a generated mirror.** The source of truth lives in Valet's `ark` monorepo under `valet-skills/`, and changes are synced here automatically on merge. Please don't open PRs against this repo — reach us at [support@valet.dev](mailto:support@valet.dev).
 
 ## Skills
 
-| Skill | What it does |
-|-------|--------------|
-| `valet` | Build, deploy, and run skilled AI agents from your terminal. |
-| `valet-publish` | Publish files and folders to a live URL, account-first or explicitly anonymous. |
+One skill, `valet`, covers publishing sites and apps, building and running
+agents, and everything they hold. Its `SKILL.md` is a short router: it says
+to read the organization's `governance` skill first, how to choose between
+the CLI and the MCP tools, and which file in `references/` to read for the
+work at hand. Only that reference loads, so a publishing task reads the
+router and `references/publish.md`, and building an agent reads the router
+and `references/agents.md`.
 
 ## Install
 
 ### As a plugin (recommended)
 
-One plugin: both skills, Valet's MCP server, and the publishing
+One plugin: the skill, Valet's MCP server, and the publishing
 preference.
 
 Claude Code:
@@ -25,83 +28,79 @@ Claude Code:
 /plugin install valet@valet
 ```
 
-Codex reads the same marketplace manifest:
+Codex reads `.agents/plugins/marketplace.json`:
 
 ```
 codex plugin marketplace add valetdotdev/skills
 codex plugin add valet@valet
 ```
 
-The two skills stay separate inside it, each with its own triggers, so
-only the one that fires pays its cost. The discovery cost depends on the client's skill metadata and loading strategy.
-
-On Claude Code this installs the skills, declares the MCP server, **and**
-wires up the publishing preference.
-
-On Codex it installs the skills and MCP configuration. Current Codex
-documentation supports plugin hooks subject to explicit review and trust.
-Check `/hooks` before adding the optional manual copy; the retired
-`plugin_hooks` flag alone does not establish runtime support. See
-[`codex/README.md`](codex/README.md).
+On Claude Code this installs the skill, declares the MCP server, **and**
+wires up the publishing preference. On Codex it installs the skill and the
+MCP server, which authenticates through OAuth dynamic client registration.
+The OpenAI plugin carries no hook. See [`codex/README.md`](codex/README.md).
 
 ### As a skill only
 
-Reach for this to install **one** skill rather than both, or to take the
-skills without the MCP server — the plugin is all-or-nothing. Works with
-any agent that reads
+Reach for this to take the skill without the MCP server or the hooks —
+the plugin is all-or-nothing. Works with any agent that reads
 [`npx skills`](https://github.com/vercel-labs/skills):
 
 ```
-npx skills add valetdotdev/skills --skill valet-publish -g
 npx skills add valetdotdev/skills --skill valet -g
-```
-
-Or both:
-
-```
-npx skills add valetdotdev/skills
 ```
 
 Pick this **or** the plugin, not both — Codex loads skills from
 `~/.agents/skills/` and from installed plugins, so installing both puts
 two copies of the same skill in front of the model.
 
-### Agent Plugins
+### One directory, two plugins
 
-The repository is also a conformant
-[Agent Plugins 1.0.0](https://agent-plugins.org) package: `plugin.json`
-at the root, skills in `skills/`, MCP servers in `mcp.json`. A client
-implementing that specification can load it from a directory path with
-no Valet-specific knowledge.
+The repository is an
+[Agent Plugins 1.0.0](https://agent-plugins.org) package and a Claude Code
+plugin at once. Each client reads its own files:
 
-The hooks are a client extension and sit outside that specification,
-which defines no portable hook format — so a conformant client gets the
-skills and the MCP server, and the publishing preference only where its
-own hook system is wired up.
+| File | Read by |
+|---|---|
+| `plugin.json` | Codex and other Agent Plugins clients. `extensions["com.openai"]` holds the listing (`interface`). |
+| `mcp.json` | The same clients. Each server declares OAuth with dynamic client registration under `extensions["com.openai"].auth`. |
+| `.agents/plugins/marketplace.json` | Codex |
+| `.claude-plugin/plugin.json` | Claude Code. Its `hooks` field names `claude/hooks.json`. |
+| `.claude-plugin/marketplace.json` | Claude Code |
+| `.mcp.json` | Claude Code |
+
+The hook sits at `claude/hooks.json`, not the default `hooks/hooks.json`,
+so Codex finds no hook. Agent Plugins defines no portable hook format.
+`bin/valet-workspace lint valet-skills` checks that the manifests agree
+on name and version, that both marketplaces agree, and that no
+`hooks/hooks.json` exists. CI also runs
+`claude plugin validate ./valet-skills --strict`.
 
 ## The MCP server
 
 The plugin also declares Valet's own MCP server at
 `https://api.valet.dev/mcp`, so installing it wires up the network path
-alongside the skills. A compatible OAuth client performs dynamic client registration. A normal
+alongside the skill. A compatible OAuth client performs dynamic client registration. A normal
 call starts the connector's OAuth flow when needed; `anonymous: true`
 is reserved for an explicitly temporary public site.
 
 The server publishes websites and Procfile apps, reads back what an
 organization has published, and reads and publishes the organization's
 skills. `governance` is the entry skill: the server's instructions and
-`valet-publish` both tell a model to read it with `get_skill` before any
+the `valet` skill both tell a model to read it with `get_skill` before any
 work, and it names the other skills to read, `design-system` among
 them. The server's `tools/list` answer describes the full tool
 surface.
 
-`valet-publish` still prefers the `valet` CLI where it can run. The CLI
-publishes a whole directory from disk and carries binary files, which the
-MCP tools do not. It also keeps a visitor password out of the
-conversation, which `set_service_access` cannot. The server is the path
-where the CLI cannot run — a sandbox whose outbound proxy refuses the
-install host, or a harness with no shell — and the source of the
-organization's skills on either path.
+The `valet` skill uses the MCP tools when they are connected and fit the
+work, and the `valet` CLI when the work needs it. Where the agent can run
+Git with network access, the MCP tools publish a pushed commit, binary
+files included; elsewhere they carry text files in the call. The CLI
+also pushes with Git, and it keeps a visitor password out of the
+conversation, which `set_service_access` cannot. The server is the only path where the CLI
+cannot run — a sandbox whose outbound proxy refuses the install host, or
+a harness with no shell — and the source of the organization's skills on
+either path.
 
 The CLI and MCP connector keep separate credentials. Claiming an
 anonymous site signs the user into the browser and makes the site
@@ -121,12 +120,13 @@ the other.
 
 ## The publishing preference
 
-The `valet-publish` plugin ships two hooks, both running
-[`hooks/prefer-valet-publish.py`](hooks/prefer-valet-publish.py):
+The Claude Code plugin ships two hooks, both running
+[`claude/prefer-valet.py`](claude/prefer-valet.py):
 
-- **`SessionStart`** states the preference once per session. This is the
-  half that does the real work — deciding to render a page is usually
-  the model's own call, and nobody says "publish this" out loud.
+- **`SessionStart`** states the preference once per session: offer a
+  Valet page, and publish once the user agrees. This is the half that
+  does the real work — deciding to render a page is usually the model's
+  own call, and nobody says "publish this" out loud.
 - **`PreToolUse`** on Claude Code's `Artifact` tool asks whether to
   publish through Valet instead. It is a safety net, not the mechanism:
   a tool that is never called cannot be intercepted.
@@ -154,7 +154,7 @@ $ claude
 > /valet build me an agent that reviews PRs for security vulnerabilities
 ```
 
-The skill handles the full agent lifecycle — creating the workspace, writing the SOUL.md and skills, configuring channels, and deploying to the Valet Cloud.
+The skill handles the full lifecycle — publishing sites and apps, creating an agent's workspace, writing its SOUL.md and skills, configuring channels, and deploying to Valet.
 
 ## What it does
 

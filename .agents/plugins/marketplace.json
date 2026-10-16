@@ -1,0 +1,19 @@
+{
+  "name": "valet",
+  "interface": {
+    "displayName": "Valet"
+  },
+  "plugins": [
+    {
+      "name": "valet",
+      "version": "0.13.1",
+      "source": "./",
+      "description": "Publish files and artifacts to a live URL you own, and build, deploy, and run skilled AI agents from your terminal.",
+      "policy": {
+        "installation": "AVAILABLE",
+        "authentication": "ON_INSTALL"
+      },
+      "category": "Productivity"
+    }
+  ]
+}

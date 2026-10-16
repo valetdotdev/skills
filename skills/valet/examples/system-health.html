@@ -22,8 +22,10 @@
     3. The copy   — the <title>, the meta description, the headings,
        and the "How this page works" section at the bottom.
 
-  Everything between SESSION HELPER and END SESSION HELPER is copied
-  verbatim from the valet-publish skill. Do not edit it.
+  Everything between SESSION HELPER and END SESSION HELPER is the
+  built-in connectors skill's helper.js as of this release. Replace it
+  with the current copy, read with get_skill (skill connectors, path
+  helper.js), and do not edit it.
 
   Deploy this file as index.html at a site root, beside a valet.yaml.
   The connector must already be attached to that site, and the site
@@ -170,7 +172,7 @@
       ];
 
       // ------------------------- SESSION HELPER ----------------------
-      // Verbatim from the valet-publish skill. Do not edit.
+      // The connectors skill's helper.js, verbatim. Do not edit.
       const sessions = new Map(); // one handshake per connector, per tab
 
       function post(connector, body, session) {
