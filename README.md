@@ -37,7 +37,7 @@ codex plugin add valet@valet
 
 On Claude Code this installs the skill, declares the MCP server, **and**
 wires up the publishing preference. On Codex it installs the skill and the
-MCP server, which authenticates through OAuth dynamic client registration.
+MCP server, which signs in through OAuth with a client Codex registers.
 The OpenAI plugin carries no hook. See [`codex/README.md`](codex/README.md).
 
 ### As a skill only
@@ -63,7 +63,7 @@ plugin at once. Each client reads its own files:
 | File | Read by |
 |---|---|
 | `plugin.json` | Codex and other Agent Plugins clients. `extensions["com.openai"]` holds the listing (`interface`). |
-| `mcp.json` | The same clients. Each server declares OAuth with dynamic client registration under `extensions["com.openai"].auth`. |
+| `mcp.json` | The same clients. Each server carries only `type` and `url`; Codex refuses any other field. |
 | `.agents/plugins/marketplace.json` | Codex |
 | `.claude-plugin/plugin.json` | Claude Code. Its `hooks` field names `claude/hooks.json`. |
 | `.claude-plugin/marketplace.json` | Claude Code |

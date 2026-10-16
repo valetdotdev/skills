@@ -3,17 +3,7 @@
   "mcpServers": {
     "valet": {
       "type": "streamable-http",
-      "url": "https://api.valet.dev/mcp",
-      "extensions": {
-        "com.openai": {
-          "auth": {
-            "type": "oauth",
-            "client": {
-              "mode": "dcr"
-            }
-          }
-        }
-      }
+      "url": "https://api.valet.dev/mcp"
     }
   }
 }

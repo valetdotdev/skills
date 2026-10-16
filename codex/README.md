@@ -16,10 +16,12 @@ codex plugin add valet@valet
 ```
 
 Codex reads the root `plugin.json`, installs the `valet` skill, and
-reads the MCP server from `mcp.json`. That file declares OAuth with
-dynamic client registration under `extensions["com.openai"]`, so Codex
-registers itself with Valet's authorization server on first use. The
-`interface` block in `plugin.json` supplies the directory listing.
+reads the MCP server from `mcp.json`. Each server there carries only
+`type` and `url`: Codex refuses a server with any other field and then
+loads none. Codex finds Valet's authorization server from the 401
+challenge and registers its own client; `codex mcp login valet` signs
+in. The `interface` block in `plugin.json` supplies the directory
+listing.
 
 Codex also enforces that the root `plugin.json` name matches the
 marketplace plugin name. A second entry would fail to install with

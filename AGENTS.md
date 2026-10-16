@@ -29,9 +29,9 @@ Claude Code and Codex read this directory differently:
 
 - Codex reads `plugin.json`, `mcp.json`, and
   `.agents/plugins/marketplace.json`. The OpenAI listing lives in
-  `plugin.json` under `extensions["com.openai"].interface`. OAuth with
-  dynamic client registration lives in `mcp.json` under each server's
-  `extensions["com.openai"].auth`.
+  `plugin.json` under `extensions["com.openai"].interface`. Each server
+  in `mcp.json` carries only `type` and `url`, because Codex refuses any
+  other field and then loads no server. Codex discovers OAuth itself.
 - Claude Code reads `.claude-plugin/`, `.mcp.json`, and the hook file its
   `plugin.json` `hooks` field names.
 
