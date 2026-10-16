@@ -12,12 +12,12 @@ Two kinds of skill live on Valet:
 | Task | MCP | CLI |
 |---|---|---|
 | Read one | `get_skill` with `skill` | `valet skills show <name> --org <org>` |
-| Read a skill's supporting file | `get_skill` with `skill` and `path` | — |
+| Read a skill's supporting file | `get_skill` with `skill` and `path` | `valet skills show <name> --path <file> --org <org>` |
 | List them | `list_skills` | `valet skills --org <org>`, then `valet skills info <name>` |
 
 The answer says whether you hold the organization's version or Valet's
-default. `valet skills show` prints the `SKILL.md` to standard output
-and its source to standard error.
+default. `valet skills show` prints the `SKILL.md`, or with `--path` the
+supporting file, to standard output and its source to standard error.
 
 ## Change an organization skill
 
