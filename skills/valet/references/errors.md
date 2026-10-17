@@ -32,7 +32,7 @@ at fault.
 | Code | Do |
 |---|---|
 | `deploy.source_moved` | Someone published the service after your push was created. For a site or app, reconcile: `references/publish.md` § Reconcile a refused push. Over `files`, read the source again so your publish keeps the other change, then publish again. `valet deploy` retries by itself. |
-| `deploy.push_expired` | The push passed its hour. `create_push` again, push your commit to the new push, and publish. If Git refuses that push as not a fast-forward, reconcile as for `deploy.source_moved`. |
+| `deploy.push_expired` | The push passed its hour, or a publish already used it. If your change is live, stop. Otherwise `create_push` again, push your commit to the new push, and publish. If Git refuses that push as not a fast-forward, reconcile as for `deploy.source_moved`. |
 | `deploy.push_mismatch` | The push holds another commit than the one you named. Check that `git push` succeeded, then publish the commit `git rev-parse HEAD` prints. |
 | `deploy.push_unrelated` | Your commit does not build on the push's branch. Fetch the branch, commit your files on top of it, as the directory recipe does, and push again. |
 | `deploy.too_many_pushes` | The service holds 10 open pushes. Publish one you opened, or wait until the time the message names. |
