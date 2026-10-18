@@ -69,7 +69,7 @@ do.
 | Path | Reach for it when | It cannot |
 |---|---|---|
 | **MCP tools with Git:** `get_source` with `git`, `create_push`, `git push`, then a publish with `push` | The MCP tools are connected and you can run `git` with network access. | Run without a shell, or where a sandbox blocks the network. |
-| **MCP tools with files:** `get_source`'s files, then a publish with `files` | The MCP tools are connected, and there is no shell or Git cannot reach Valet. This is the only path without a shell. | Carry binary files such as images and PDFs, or more than 192 KiB per call. |
+| **MCP tools with files:** `get_source`'s files, then a publish with `files` | The MCP tools are connected, and there is no shell or Git cannot reach Valet. This is the only path without a shell. | Carry binary files such as images and PDFs, or more than the per-call limits in `references/publish.md`. |
 | **The `valet` CLI** | You have a shell where it runs, and the work needs a password typed at a prompt or a command the MCP tools lack. `valet deploy` pushes with Git by itself. | Run where there is no shell, or where a sandbox blocks the install host. |
 
 Over MCP, a visitor password passes through the conversation.
@@ -126,7 +126,7 @@ Read only the reference the work needs. Each is in `references/`.
 | Naming, sharing, or setting access on a site; testing WebMCP | `sites.md` |
 | A Procfile app: create, deploy, logs, releases, access | `apps.md` |
 | Designing an agent, writing `SOUL.md`, `valet.yaml`, channel files, `AGENTS.md`, or saving a session as an agent | `agents.md` |
-| An agent's skills, or the organization's own skills | `skills.md` |
+| Creating, publishing, cloning, or deleting an organization skill; installing a catalog skill; an agent's skills | `skills.md` |
 | Connectors: catalog, create, attach, call, repair; a page on live data | `connectors.md` |
 | Channels: webhook, cron, heartbeat, MCP, Slack, Telegram | `channels.md` |
 | Databases and other resources an app holds | `resources.md` |

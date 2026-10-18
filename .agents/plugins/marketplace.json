@@ -6,7 +6,7 @@
   "plugins": [
     {
       "name": "valet",
-      "version": "0.13.5",
+      "version": "0.13.6",
       "source": "./",
       "description": "Publish files and artifacts to a live URL you own, and build, deploy, and run skilled AI agents from your terminal.",
       "policy": {

@@ -131,7 +131,8 @@ Without Git, every publish tool takes `files` as `[{path, content}]`.
 It carries text only: HTML, CSS, JavaScript, Markdown, JSON, and SVG.
 At the default limits, one call takes 50 files, 128 KiB per file, and
 192 KiB in all; a refusal names the limit it broke. Images, PDFs, and
-video need Git or the CLI. Say so rather than publishing a page that
+video need Git or the CLI. A push holds up to 500 files and 50 MB, with
+at most 25 MB per file. Say so rather than publishing a page that
 links to files you could not upload.
 
 ## What a CLI deploy uploads
@@ -306,7 +307,7 @@ URL. Pass the token back to update or destroy that site. `claim_site`
 moves it into the person's organization once they agree. Never pass
 `org_name` with `anonymous: true`.
 
-The anonymous limits are 1000 files, 250 MB per file, and 250 MB in all.
+The anonymous limits are 500 files, 25 MB per file, and 50 MB in all.
 
 A claimed site moves to the organization's address, and the anonymous
 URL redirects to it. It stays public until someone changes its access.
