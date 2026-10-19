@@ -3,8 +3,10 @@
 Two kinds of skill live on Valet:
 
 - **The organization's skills** tell coding agents, you included, how
-  the organization works. `governance` is the first of them, and the
-  organization can add its own.
+  the organization works, for any work done for it, not only work on
+  Valet. `governance` is the first of them, and the organization can add
+  its own. When a task might be covered by how the organization works,
+  list them and read a matching skill before starting.
 - **An agent's skills** are bundles a Valet agent loads at deploy.
 
 ## Read the organization's skills
@@ -22,6 +24,8 @@ supporting file, to standard output and its source to standard error.
 ## Create and publish an organization skill
 
 Create the skill first. A publish refuses a name that does not exist.
+To share a skill with the team, such as one the person keeps locally,
+create it and publish it; every member's agent can then read it.
 
 | Task | MCP | CLI |
 |---|---|---|
@@ -30,6 +34,7 @@ Create the skill first. A publish refuses a name that does not exist.
 | Install a catalog skill | `create_skill` with `catalog` | `valet skills create --from catalog:<name>` |
 | Clone the latest version | `get_skill` with `git` | `valet skills clone <name> [dir]` |
 | Publish a version | `create_push` with `skill`, `git push`, then `publish_skill` with `push` | `valet skills publish [dir]` |
+| Change some files | `publish_skill` with `skill`, `edits`, and `base_version` | None; clone, change, and publish |
 | Delete one | `destroy_skill` with `skill` | `valet skills destroy <name>` |
 
 `valet skills create <dir>` creates the skill that the directory's
@@ -41,9 +46,17 @@ directory or a clone, then pass `push: {id, commit}` to `publish_skill`.
 A push carries every file, binary files included. `valet skills
 publish` pushes by itself and removes files the directory lacks.
 
-Without Git, `publish_skill` takes `files` as `[{path, content}]`. It
-carries text only, within the limits `references/publish.md` § Publish
-with files gives. Say so rather than dropping a script or an image.
+Without Git, `publish_skill` takes `edits` or `files`, each as
+`[{path, content}]` text, within the limits `references/publish.md`
+§ Publish with files gives. `edits` replaces or adds the files it names
+and keeps every other file, binary files included. `files` replaces the
+whole skill and drops every file it leaves out. Prefer `edits` to change
+an existing skill, and say so rather than dropping a script or an image.
+
+Pass `base_version`, the version `get_skill` reported, so a teammate's
+publish in between is not overwritten. `get_skill` with `git` reports
+the version of the commit it names, so a push can pass it too. `edits` requires it. A stale base
+publishes nothing: read the skill again and redo the change.
 
 Publishing identical content creates no version. A skill holds up to
 500 files and 50 MB, with at most 25 MB per file. Every kind of source
