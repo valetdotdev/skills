@@ -15,7 +15,15 @@ Two kinds of skill live on Valet:
 |---|---|---|
 | Read one | `get_skill` with `skill` | `valet skills show <name> --org <org>` |
 | Read a skill's supporting file | `get_skill` with `skill` and `path` | `valet skills show <name> --path <file> --org <org>` |
+| Read an earlier release | `get_skill` with `skill` and `release` (a version from `list_releases`) | None |
+| Read a whole skill in one call | `get_skill` with `skill` and `all_files` | `valet skills clone <name> [dir]` |
 | List them | `list_skills` | `valet skills --org <org>`, then `valet skills info <name>` |
+
+`all_files` returns `SKILL.md` and every other text file in one answer.
+To install the result, write each file to its path under
+`~/.claude/skills/<name>/` or `~/.agents/skills/<name>/`. Binary files
+are listed with their sizes, and a skill over 50 files or 192 KiB of
+text is refused; clone it with `get_skill` and `git` instead.
 
 The answer says whether you hold the organization's version or Valet's
 default. `valet skills show` prints the `SKILL.md`, or with `--path` the
