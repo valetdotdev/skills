@@ -54,9 +54,10 @@ Each publish is three calls tied by a push id:
    and `author_email` to commit as, and `commands`: these recipes with
    every value filled in. Run those.
 2. Commit on top of the branch and push it.
-3. `publish_site`, `publish_app`, or `publish_agent` with
-   `push: {id, commit}` in place of `files`, and the arguments the kind
-   needs, such as `title` and `description`.
+3. `publish_site`, `publish_app`, `publish_agent`, or `publish_skill`
+   with `push: {id, commit}` in place of `files`, and the arguments the
+   kind needs, such as `title` and `description`. `publish_skill` names
+   the skill with `skill`.
 
 A push lasts one hour. Its URL writes only `draft/<push_id>`, and only
 by fast-forward: Git refuses a force push and any other branch. Push as

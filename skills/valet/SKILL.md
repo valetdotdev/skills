@@ -96,14 +96,15 @@ own sign-in.
 `governance` sets the order. These are the mechanics for each step:
 
 1. **Find what exists.** `list_services`, or `valet sites`, `valet apps`,
-   and `valet agents`.
+   `valet agents`, and `valet skills`.
 2. **Read it before changing it.** With Git, clone it through a push
    when you will change it, or from `get_source`'s read URL otherwise.
    Without Git, `get_source` lists and reads its files.
    `references/publish.md` § Update a service later covers each kind.
 3. **Create a new service first.** `create_service`, or
-   `valet sites create`, `valet apps create`, or `valet agents create`.
-   A publish refuses a service that does not exist.
+   `valet sites create`, `valet apps create`, `valet agents create`, or
+   `valet skills create`. A publish refuses a service that does not
+   exist.
 4. **Build in a directory of its own.** A deploy uploads everything in
    the directory.
 5. **Publish.** `references/publish.md` covers every kind.
