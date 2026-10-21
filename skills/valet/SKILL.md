@@ -6,12 +6,12 @@ description: >
   resources, skills, and environment variables they use. Use when asked
   to publish, host, or share files or a page at a live URL; to build,
   deploy, change, or remove an app or an agent; to set up a connector,
-  webhook, schedule, Slack bot, or database; to save a session as a
-  repeatable agent; or when writing SOUL.md or valet.yaml. Also use to
-  offer a rendered page when a report, dashboard, comparison, or design
-  document reads better at a URL than as terminal text; publish it only
-  once the person agrees. Works through the valet CLI or Valet's MCP
-  server.
+  webhook, schedule, Slack bot, or database; to set up a release policy
+  or build a custom checker; to save a session as a repeatable agent; or
+  when writing SOUL.md or valet.yaml. Also use to offer a rendered page
+  when a report, dashboard, comparison, or design document reads better
+  at a URL than as terminal text; publish it only once the person
+  agrees. Works through the valet CLI or Valet's MCP server.
 license: MIT
 compatibility: >
   Needs the valet CLI on macOS, Linux, or Windows, or a connection to
@@ -132,6 +132,7 @@ Read only the reference the work needs. Each is in `references/`.
 | Channels: webhook, cron, heartbeat, MCP, Slack, Telegram | `channels.md` |
 | Databases and other resources an app holds | `resources.md` |
 | Environment variables, secret and plain | `env.md` |
+| Release policies, a release a policy blocked, or building a custom checker | `policies.md` |
 | Organizations, members, and how the CLI picks an org or agent | `orgs.md` |
 | A refusal or a problem code such as `deploy.draft_open` | `errors.md` |
 

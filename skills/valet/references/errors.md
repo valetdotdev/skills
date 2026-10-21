@@ -22,6 +22,7 @@ person and give them the code; they can email support@valet.dev.
 | `name.taken`, `name.retired`, `name.reserved`, `name.invalid` | Choose another name. A name is 3 to 63 lowercase letters, digits, and hyphens. A skill named for a built-in keeps its name; destroying it restores Valet's default. |
 | `account.not_logged_in`, `account.login_expired` | `valet auth login`, or let the MCP call start its sign-in. |
 | `account.suspended` | Tell the person, and stop. |
+| `deploy.policy_blocked`, `deploy.policy_errored` | A release policy refused the release, and the live release is unchanged. Read the findings and fix them, or publish again for an errored policy: `references/policies.md` § A blocked release. Never remove or weaken a policy unless the person asks. |
 
 ## Push refusals
 
@@ -53,6 +54,7 @@ at fault.
 | `channel.*` | A channel's name, type, scope, secret, or signature is wrong | `references/channels.md`. |
 | `agent.*`, `message.*`, `conversation.*` | An agent failed to start, run, or reply | `get_logs` or `valet logs`, then the session with `get_session`. |
 | `skill.*` | A skill is held, its new name or an attach collides with a skill an agent keeps in its source, or it is not published | `skill.in_use` names each agent that holds the skill: detach it from each with `detach_skill`, then destroy it. For a rename or an attach (`skill.local_conflict`) refused over an agent's own `skills/<name>/`, rename or remove that directory, then try again. |
+| `policy.*` | A policy's or checker's name, settings, URL, or headers were refused, or a checker is in use or unavailable | `references/policies.md`. |
 | `resource.*`, `logs.*`, `release.*` | Less common refusals | Follow the message. |
 
 ## CLI-only refusals
