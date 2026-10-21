@@ -25,7 +25,16 @@ valet apps access <name> private|password|public # set; MCP: set_service_access
 ```
 
 On a terminal, password mode prompts without echoing; ask the person to
-run it themselves. An app has no per-person shares.
+run it themselves.
+
+Share an app with named people as a website is shared. A person it is
+shared with can use everything the app does, so say so before sharing
+an app that changes data.
+
+| Task | CLI | MCP |
+|---|---|---|
+| Share with named people | `valet apps share <name> <email>... [--message <text>] [--expires-in <dur>] [--expires-after-open <dur>]` | `share_service` with `emails` (1 to 10), `message`, `expires_in`, and `access_ttl` |
+| List or end shares | `valet apps shares <name>`, `valet apps unshare <name> <email>` | `get_service`, `unshare_service` |
 
 ## Run it
 
