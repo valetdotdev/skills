@@ -98,6 +98,9 @@ uploads and how each kind confirms.
 - If an agent's `valet.yaml` names connectors or channels that are not
   attached, deploy stops and lists them. Attach them, or pass
   `--allow-unsatisfied` to run without them.
+- For an app, `--no-wait` prints the build's id and returns.
+  `valet builds show <id>` prints its log and status, and `-f` follows it
+  to the end as deploy would.
 
 ### Drafts
 

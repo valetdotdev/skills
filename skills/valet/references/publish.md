@@ -199,7 +199,9 @@ valet deploy
 ```
 
 `valet deploy` waits for every process, prints each change of state, and
-exits 1 if one crashes.
+exits 1 if one crashes. `--no-wait` prints the build's id and returns;
+`valet builds show <id> -f` follows that build later, and without `-f`
+it prints the build's log and status once.
 
 **MCP.** `create_service` with `kind: app`, then `publish_app` with
 `push` or `files`, `title`, `description`, and a new `idempotency_key`
