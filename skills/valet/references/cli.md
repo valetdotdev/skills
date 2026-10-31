@@ -125,7 +125,7 @@ An agent has at most one open draft.
 | `valet logs [-n <lines>] [-f]` | Prints the last 100 lines and exits; `-f` keeps streaming, `-n 0` skips history |
 | `valet ps` | Lists processes and their state, `idle` included |
 | `valet ps restart` | Restarts processes without a new release |
-| `valet ps scale <type>=<value>` | Sets a process count, or an agent's model |
+| `valet ps scale <type>=<value>` | Sets a process count or size, or an agent's model |
 | `valet run <prompt>` | Sends one prompt to an agent |
 | `valet console [--resume <session-id>]` | Opens a conversation with an agent |
 | `valet sessions` | Lists, shows, and deletes an agent's sessions |
@@ -144,16 +144,22 @@ means it stalled.
 
 ### Scaling
 
-`valet ps scale` sets an app's process counts and an agent's model:
+`valet ps scale` sets an app's process counts and sizes, and an agent's
+model, count, and size:
 
 ```
 valet ps scale worker=1                   # start an app's worker
+valet ps scale web=standard-1x            # never sleep, keep the count
+valet ps scale web=2:standard-1x          # count and size at once
 valet ps scale agent=glm-5.3              # change the model, keep the count
 valet ps scale agent=0                    # stop the agent, keep the model
 valet ps scale agent=claude-sonnet-5:1    # both at once
 ```
 
-An agent's count is 0 or 1. Changing one setting keeps the other.
-Scaling restarts processes; it does not make a release. Run
+An agent's count is 0 or 1. Each setting you leave out keeps its value.
+`economy-1x`, the default size, sleeps after 30 minutes without traffic;
+`standard-1x` is the same machine and never sleeps. Changing a model or
+count restarts processes; changing size restarts nothing. Scaling does
+not make a release. Run
 `valet help ps scale` for the current models rather than quoting one
 from memory. A site has no processes and cannot be scaled.
