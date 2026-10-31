@@ -36,6 +36,49 @@ an app that changes data.
 | Share with named people | `valet apps share <name> <email>... [--message <text>] [--expires-in <dur>] [--expires-after-open <dur>]` | `share_service` with `emails` (1 to 10), `message`, `expires_in`, and `access_ttl` |
 | List or end shares | `valet apps shares <name>`, `valet apps unshare <name> <email>` | `get_service`, `unshare_service` |
 
+## Webhooks and schedules
+
+An app takes `webhook`, `cron`, and `heartbeat` channels;
+`references/channels.md` says how to create one with a `path`. Valet
+posts each delivery to that route with an `X-Valet-Visitor` token of
+kind `channel`, whose `channel` claim holds `id`, `name`, and `type`.
+The token names no person. The handler:
+
+- verifies the token as the `apps` skill describes, and accepts kind
+  `channel` only on that route;
+- treats `delivery_key` as an idempotency key, because deliveries
+  repeat and arrive out of order;
+- returns 2xx once the work is done. Any other answer, a 404 included,
+  retries with growing waits for about a day.
+
+Keep the app private. A sleeping app wakes for a delivery, and a
+heartbeat under about 35 minutes keeps it awake.
+
+A Stripe webhook. Set the signing secret, then create the channel:
+
+```
+set_env_vars   name=billing vars={"STRIPE_WEBHOOK_SECRET": "whsec_..."}
+create_channel name=billing channel=stripe-events channel_kind=webhook \
+  path=/webhooks/stripe verify_scheme=stripe secret_name=STRIPE_WEBHOOK_SECRET
+```
+
+Valet checks Stripe's signature, so the handler does not. It verifies
+the visitor token and skips events it has seen:
+
+```js
+app.post("/webhooks/stripe", express.json(), async (req, res) => {
+  const v = await visitor(req); // the jose helper in the apps skill
+  if (v.kind !== "channel") return res.sendStatus(403);
+  if (await seen(v.delivery_key)) return res.sendStatus(200);
+  await handleEvent(req.body); // for example, mark an invoice paid
+  await markSeen(v.delivery_key);
+  res.sendStatus(200);
+});
+```
+
+A thrown error before `res.sendStatus(200)` answers 500, so Valet
+retries the delivery.
+
 ## Run it
 
 | Task | CLI | MCP |

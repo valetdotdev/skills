@@ -40,10 +40,10 @@ An agent's `valet.yaml` can also declare `cron`, `heartbeat`, and `mcp`
 channels inline; see `references/agents.md`.
 
 **Webhook.** `--verify` takes `hmac-sha256` (the default), `slack`,
-`stripe`, `svix`, `static-token`, or `none`. `slack`, `stripe`, and
-`svix` need `--secret-name`, naming a secret already set. A catalog
-entry handles a service's signing for you. The command prints the
-webhook URL, the signing secret, and the name of any managed secret.
+`stripe`, `svix`, `mercury`, `static-token`, or `none`. `slack`,
+`stripe`, `svix`, and `mercury` need `--secret-name`, naming a secret
+already set. A catalog entry handles a service's signing for you. The
+command prints the webhook URL, the signing secret, and the name of any managed secret.
 Report the URL and the secret's name, never the secret itself; the
 person copies it from their terminal. When your shell's output reaches
 the conversation, prefer `--secret-name` with a secret the person set
@@ -75,6 +75,24 @@ joins each conversation.
 
 When an authorization lapses, `valet channels reauthorize <name>`, or
 `reauthorize_channel`, gives the person a new link.
+
+## Channels on an app
+
+An app takes `webhook`, `cron`, and `heartbeat` channels, so a private
+app can receive webhooks and run on a schedule. Create one with the MCP
+tool `create_channel`, naming the app, plus a `path`: the route in the
+app that handles each delivery. `verify_scheme` is `hmac-sha256` (the
+default), `stripe`, `svix`, `slack`, `mercury`, or `static-token`; an
+app channel always verifies, so `none` is refused. A webhook's
+`secret_name` names a variable set first on the app with
+`set_env_vars`. The `apps` skill owns the handler contract;
+`references/apps.md` gives a Stripe example.
+
+Valet verifies the signature at the gateway, wakes a sleeping app, and
+posts the sender's request unchanged to `path`. A cron or heartbeat
+fire posts JSON with `channel`, `type`, `delivery_key`, `fired_at`, and
+`schedule`. Changing an app's channels never restarts it. The app stays
+private.
 
 ## Write a channel file
 
