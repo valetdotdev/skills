@@ -18,3 +18,7 @@ for this installation; follow it rather than memory.
 `--prefix` is the CLI's `env_prefix`: `--prefix EVENTS` sets
 `EVENTS_DATABASE_URL` rather than `DATABASE_URL`. Attaching fails when a
 name it would set already exists on the app or its organization.
+
+Each attach and each variable change restarts the app. Over MCP, pass
+the app's own variables in `attach_resource`'s `vars`: the call that
+attaches sets them in the same restart.
