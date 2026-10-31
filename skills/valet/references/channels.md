@@ -1,6 +1,7 @@
 # Channels
 
-A channel wakes an agent. Read the `channels` skill first: it owns
+A channel wakes an agent, or posts a delivery to a path in an app.
+Read the `channels` skill first: it owns
 choosing the kind, what a person must finish in a browser, and who a
 channel lets in. This file gives the commands and how to write a channel
 file.
@@ -81,12 +82,26 @@ When an authorization lapses, `valet channels reauthorize <name>`, or
 An app takes `webhook`, `cron`, and `heartbeat` channels, so a private
 app can receive webhooks and run on a schedule. Create one with the MCP
 tool `create_channel`, naming the app, plus a `path`: the route in the
-app that handles each delivery. `verify_scheme` is `hmac-sha256` (the
-default), `stripe`, `svix`, `slack`, `mercury`, or `static-token`; an
-app channel always verifies, so `none` is refused. A webhook's
-`secret_name` names a variable set first on the app with
-`set_env_vars`. The `apps` skill owns the handler contract;
-`references/apps.md` gives a Stripe example.
+app that handles each delivery. On the CLI:
+
+```
+valet channels create webhook [name] --app <app> --path /webhooks/stripe \
+  --verify stripe --secret-name STRIPE_WEBHOOK_SECRET
+valet channels create cron [name] --app <app> --path /jobs/report --schedule "every day at 9am"
+valet channels create heartbeat [name] --app <app> --path /jobs/tick --every 1h
+valet channels --app <app>
+valet channels info <name> --app <app>     # path and the last five deliveries
+valet channels update <name> --app <app> --path <new-path>
+valet channels destroy <name> --app <app>
+```
+
+`verify_scheme`, or `--verify`, is `hmac-sha256` (the default),
+`stripe`, `svix`, `slack`, `mercury`, or `static-token`; an app channel
+always verifies, so `none` is refused. A webhook's `secret_name`, or
+`--secret-name`, names a variable set first on the app with
+`set_env_vars` or `valet env set`. The `apps` skill owns the handler contract;
+`references/apps.md` gives a Stripe example. An app takes no
+organization channels, so `attach` refuses an app.
 
 Valet verifies the signature at the gateway, wakes a sleeping app, and
 posts the sender's request unchanged to `path`. A cron or heartbeat
