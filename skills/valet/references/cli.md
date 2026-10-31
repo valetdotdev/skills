@@ -158,8 +158,8 @@ valet ps scale agent=claude-sonnet-5:1    # both at once
 
 An agent's count is 0 or 1. Each setting you leave out keeps its value.
 `economy-1x`, the default size, sleeps after 30 minutes without traffic;
-`standard-1x` is the same machine and never sleeps. Changing a model or
-count restarts processes; changing size restarts nothing. Scaling does
+`standard-1x` is the same machine and never sleeps. Changing a model,
+count, or size restarts processes. Scaling does
 not make a release. Run
 `valet help ps scale` for the current models rather than quoting one
 from memory. A site has no processes and cannot be scaled.
