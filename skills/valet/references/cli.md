@@ -100,7 +100,8 @@ uploads and how each kind confirms.
   `--allow-unsatisfied` to run without them.
 - For an app, `--no-wait` prints the build's id and returns.
   `valet builds show <id>` prints its log and status, and `-f` follows it
-  to the end as deploy would.
+  to the end as deploy would. `valet builds` lists the app's newest
+  builds with their ids.
 
 ### Drafts
 
