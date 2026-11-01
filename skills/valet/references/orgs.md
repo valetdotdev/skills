@@ -15,12 +15,13 @@ valet orgs join <code>
 valet orgs revoke <name> <email>   # cancel an invitation
 valet orgs remove <name> <email>
 valet orgs leave <name>
-valet orgs destroy <name>
+valet orgs destroy <name> --yes   # --yes skips the y/N prompt
 ```
 
 An organization's name is reserved for good, so confirm it with the
 person before `valet orgs create`. Creating or joining one makes it the
-default. Confirm before removing a member or destroying an organization.
+default. Confirm before removing a member or destroying an organization;
+only then pass `--yes`, which a command without a terminal needs.
 
 ## How a command picks its target
 
