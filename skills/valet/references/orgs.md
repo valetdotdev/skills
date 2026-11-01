@@ -35,8 +35,9 @@ So:
 
 - Pass `--org` whenever you know it and the person may belong to more
   than one organization.
-- Inside a linked directory, pass neither; a flag overrides the whole
-  link.
+- Inside a linked directory, pass neither. `--agent` or `--app`
+  overrides the whole link. `--org` alone keeps the link's service when
+  the link names that organization.
 - If `--agent X` alone fails with `agent exists in multiple orgs`, add
   `--org`.
 

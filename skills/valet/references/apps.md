@@ -85,6 +85,7 @@ retries the delivery.
 |---|---|---|
 | Read output | `valet logs --app <name> [-f]` | `get_logs` |
 | See processes | `valet ps --app <name>` | `get_service` |
+| List releases | `valet releases --app <name>` | `list_releases` |
 | Start a worker | `valet ps scale worker=1 --app <name>` | `scale_service` |
 | Restart | `valet ps restart --app <name>` | `restart_service` |
 | Rename | `valet apps rename <name> <new-name>` | `rename_service` |
