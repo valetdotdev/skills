@@ -130,7 +130,7 @@ An agent has at most one open draft.
 | `valet run <prompt>` | Sends one prompt to an agent |
 | `valet console [--resume <session-id>]` | Opens a conversation with an agent |
 | `valet sessions` | Lists, shows, and deletes an agent's sessions |
-| `valet drains` | Sends logs to an OTLP HTTP endpoint |
+| `valet drains` | Sends telemetry to OTLP HTTP endpoints, for a service or, with `--org` alone, for the org (Admin only to create or destroy) |
 
 Outside a linked directory, name the service with `-a <agent>` or
 `--app <app>`, and `--org <org>`.
