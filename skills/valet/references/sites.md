@@ -33,7 +33,7 @@ bytes, so it stays in the transcript. Tell the person, and offer the CLI.
 
 ```
 valet sites rename <name> <new-name>   # MCP: rename_service
-valet sites destroy <name>             # MCP: destroy_service
+valet sites destroy <name> [--yes]     # MCP: destroy_service
 ```
 
 Renaming moves the site to the address the new name gives it. Destroying

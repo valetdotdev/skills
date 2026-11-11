@@ -89,7 +89,7 @@ retries the delivery.
 | Start a worker | `valet ps scale worker=1 --app <name>` | `scale_service` |
 | Restart | `valet ps restart --app <name>` | `restart_service` |
 | Rename | `valet apps rename <name> <new-name>` | `rename_service` |
-| Remove | `valet apps destroy <name>` | `destroy_service` |
+| Remove | `valet apps destroy <name> --yes` | `destroy_service` |
 
 Removing an app keeps its resources; `references/resources.md` says how
 to let them go. The `apps` skill says how to undo a release.

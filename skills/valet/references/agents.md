@@ -31,7 +31,7 @@ valet agents create [name] [--org <org>] [--from <source>] \
 valet deploy
 valet agents [--org <org>]
 valet agents info <name> [--org <org>]
-valet agents destroy <name> [--org <org>]
+valet agents destroy <name> [--org <org>] [--yes]
 ```
 
 `valet agents create` needs a `SOUL.md`. It creates the agent, links the
@@ -63,7 +63,7 @@ it holds, destroy the ones only it holds, then destroy the agent:
 ```
 valet connectors detach github --agent my-agent
 valet channels detach github-webhook --agent my-agent
-valet agents destroy my-agent
+valet agents destroy my-agent --yes
 ```
 
 ## Design an agent with the person

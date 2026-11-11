@@ -49,7 +49,7 @@ create it and publish it; every member's agent can then read it.
 | See its releases | `list_releases`, then `get_source` or `get_skill` with `release` | `valet skills info <name>` |
 | See who holds it | `get_service` | `valet skills info <name>` |
 | Rename one | `rename_service` with `name` and `new_name` | `valet skills rename <name> <new-name>` |
-| Delete one | `destroy_service` with `name` and `kind: skill` | `valet skills destroy <name>` |
+| Delete one | `destroy_service` with `name` and `kind: skill` | `valet skills destroy <name> --yes` |
 
 `valet skills create <dir>` creates the skill that the directory's
 `SKILL.md` names and publishes the directory as `v1`.

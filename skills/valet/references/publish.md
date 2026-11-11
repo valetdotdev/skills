@@ -298,7 +298,7 @@ only credential. Tell the person not to commit it. From that directory:
 - `valet sites info` reports its state: `unclaimed`, `claimed`,
   `expired`, `deleted`, or `reaped`. Never infer the state from the
   file.
-- `valet sites destroy` takes it down. Do it at once if the person
+- `valet sites destroy --yes` takes it down. Do it at once if the person
   published something by mistake.
 - `valet sites claim --org <org>` moves it into an existing
   organization the person belongs to. Without an account, the claim URL
