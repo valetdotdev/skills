@@ -36,6 +36,16 @@ an app that changes data.
 | Share with named people | `valet apps share <name> <email>... [--message <text>] [--expires-in <dur>] [--expires-after-open <dur>]` | `share_service` with `emails` (1 to 10), `message`, `expires_in`, and `access_ttl` |
 | List or end shares | `valet apps shares <name>`, `valet apps unshare <name> <email>` | `get_service`, `unshare_service` |
 
+A script, daemon, or CLI calls a private app with a service token, not a
+share. It sends `Authorization: Bearer <token>`, and the app sees a
+visitor of kind `service`. The CLI prints the token once, so have the
+person store it. MCP has no tool for tokens.
+
+| Task | CLI |
+|---|---|
+| Mint a token | `valet apps token mint <token-name> --app <name> [--expires <dur>]` |
+| List or revoke tokens | `valet apps token list --app <name>`, `valet apps token revoke <token-name> --app <name>` |
+
 ## Webhooks and schedules
 
 An app takes `webhook`, `cron`, and `heartbeat` channels;
