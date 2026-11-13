@@ -17,12 +17,20 @@ answers `Accept: text/markdown` with a Markdown copy.
 |---|---|---|
 | List policies, checkers, and 30-day counts | `valet policies`, `valet policies checkers` | `list_policies` |
 | Add or replace a policy | `valet policies add <name> --checker <checker> --monitor` or `--block-at high` | `set_policy` |
-| Pass a setting | `--set name=value` | `settings` |
+| Pass a setting | `--set name=value` | `settings`, non-secret only |
 | Remove a policy | `valet policies remove <name>` | `destroy_policy` |
 | Read a release's evaluation | `valet policies show -a <name>` | `get_evaluation` with `wait_seconds` |
 
 Adding a name that exists replaces the policy, settings included, so
-pass every setting again. Start a new policy in Monitor, read what it
+pass every setting again. A checker with a required secret field that has no stored value makes
+`set_policy` return a `request` instead of saving; so does
+`replace_secrets: true`, which asks for every secret field again. An
+Admin enters the secrets on the request page and the policy is saved
+then; a field left blank keeps its stored value. Otherwise the policy
+saves at once and keeps stored secrets. The request page and
+`get_request` show the request's `target`. Give the person the `url`, then call `get_request` with the
+`id` and `wait_seconds` 20. A checker with no secret fields saves at
+once. Start a new policy in Monitor, read what it
 finds, and make it block only when the person says so.
 
 ## A blocked release
@@ -94,7 +102,8 @@ access and checks the header itself. A private app answers 401 to Valet.
 1. Create and deploy the app, and confirm it is `up`.
 2. Have the person set the token, on the app and on the organization,
    in their own terminal: `valet env set CHECKER_TOKEN=... --app <app>`
-   and `valet env set CHECKER_TOKEN=... --org <org>`.
+   and `valet env set CHECKER_TOKEN=... --org <org>`. Over MCP,
+   `set_env_vars` with `secret_names` returns a request for each.
    `references/env.md` says why the value never passes through you.
 3. Add the checker. A credential header must be a `{{NAME}}` reference
    to a secret org env var:

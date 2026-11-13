@@ -3,7 +3,7 @@
 An environment variable is a named value an app or agent reads, set on
 the organization or on one service. A site has none. Each has a kind:
 
-- **Secret,** the default: a credential. A connector or channel uses it
+- **Secret,** the default on the CLI: a credential. A connector or channel uses it
   through `{{NAME}}`, and an app reads it from its environment. An agent
   never sees it, and lists mask it.
 - **Plain:** configuration such as a region or a base URL. An agent
@@ -33,11 +33,23 @@ Over MCP: `set_env_vars`, `list_env_vars`, and `unset_env_vars`.
 ## Who types a secret
 
 The person sets secrets, not you: in their own terminal with
-`valet env set`, or on the dashboard. Tell them the variable's name and
-the format the value takes, including any prefix the service expects,
-then wait for them to confirm. A value passed to `set_env_vars` stays in
-the conversation, so offer the dashboard instead. You may set plain
-values yourself.
+`valet env set`, or on a request page. You may set plain values yourself.
+
+Over MCP, `set_env_vars` takes `plain_vars` for plain values, which it applies
+at once. For secrets it takes `secret_names`, an array of names, and a
+`reason`, one sentence the person reads. It sets no secret. It returns
+a `request` with a `url`, which opens a dashboard page for a signed-in
+member of the organization. The link holds no credential, and it
+expires in 15 minutes. Tell the person the variable's name and the
+format its value takes, including any prefix the service expects. Give
+them the link. Then call `get_request` with the request's `id` and
+`wait_seconds` 20 until the state is `completed`, `declined`, or
+`expired`.
+
+Completing the request needs the Developer role. A member without it
+sees the page and can forward the link. The services restart when the
+person completes the request, not before. Passing the old `secret`
+boolean is refused.
 
 ## Set on the organization by default
 

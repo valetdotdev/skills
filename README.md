@@ -108,8 +108,9 @@ The `valet` skill uses the MCP tools when they are connected and fit the
 work, and the `valet` CLI when the work needs it. Where the agent can run
 Git with network access, the MCP tools publish a pushed commit, binary
 files included; elsewhere they carry text files in the call. The CLI
-also pushes with Git, and it keeps a visitor password out of the
-conversation, which `set_service_access` cannot. The server is the only path where the CLI
+also pushes with Git. No MCP tool takes a secret: a tool that needs
+one returns a request link the person opens on the dashboard. The
+server is the only path where the CLI
 cannot run — a sandbox whose outbound proxy refuses the install host, or
 a harness with no shell — and the source of the organization's skills on
 either path.

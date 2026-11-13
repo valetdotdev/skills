@@ -26,8 +26,11 @@ expires. Sharing an address again re-sends its existing link.
 **Keep a visitor password out of the conversation.** On the CLI, ask the
 person to run `valet sites access <name> password` in their own
 terminal; it prompts without echoing. Wait for them to confirm. Over
-MCP, `set_service_access` takes the password as an argument, at most 72
-bytes, so it stays in the transcript. Tell the person, and offer the CLI.
+MCP, `set_service_access` with `mode: password` takes no password. It
+returns a `request`; give the person its `url`, where they set the
+visitor password, then call `get_request` with the request's `id` and
+`wait_seconds` 20. The access mode changes only when they complete it,
+and they need the Developer role. Include a `reason`.
 
 ## Rename and remove
 

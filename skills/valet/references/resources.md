@@ -20,5 +20,12 @@ for this installation; follow it rather than memory.
 name it would set already exists on the app or its organization.
 
 Each attach and each variable change restarts the app. Over MCP, pass
-the app's own variables in `attach_resource`'s `vars`: the call that
-attaches sets them in the same restart.
+the app's own plain variables in `attach_resource`'s `plain_vars`: the call
+that attaches sets them in the same restart. For secret variables pass
+`secret_names` and a `reason`. The resource is attached and usable at
+once, and the call returns a `request`; give the person its `url`, then
+call `get_request` with the request's `id` and `wait_seconds` 20. The
+secret variables are set, and the app restarts once more, when the
+person completes it. A call that does not attach reports the names as
+not requested. If the attach is refused after the call made a request,
+Valet withdraws that request.

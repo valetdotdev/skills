@@ -70,9 +70,7 @@ do.
 |---|---|---|
 | **MCP tools with Git:** `get_source` with `git`, `create_push`, `git push`, then a publish with `push` | The MCP tools are connected and you can run `git` with network access. | Run without a shell, or where a sandbox blocks the network. |
 | **MCP tools with files:** `get_source`'s files, then a publish with `files` | The MCP tools are connected, and there is no shell or Git cannot reach Valet. This is the only path without a shell. | Carry binary files such as images and PDFs, or more than the per-call limits in `references/publish.md`. |
-| **The `valet` CLI** | You have a shell where it runs, and the work needs a password typed at a prompt or a command the MCP tools lack. `valet deploy` pushes with Git by itself. | Run where there is no shell, or where a sandbox blocks the install host. |
-
-Over MCP, a visitor password passes through the conversation.
+| **The `valet` CLI** | You have a shell where it runs, and the work needs a command the MCP tools lack. `valet deploy` pushes with Git by itself. | Run where there is no shell, or where a sandbox blocks the install host. |
 
 1. If the MCP tools are connected and you can run shell commands, probe
    Git once: make a Git key, call `get_source` with `git: true` and
@@ -142,10 +140,14 @@ through a connector attached to its site.
 
 ## Secrets
 
-Never ask the person to type a secret into the conversation. Have them
-enter it on the Valet dashboard, or run `valet env set` in their own
-terminal; `references/env.md` says how. If they paste one anyway, use it,
-and tell them it now sits in the transcript. Never print a secret.
+Never ask the person to type a secret into the conversation. No MCP tool
+takes one. A tool that needs a secret returns a `request` with a link;
+give the person the link, then call `get_request` with the request's id
+and `wait_seconds` 20 until its state is not `pending` (`completed`,
+`declined`, or `expired`). They type the value on that page, or run
+`valet env set` in their own terminal; `references/env.md` says how. If
+they paste one anyway, use it, and tell them it now sits in the
+transcript. Never print a secret.
 
 ## When unsure
 

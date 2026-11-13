@@ -29,12 +29,20 @@ valet env set GITHUB_TOKEN=<value> --org acme   # the person runs this
 valet connectors create github --org acme [--as <name>]
 ```
 
-Over MCP, `create_connector` takes the entry and a `secrets` object of
-slot to value, and creates nothing while a required slot is missing.
-An entry that signs in through a browser needs the person: the CLI
-prints a link and waits, and `create_connector` names the dashboard's
-Integrations page, `https://dashboard.valet.dev/<org>/integrations`.
-Send the person there and wait until they say it is done.
+Over MCP, `create_connector` takes the entry and a `reason`, and no
+secret. An entry that needs keys the organization does not hold returns
+a `request`; give the person its `url`, then call `get_request` with the
+request's `id` and `wait_seconds` 20 until the state is not `pending`.
+Nothing exists until they enter the keys, and the connector is then
+owned by the person who completed the request, who needs the Developer
+role. An entry that needs nothing, or whose keys the organization holds
+as secrets, is created at once. An entry that signs in through a browser
+needs the person: the CLI prints a link and waits, and `create_connector`
+returns a `request` the same way. The person opens its `url`, signs in to
+the provider from there, and returns to the page; follow it with
+`get_request`, whose outcome names the connector. A Composio toolkit that
+takes an API key names the dashboard's Integrations page,
+`https://dashboard.valet.dev/<org>/integrations`, instead.
 
 **Custom,** only when the catalog has no entry:
 

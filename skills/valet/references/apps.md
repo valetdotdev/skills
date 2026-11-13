@@ -25,7 +25,8 @@ valet apps access <name> private|password|public # set; MCP: set_service_access
 ```
 
 On a terminal, password mode prompts without echoing; ask the person to
-run it themselves.
+run it themselves. Over MCP, password mode returns a `request` the person
+completes on the dashboard; see `references/sites.md`.
 
 Share an app with named people as a website is shared. A person it is
 shared with can use everything the app does, so say so before sharing
@@ -64,10 +65,12 @@ The token names no person. The handler:
 Keep the app private. A sleeping app wakes for a delivery, and a
 heartbeat under about 35 minutes keeps it awake.
 
-A Stripe webhook. Set the signing secret, then create the channel:
+A Stripe webhook. Ask for the signing secret, wait for the person to
+complete the request, then create the channel:
 
 ```
-set_env_vars   name=billing vars={"STRIPE_WEBHOOK_SECRET": "whsec_..."}
+set_env_vars   name=billing secret_names=["STRIPE_WEBHOOK_SECRET"] reason="..."
+get_request    id=<request id> wait_seconds=20
 create_channel name=billing channel=stripe-events channel_kind=webhook \
   path=/webhooks/stripe verify_scheme=stripe secret_name=STRIPE_WEBHOOK_SECRET
 ```
