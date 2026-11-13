@@ -5,7 +5,7 @@ resource, skill, and environment variable. Its members can read and
 change all of them.
 
 ```
-valet orgs                         # list yours; MCP: list_orgs
+valet orgs                         # list yours; MCP: list_orgs (include: members, invitations)
 valet orgs create <name>
 valet orgs info <name>
 valet orgs set-default <name>
