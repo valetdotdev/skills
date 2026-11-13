@@ -74,17 +74,24 @@ valet connectors detach <name> --agent <agent>    # MCP: detach_connector
 
 Attaching one that is already attached changes nothing.
 
-## Sample and call one
+## Read the schemas and try a tool
 
 ```
 valet sites info <site> --schemas                 # MCP: list_connector_tools
 valet connectors call <connector> <tool> [--args '<json>'] --site <site>
-                                                  # MCP: call_connector
 ```
+
+MCP `list_connector_tools` passes `connector` to read any connector of
+the organization, attached or not, or `name` to read a site's. It lists
+each tool's `input_schema` and, when the server sends them,
+`output_schema` and `annotations`. It never runs a tool. Build the page
+from those schemas, then test it through the site's own broker by
+opening the page.
 
 `valet connectors call` runs the tool for real. It prints the
 connector's answer, and when the connector refuses, prints its sentence
-and exits 1. That sentence usually names the fix.
+and exits 1. That sentence usually names the fix. Ask before running a
+tool that sends, writes, or deletes.
 
 A page calls its site's connectors through the helper in the
 `connectors` skill's `client.md` and `helper.js`. Read them with
