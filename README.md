@@ -94,8 +94,7 @@ skipped. CI runs the lint when either reference changes.
 The plugin also declares Valet's own MCP server at
 `https://api.valet.dev/mcp`, so installing it wires up the network path
 alongside the skill. A compatible OAuth client performs dynamic client registration. A normal
-call starts the connector's OAuth flow when needed; `anonymous: true`
-is reserved for an explicitly temporary public site.
+call starts the connector's OAuth flow when needed.
 
 The server publishes websites and Procfile apps, reads back what an
 organization has published, and reads and publishes the organization's
@@ -115,10 +114,9 @@ cannot run — a sandbox whose outbound proxy refuses the install host, or
 a harness with no shell — and the source of the organization's skills on
 either path.
 
-The CLI and MCP connector keep separate credentials. Claiming an
-anonymous site signs the user into the browser and makes the site
-permanent, but it cannot authenticate the connector. The next
-account-first MCP call starts that client's OAuth flow.
+The CLI and MCP connector keep separate credentials. Signing in to the
+CLI does not authenticate the connector. The next MCP call starts that
+client's OAuth flow.
 
 Two files declare it, because no single format reaches both clients:
 

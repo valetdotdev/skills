@@ -16,7 +16,8 @@ none. Create a new one before its first publish:
   `valet agents create`, from the service's directory. Each links the
   directory.
 
-An anonymous site is the exception; § Anonymous sites covers it.
+An anonymous site made with the CLI is the exception; § Anonymous sites
+covers it.
 
 ## Probe for Git
 
@@ -239,7 +240,7 @@ publish the whole of it again.
 | MCP with files | `get_source` lists the files; with `path` it reads one. | `publish_*` with `files`, naming the service |
 | CLI, site | In the linked directory, nothing to read. Elsewhere, `valet sites download <name>`, which fetches the files and links the new directory. | `valet deploy` |
 | CLI, app or agent | In the linked directory, nothing to read. Elsewhere, clone with `get_source`'s read URL, then `valet apps link <name>` or `valet agents link <name>`. | `valet deploy` |
-| Anonymous site | Only its directory (CLI) or its `site_token` (MCP) can update it. | `valet deploy`, or `publish_site` with `site_token` |
+| Anonymous site | Only its directory can update it. | `valet deploy` |
 
 Never link an empty or partial directory and deploy it. The deploy
 replaces the service with what the directory holds.
@@ -304,11 +305,8 @@ only credential. Tell the person not to commit it. From that directory:
   organization the person belongs to. Without an account, the claim URL
   does the same and can create the organization.
 
-**MCP.** `publish_site` with `anonymous: true` on the first call only.
-The result carries a `site_token`, which updates the site, and a claim
-URL. Pass the token back to update or destroy that site. `claim_site`
-moves it into the person's organization once they agree. Never pass
-`org_name` with `anonymous: true`.
+The MCP server publishes no anonymous site. Without an account, use the
+CLI.
 
 The anonymous limits are 500 files, 25 MB per file, and 50 MB in all.
 

@@ -145,7 +145,7 @@ Never ask the person to type a secret into the conversation. Have them
 enter it on the Valet dashboard, or run `valet env set` in their own
 terminal; `references/env.md` says how. If they paste one anyway, use it,
 and tell them it now sits in the transcript. Never print a secret, a
-`site_token`, a claim token, or `.valet/config.json`.
+claim token, or `.valet/config.json`.
 
 ## When unsure
 
