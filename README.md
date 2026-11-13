@@ -98,11 +98,13 @@ call starts the connector's OAuth flow when needed.
 
 The server publishes websites and Procfile apps, reads back what an
 organization has published, and reads and publishes the organization's
-skills. `governance` is the entry skill: the server's instructions and
-the `valet` skill both tell a model to read it with `get_skill` before any
-work, and it names the other skills to read, `design-system` among
-them. The server's `tools/list` answer describes the full tool
-surface.
+skills. `governance` is the entry skill: the `valet` skill tells a model
+to read it with `get_skill` before any work, and it names the other
+skills to read, `design-system` among them. The server's own metadata
+directs no skill read: it describes a skill as the organization's data,
+returned when the user names Valet or a skill, and says the
+organization's release policies check each publish on Valet's side. The
+server's `tools/list` answer describes the full tool surface.
 
 The `valet` skill uses the MCP tools when they are connected and fit the
 work, and the `valet` CLI when the work needs it. Where the agent can run

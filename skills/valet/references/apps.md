@@ -35,7 +35,7 @@ an app that changes data.
 | Task | CLI | MCP |
 |---|---|---|
 | Share with named people | `valet apps share <name> <email>... [--message <text>] [--expires-in <dur>] [--expires-after-open <dur>]` | `share_service` with `emails` (1 to 10), `message`, `expires_in`, and `access_ttl` |
-| List or end shares | `valet apps shares <name>`, `valet apps unshare <name> <email>` | `get_service`, `unshare_service` |
+| List or end shares | `valet apps shares <name>`, `valet apps unshare <name> <email>` | `get_service` with `include: ["shares"]`, `unshare_service` |
 
 A script, daemon, or CLI calls a private app with a service token, not a
 share. It sends `Authorization: Bearer <token>`, and the app sees a

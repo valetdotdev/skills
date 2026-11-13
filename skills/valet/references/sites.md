@@ -14,7 +14,7 @@ mechanics.
 | Task | CLI | MCP |
 |---|---|---|
 | Share with named people | `valet sites share <name> <email>... [--message <text>] [--expires-in <dur>] [--expires-after-open <dur>]` | `share_service` with `emails` (1 to 10), `message`, `expires_in`, and `access_ttl` |
-| List or end shares | `valet sites shares <name>`, `valet sites unshare <name> <email>` | `get_service`, `unshare_service` |
+| List or end shares | `valet sites shares <name>`, `valet sites unshare <name> <email>` | `get_service` with `include: ["shares"]`, `unshare_service` |
 | Show access | `valet sites access <name>` | `get_service` |
 | Set access | `valet sites access <name> private\|password\|public` | `set_service_access` with `mode` |
 

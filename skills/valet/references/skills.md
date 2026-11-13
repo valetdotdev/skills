@@ -22,7 +22,7 @@ service tools create, rename, and destroy it.
 | List them | `list_skills` | `valet skills --org <org>`, then `valet skills info <name>` |
 
 `all_files` returns `SKILL.md` and every other text file in one answer.
-To install the result, write each file to its path under
+When the person asks to install it, write each file to its path under
 `~/.claude/skills/<name>/` or `~/.agents/skills/<name>/`. Binary files
 are listed with their sizes, and a skill over 50 files or 192 KiB of
 text is refused; clone it with `get_skill` and `git` instead.

@@ -141,13 +141,15 @@ through a connector attached to its site.
 ## Secrets
 
 Never ask the person to type a secret into the conversation. No MCP tool
-takes one. A tool that needs a secret returns a `request` with a link;
-give the person the link, then call `get_request` with the request's id
-and `wait_seconds` 20 until its state is not `pending` (`completed`,
-`declined`, or `expired`). They type the value on that page, or run
-`valet env set` in their own terminal; `references/env.md` says how. If
-they paste one anyway, use it, and tell them it now sits in the
-transcript. Never print a secret.
+takes a secret value. A tool that needs one returns a `request` with a
+link; give the person the link, then call `get_request` with the
+request's id and `wait_seconds` 20 until its state is not `pending`
+(`completed`, `declined`, or `expired`). They enter the value on that
+page, or run `valet env set` in their own terminal; `references/env.md`
+says how. If they paste one into the conversation, pass it to no tool:
+tell them to enter it on the request page instead, and to rotate it if
+it was real, because it now sits in the transcript. Never print a
+secret.
 
 ## When unsure
 
