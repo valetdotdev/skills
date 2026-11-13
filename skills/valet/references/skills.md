@@ -43,8 +43,8 @@ create it and publish it; every member's agent can then read it.
 | Create an empty skill | `create_service` with `kind: skill` and `name` | None; the CLI creates from a directory |
 | Create a skill from a directory | `create_service`, then publish | `valet skills create <dir>` |
 | Install a catalog skill | `create_service` with `kind: skill`, `name`, and `catalog` | `valet skills create --from catalog:<name>` |
-| Clone the latest version | `get_skill` with `git` | `valet skills clone <name> [dir]` |
-| Publish a version | `create_push` with `name`, `git push`, then `publish_skill` with `push` | `valet skills publish [dir]` |
+| Clone the latest version | `get_skill` with `git` and `key_sha256` | `valet skills clone <name> [dir]` |
+| Publish a version | `create_push` with `name` and `key_sha256`, `git push`, then `publish_skill` with `push` | `valet skills publish [dir]` |
 | Change some files | `publish_skill` with `skill`, `edits`, and `base_version` | None; clone, change, and publish |
 | See its releases | `list_releases`, then `get_source` or `get_skill` with `release` | `valet skills info <name>` |
 | See who holds it | `get_service` | `valet skills info <name>` |

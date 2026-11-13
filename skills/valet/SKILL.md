@@ -75,9 +75,10 @@ do.
 Over MCP, a visitor password passes through the conversation.
 
 1. If the MCP tools are connected and you can run shell commands, probe
-   Git once: `get_source` with `git: true`, then `git ls-remote` on the
-   read URL. If it answers, use Git. `references/publish.md` § Probe for
-   Git says what to do when it does not.
+   Git once: make a Git key, call `get_source` with `git: true` and
+   `key_sha256`, then `git ls-remote` on the read URL with the key's
+   credential helper. If it answers, use Git. `references/publish.md`
+   § Probe for Git says what to do when it does not.
 2. If the MCP tools are connected and there is no shell, or the probe
    failed, publish with `files`. Install nothing.
 3. If the work needs the CLI, run `valet version`. When it is missing,
