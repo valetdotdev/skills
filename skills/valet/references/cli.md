@@ -44,8 +44,7 @@ version`, help, and `valet manifests validate --offline` do not.
 2. If signed out, say that a browser window will open, then run
    `valet auth login`.
 
-If sign-in fails, run no account command. An anonymous site needs no
-sign-in; see `references/publish.md`.
+If sign-in fails, run no account command.
 
 ## Help
 
@@ -86,8 +85,7 @@ valet deploy [-a <agent>] [--org <org>] [--no-wait] [--force]
 
 `valet deploy` publishes the linked site, app, or agent. It commits the
 directory and pushes it with Git, so it needs Git 2.32 or later; it
-checks before it changes anything. An anonymous site's deploy needs no
-Git. `references/publish.md` says what it
+checks before it changes anything. `references/publish.md` says what it
 uploads and how each kind confirms.
 
 - If the source matches what is already deployed, deploy exits 0 and

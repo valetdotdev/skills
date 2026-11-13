@@ -16,9 +16,6 @@ none. Create a new one before its first publish:
   `valet agents create`, from the service's directory. Each links the
   directory.
 
-An anonymous site made with the CLI is the exception; § Anonymous sites
-covers it.
-
 ## Probe for Git
 
 Over MCP, Git carries any file and only what changed. Probe once per
@@ -240,7 +237,6 @@ publish the whole of it again.
 | MCP with files | `get_source` lists the files; with `path` it reads one. | `publish_*` with `files`, naming the service |
 | CLI, site | In the linked directory, nothing to read. Elsewhere, `valet sites download <name>`, which fetches the files and links the new directory. | `valet deploy` |
 | CLI, app or agent | In the linked directory, nothing to read. Elsewhere, clone with `get_source`'s read URL, then `valet apps link <name>` or `valet agents link <name>`. | `valet deploy` |
-| Anonymous site | Only its directory can update it. | `valet deploy` |
 
 Never link an empty or partial directory and deploy it. The deploy
 replaces the service with what the directory holds.
@@ -266,54 +262,6 @@ A push only moves forward, so a rollback is a new commit holding the old
 files. Without Git, read the release's files with `get_source` and
 `release`, and publish them again.
 
-## Anonymous sites
-
-An anonymous site needs no account. It is public to anyone with the link,
-lives in the shared `try` organization, and may be removed 36 hours after
-it is created, unless it is claimed. Publish one only when the person
-asks for a temporary public site, or has no account and agrees.
-
-**CLI.** From the directory that should become the site root:
-
-```bash
-valet sites create --anonymous   # prints the URL, the expiry, and the claim URL
-valet deploy
-```
-
-It takes no name and no `--org`. It needs CLI v0.1.75 or later. To
-publish one file, put it in a directory of its own.
-
-The CLI refuses in three cases. Each refusal is right; do what it says:
-
-- **You are signed in.** Publish to the organization instead.
-- **This directory already has an anonymous site.** `valet deploy`
-  updates it. `--relink` abandons it for a new one; pass it only when
-  the person means that.
-- **This directory, or one above it, is a Valet project.** Publish from
-  a copy outside it.
-
-`.valet/config.json` in that directory holds the claim token, the site's
-only credential. Tell the person not to commit it. From that directory:
-
-- `valet deploy` updates the site. The expiry does not move.
-- `valet sites info` reports its state: `unclaimed`, `claimed`,
-  `expired`, `deleted`, or `reaped`. Never infer the state from the
-  file.
-- `valet sites destroy --yes` takes it down. Do it at once if the person
-  published something by mistake.
-- `valet sites claim --org <org>` moves it into an existing
-  organization the person belongs to. Without an account, the claim URL
-  does the same and can create the organization.
-
-The MCP server publishes no anonymous site. Without an account, use the
-CLI.
-
-The anonymous limits are 500 files, 25 MB per file, and 50 MB in all.
-
-A claimed site moves to the organization's address, and the anonymous
-URL redirects to it. It stays public until someone changes its access.
-An expired site cannot be updated or claimed; publish a new one.
-
 ## Confirm it
 
 - **Site:** open the URL and read what came back.
@@ -332,11 +280,6 @@ Say what `governance` lists. For a publish, also:
   access, and for an app read `get_service` or the `Access` line
   `valet apps create` printed. Do not assume an app is public or
   private; it depends on the installation.
-- For an anonymous site, give the claim URL, which is shown once, and
-  the expiry as the CLI printed it, for example `Expires in 1d 11h
-  (2026-08-02 12:27 UTC)`. Pass that line through rather than
-  recomputing it. Once the deadline has passed, say the site may be
-  removed at any time, and do not offer to claim it.
 - Pass through any notice the CLI prints as it stands, such as the
   forwarding notice from `valet sites share`.
 

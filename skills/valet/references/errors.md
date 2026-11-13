@@ -62,5 +62,4 @@ at fault.
 `cli.upgrade_required` means the installed `valet` is older than 0.1.89
 and can no longer deploy. Run `valet update`, then the command again.
 
-The anonymous-site refusals are in `references/publish.md`. For any
-other command, `valet <command> --help` describes its flags and states.
+For any command, `valet <command> --help` describes its flags and states.

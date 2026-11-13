@@ -122,7 +122,7 @@ Read only the reference the work needs. Each is in `references/`.
 
 | The work | Read |
 |---|---|
-| Creating, publishing, updating, or rolling back a site, app, or agent; probing Git; pushing; the `files` fallback; a refused push; anonymous sites; confirming | `publish.md` |
+| Creating, publishing, updating, or rolling back a site, app, or agent; probing Git; pushing; the `files` fallback; a refused push; confirming | `publish.md` |
 | Installing, updating, or signing in to the CLI; linking a directory; deploy, logs, console, sessions, scaling | `cli.md` |
 | Naming, sharing, or setting access on a site; testing WebMCP | `sites.md` |
 | A Procfile app: create, deploy, logs, releases, access | `apps.md` |
@@ -144,8 +144,7 @@ through a connector attached to its site.
 Never ask the person to type a secret into the conversation. Have them
 enter it on the Valet dashboard, or run `valet env set` in their own
 terminal; `references/env.md` says how. If they paste one anyway, use it,
-and tell them it now sits in the transcript. Never print a secret, a
-claim token, or `.valet/config.json`.
+and tell them it now sits in the transcript. Never print a secret.
 
 ## When unsure
 
