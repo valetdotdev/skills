@@ -1,8 +1,8 @@
 {
   "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
   "name": "valet",
-  "version": "0.13.34",
-  "description": "Publish files and artifacts to a live URL you own, and build, deploy, and run skilled AI agents from your terminal.",
+  "version": "0.14.0",
+  "description": "Retired. Valet now works through its MCP server at https://api.valet.dev/mcp; add it to your client and remove this plugin.",
   "author": {
     "name": "Valet",
     "email": "support@valet.dev",
@@ -11,18 +11,12 @@
   "homepage": "https://valet.dev",
   "repository": "https://github.com/valetdotdev/skills",
   "license": "MIT",
-  "keywords": [
-    "publishing",
-    "static-hosting",
-    "agents",
-    "deployment"
-  ],
   "extensions": {
     "com.openai": {
       "interface": {
         "displayName": "Valet",
-        "shortDescription": "Publish sites and apps and run AI agents on Valet",
-        "longDescription": "Publish files, sites, and apps to a live URL your organization controls, and build, deploy, and run skilled AI agents, from your terminal or over MCP.",
+        "shortDescription": "Retired: use Valet's MCP server instead",
+        "longDescription": "Retired. Valet now works through its MCP server at https://api.valet.dev/mcp; add it to your client and remove this plugin.",
         "developerName": "Valet",
         "category": "Productivity",
         "capabilities": [

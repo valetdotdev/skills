@@ -1,6 +1,6 @@
 {
   "name": "valet",
-  "description": "Publish files and artifacts to a live URL you own, and build, deploy, and run skilled AI agents from your terminal.",
+  "description": "Retired. Valet now works through its MCP server at https://api.valet.dev/mcp; add it to your client and remove this plugin.",
   "owner": {
     "name": "Valet",
     "email": "support@valet.dev",
@@ -10,18 +10,12 @@
     {
       "name": "valet",
       "displayName": "Valet",
-      "version": "0.13.34",
+      "version": "0.14.0",
       "source": "./",
-      "description": "Publish files and artifacts to a live URL you own, and build, deploy, and run skilled AI agents from your terminal.",
+      "description": "Retired. Valet now works through its MCP server at https://api.valet.dev/mcp; add it to your client and remove this plugin.",
       "homepage": "https://valet.dev",
       "repository": "https://github.com/valetdotdev/skills",
       "license": "MIT",
-      "keywords": [
-        "publishing",
-        "static-hosting",
-        "agents",
-        "deployment"
-      ],
       "category": "productivity"
     }
   ]
